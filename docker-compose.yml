@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    container_name: stasiun-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: stasiun
+      POSTGRES_PASSWORD: stasiun
+      POSTGRES_DB: stasiun
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stasiun -d stasiun"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:
