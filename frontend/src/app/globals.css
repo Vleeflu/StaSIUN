@@ -24,3 +24,54 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* --- Popup MapLibre ---
+   Library menetapkan latar putih tapi tidak menetapkan warna teks, sehingga
+   isinya mewarisi --foreground yang terang saat dark mode dan jadi tak terbaca.
+   Selektor dua kelas dipakai agar menang atas aturan bawaan MapLibre yang
+   dimuat setelah CSS ini. */
+.stasiun-popup .maplibregl-popup-content {
+  color: #0f172a;
+  font-family: inherit;
+  line-height: 1.4;
+  border-radius: 0.5rem;
+  padding: 0.75rem 2rem 0.75rem 1rem;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.15),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.stasiun-popup .maplibregl-popup-content strong {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.stasiun-popup .maplibregl-popup-content small {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.stasiun-popup .maplibregl-popup-close-button {
+  color: #64748b;
+  font-size: 1.125rem;
+  line-height: 1;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0 0.5rem 0 0.25rem;
+}
+
+.stasiun-popup .maplibregl-popup-close-button:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Fokus hanya ditandai saat benar-benar bernavigasi dengan keyboard (Tab),
+   bukan saat popup dibuka lewat klik atau pencarian. */
+.stasiun-popup .maplibregl-popup-close-button:focus {
+  outline: none;
+}
+
+.stasiun-popup .maplibregl-popup-close-button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
