@@ -6,13 +6,63 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import StationSearch from "@/components/StationSearch";
 import { useStations } from "@/hooks/useStations";
+import { parseLines } from "@/types/station";
 import type { StationFeature, StationProps } from "@/types/station";
 
 const STYLE_URL = `https://v2.basemap.mapid.io/styles/street-v2.0/style.json?key=${process.env.NEXT_PUBLIC_MAPID_KEY}`;
 const PUSAT_JAKARTA: [number, number] = [106.8271129, -6.1754398];
 const ZOOM_AWAL = 11;
 const ZOOM_TERPILIH = 18;
-const JENIS_LAYANAN = "KERETA API";
+const SERVICE_TYPE = "COMMUTER";
+
+// Warna tiap jalur KRL, mendekati palet resmi Commuter Line.
+const LINE_COLOR: Record<string, string> = {
+  Merah: "#c90025",
+  Biru: "#0066b3",
+  Hijau: "#00a94f",
+  Kuning: "#f2a900",
+  Coklat: "#8b5e3c",
+  Pink: "#fd6bc3",
+};
+
+const FALLBACK_COLOR = "#64748b";
+const ICON_SIZE = 60;
+
+/**
+ * Menggambar lingkaran yang dibagi rata jadi beberapa juring, satu warna per
+ * jalur, lalu dibingkai putih. Kalau jalurnya cuma satu, hasilnya lingkaran polos.
+ */
+function createPieIcon(colors: string[]): ImageData {
+  const canvas = document.createElement("canvas");
+  canvas.width = ICON_SIZE;
+  canvas.height = ICON_SIZE;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D tidak tersedia");
+
+  const center = ICON_SIZE / 2;
+  const radius = center - 4;
+  const slice = (Math.PI * 2) / colors.length;
+
+  colors.forEach((color, i) => {
+    // Mulai dari jam 12 supaya pembagiannya terlihat rapi.
+    const start = -Math.PI / 2 + i * slice;
+    ctx.beginPath();
+    ctx.moveTo(center, center);
+    ctx.arc(center, center, radius, start, start + slice);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  });
+
+  ctx.beginPath();
+  ctx.arc(center, center, radius, 0, Math.PI * 2);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#ffffff";
+  ctx.stroke();
+
+  return ctx.getImageData(0, 0, ICON_SIZE, ICON_SIZE);
+}
 
 function buatIsiPopup(props: StationProps): HTMLElement {
   const wrapper = document.createElement("div");
@@ -21,11 +71,15 @@ function buatIsiPopup(props: StationProps): HTMLElement {
   judul.textContent = props.name;
   wrapper.appendChild(judul);
 
-  if (props.kecamatan) {
+  // Data jalur KRL nggak punya kecamatan, jadi yang ditampilkan daftar jalurnya.
+  const lines = parseLines(props.lines);
+  const subtitle = lines.length > 0 ? `Jalur ${lines.join(", ")}` : props.kecamatan;
+
+  if (subtitle) {
     wrapper.appendChild(document.createElement("br"));
-    const sub = document.createElement("small");
-    sub.textContent = props.kecamatan;
-    wrapper.appendChild(sub);
+    const small = document.createElement("small");
+    small.textContent = subtitle;
+    wrapper.appendChild(small);
   }
 
   return wrapper;
@@ -37,7 +91,7 @@ export default function Map() {
   const popupRef = useRef<maplibregl.Popup | null>(null);
 
   const [mapReady, setMapReady] = useState(false);
-  const { data, stations, loading, error } = useStations(JENIS_LAYANAN);
+  const { data, stations, loading, error } = useStations(SERVICE_TYPE);
 
   const tampilkanPopup = useCallback(
     (lngLat: maplibregl.LngLatLike, props: StationProps) => {
@@ -90,6 +144,21 @@ export default function Map() {
     const map = mapRef.current;
     if (!map || !mapReady || !data) return;
 
+    // Ikon harus terdaftar sebelum layer dipasang. Ditaruh di sini, bukan di
+    // dalam cabang pembuatan layer, supaya kombinasi jalur baru ikut terdaftar
+    // kalau datanya berubah.
+    for (const feature of data.features) {
+      const key = feature.properties.line_key || "none";
+      if (map.hasImage(key)) continue;
+
+      const colors =
+        key === "none"
+          ? [FALLBACK_COLOR]
+          : key.split("-").map((name) => LINE_COLOR[name] ?? FALLBACK_COLOR);
+
+      map.addImage(key, createPieIcon(colors), { pixelRatio: 2 });
+    }
+
     const source = map.getSource("stations");
     if (source) {
       (source as maplibregl.GeoJSONSource).setData(data);
@@ -100,13 +169,12 @@ export default function Map() {
 
     map.addLayer({
       id: "stations-circle",
-      type: "circle",
+      type: "symbol",
       source: "stations",
-      paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 4, 16, 9],
-        "circle-color": "#16a34a",
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#ffffff",
+      layout: {
+        "icon-image": ["coalesce", ["get", "line_key"], "none"],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.45, 14, 0.8, 18, 1.25],
+        "icon-allow-overlap": true,
       },
     });
 
@@ -118,7 +186,7 @@ export default function Map() {
         "text-field": ["get", "name"],
         "text-font": ["Noto Sans Regular"],
         "text-size": 11,
-        "text-offset": [0, 1.2],
+        "text-offset": [0, 1.6],
         "text-anchor": "top",
       },
       paint: {

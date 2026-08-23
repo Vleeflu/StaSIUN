@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState, type KeyboardEvent } from "react";
 
+import { parseLines } from "@/types/station";
 import type { StationFeature } from "@/types/station";
 
 const MAKS_SARAN = 8;
@@ -120,9 +121,9 @@ export default function StationSearch({
                 }`}
               >
                 <span className="text-slate-900">{f.properties.name}</span>
-                {f.properties.kecamatan && (
+                {parseLines(f.properties.lines).length > 0 && (
                   <span className="ml-2 text-xs text-slate-500">
-                    {f.properties.kecamatan}
+                    {parseLines(f.properties.lines).join(", ")}
                   </span>
                 )}
               </button>

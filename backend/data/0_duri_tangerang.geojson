@@ -1,0 +1,236 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "id": 1,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.801395831739,
+     -6.1558564370769
+    ]
+   },
+   "properties": {
+    "FID": 1,
+    "JALUR": "Coklat",
+    "RUTE": "Duri - Tangerang",
+    "STASIUN": "DURI",
+    "Koordinat": 699334.87,
+    "Koordina_1": 9319230.22,
+    "_layer_id": 0,
+    "_layer_name": "Duri-Tangerang"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.788837384067,
+     -6.16222445492336
+    ]
+   },
+   "properties": {
+    "FID": 2,
+    "JALUR": "Coklat",
+    "RUTE": "Duri - Tangerang",
+    "STASIUN": "GROGOL",
+    "Koordinat": 697941.89,
+    "Koordina_1": 9318531.32,
+    "_layer_id": 0,
+    "_layer_name": "Duri-Tangerang"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.771481932777,
+     -6.16122415423163
+    ]
+   },
+   "properties": {
+    "FID": 3,
+    "JALUR": "Coklat",
+    "RUTE": "Duri - Tangerang",
+    "STASIUN": "PESING",
+    "Koordinat": 696021.65,
+    "Koordina_1": 9318647.91,
+    "_layer_id": 0,
+    "_layer_name": "Duri-Tangerang"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 4,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.756138707725,
+     -6.15855369940136
+    ]
+   },
+   "properties": {
+    "FID": 4,
+    "JALUR": "Coklat",
+    "RUTE": "Duri - Tangerang",
+    "STASIUN": "TAMAN KOTA",
+    "Koordinat": 694323.88,
+    "Koordina_1": 9318948.62,
+    "_layer_id": 0,
+    "_layer_name": "Duri-Tangerang"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 5,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.736348822016,
+     -6.16020598909151
+    ]
+   },
+   "properties": {
+    "FID": 5,
+    "JALUR": "Coklat",
+    "RUTE": "Duri - Tangerang",
+    "STASIUN": "BOJONG INDAH",
+    "Koordinat": 692132.94,
+    "Koordina_1": 9318773.76,
+    "_layer_id": 0,
+    "_layer_name": "Duri-Tangerang"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 6,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.72361969444,
+     -6.16274246704055
+    ]
+   },
+   "properties": {
+    "FID": 6,
+    "JALUR": "Coklat",
+    "RUTE": "Duri - Tangerang",
+    "STASIUN": "RAWA BUAYA",
+    "Koordinat": 690722.8,
+    "Koordina_1": 9318497.72,
+    "_layer_id": 0,
+    "_layer_name": "Duri-Tangerang"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 7,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.703784892966,
+     -6.16606487756054
+    ]
+   },
+   "properties": {
+    "FID": 7,
+    "JALUR": "Coklat",
+    "RUTE": "Duri - Tangerang",
+    "STASIUN": "KALIDERES",
+    "Koordinat": 688525.97,
+    "Koordina_1": 9318137.54,
+    "_layer_id": 0,
+    "_layer_name": "Duri-Tangerang"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 8,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.680015470548,
+     -6.1699320657424
+    ]
+   },
+   "properties": {
+    "FID": 8,
+    "JALUR": "Coklat",
+    "RUTE": "Duri - Tangerang",
+    "STASIUN": "PORIS",
+    "Koordinat": 685893.98,
+    "Koordina_1": 9317717.58,
+    "_layer_id": 0,
+    "_layer_name": "Duri-Tangerang"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 9,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.666163448867,
+     -6.17211125404397
+    ]
+   },
+   "properties": {
+    "FID": 9,
+    "JALUR": "Coklat",
+    "RUTE": "Duri - Tangerang",
+    "STASIUN": "BATUCEPER",
+    "Koordinat": 684360.05,
+    "Koordina_1": 9317481.22,
+    "_layer_id": 0,
+    "_layer_name": "Duri-Tangerang"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 10,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.646301697935,
+     -6.1752639163372
+    ]
+   },
+   "properties": {
+    "FID": 10,
+    "JALUR": "Coklat",
+    "RUTE": "Duri - Tangerang",
+    "STASIUN": "TANAH TINGGI",
+    "Koordinat": 682160.76,
+    "Koordina_1": 9317140.07,
+    "_layer_id": 0,
+    "_layer_name": "Duri-Tangerang"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 11,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.632791036062,
+     -6.17677325793053
+    ]
+   },
+   "properties": {
+    "FID": 11,
+    "JALUR": "Coklat",
+    "RUTE": "Duri - Tangerang",
+    "STASIUN": "TANGERANG",
+    "Koordinat": 680665.29,
+    "Koordina_1": 9316977.07,
+    "_layer_id": 0,
+    "_layer_name": "Duri-Tangerang"
+   }
+  }
+ ]
+}

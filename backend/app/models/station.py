@@ -12,6 +12,7 @@ class Station(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
     types: Mapped[list[str]] = mapped_column(ARRAY(String))
+    lines: Mapped[list[str]] = mapped_column(ARRAY(String))
     address: Mapped[str | None]
     kecamatan: Mapped[str | None]
     kabkot: Mapped[str | None]

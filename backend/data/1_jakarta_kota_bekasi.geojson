@@ -1,0 +1,383 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "id": 1,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.814619032721,
+     -6.13754684436278
+    ]
+   },
+   "properties": {
+    "FID": 1,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "JAKARTA KOTA",
+    "Koordinat": 700804.973713,
+    "Koordina_1": 9321250.47697,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 2,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.823081162697,
+     -6.14132492409901
+    ]
+   },
+   "properties": {
+    "FID": 2,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "JAYAKARTA",
+    "Koordinat": 701740.71,
+    "Koordina_1": 9320829.66,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 3,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.82697985103,
+     -6.14978308105448
+    ]
+   },
+   "properties": {
+    "FID": 3,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "MANGGA BESAR",
+    "Koordinat": 702169,
+    "Koordina_1": 9319892.77,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 4,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.827635621188,
+     -6.16063469044118
+    ]
+   },
+   "properties": {
+    "FID": 4,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "SAWAH BESAR",
+    "Koordinat": 702237.07,
+    "Koordina_1": 9318692.42,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 5,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.830447348027,
+     -6.16661861062395
+    ]
+   },
+   "properties": {
+    "FID": 5,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "JUANDA",
+    "Koordinat": 702545.74,
+    "Koordina_1": 9318029.23,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 6,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.830662943695,
+     -6.17677325793053
+    ]
+   },
+   "properties": {
+    "FID": 6,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "GAMBIR",
+    "Koordinat": 702566.05,
+    "Koordina_1": 9316905.89,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 7,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.832648220473,
+     -6.18611500420428
+    ]
+   },
+   "properties": {
+    "FID": 7,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "GONDANGDIA",
+    "Koordinat": 702782.64,
+    "Koordina_1": 9315872.01,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 8,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.841290013506,
+     -6.19849301022198
+    ]
+   },
+   "properties": {
+    "FID": 8,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "CIKINI",
+    "Koordinat": 703734.36,
+    "Koordina_1": 9314500.04,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 9,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.8502821495,
+     -6.20999554335852
+    ]
+   },
+   "properties": {
+    "FID": 9,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "MANGGARAI",
+    "Koordinat": 704725.28,
+    "Koordina_1": 9313224.29,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 10,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.870386445559,
+     -6.21514838240483
+    ]
+   },
+   "properties": {
+    "FID": 10,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "JATINEGARA",
+    "Koordinat": 706947.74,
+    "Koordina_1": 9312646.74,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 11,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.885163731983,
+     -6.2141392515209
+    ]
+   },
+   "properties": {
+    "FID": 11,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "CIPINANG",
+    "Koordinat": 708584.44,
+    "Koordina_1": 9312751.97,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 12,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.899779321655,
+     -6.21330872642124
+    ]
+   },
+   "properties": {
+    "FID": 12,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "KLENDER",
+    "Koordinat": 710201.77,
+    "Koordina_1": 9312838.82,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 13,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.928264899315,
+     -6.21630932704518
+    ]
+   },
+   "properties": {
+    "FID": 13,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "BUARAN",
+    "Koordinat": 713354.34,
+    "Koordina_1": 9312494.8,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 14,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.939538756131,
+     -6.21773817846972
+    ]
+   },
+   "properties": {
+    "FID": 14,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "KLENDER BARU",
+    "Koordinat": 714601.52,
+    "Koordina_1": 9312332.7,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 15,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.952169069025,
+     -6.21943493449406
+    ]
+   },
+   "properties": {
+    "FID": 15,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "CAKUNG",
+    "Koordinat": 715998.59,
+    "Koordina_1": 9312139.34,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 16,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.965491084689,
+     -6.22047084600636
+    ]
+   },
+   "properties": {
+    "FID": 16,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "RAWABEBEK",
+    "Koordinat": 717473.21,
+    "Koordina_1": 9312019.28,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 17,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.979370055828,
+     -6.22433763559932
+    ]
+   },
+   "properties": {
+    "FID": 17,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "KRANJI",
+    "Koordinat": 719007.79,
+    "Koordina_1": 9311585.93,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 18,
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     106.999429436123,
+     -6.23620573346392
+    ]
+   },
+   "properties": {
+    "FID": 18,
+    "JALUR": "Biru",
+    "RUTE": "Jakarta Kota - Bekasi",
+    "STASIUN": "BEKASI",
+    "Koordinat": 721222.57,
+    "Koordina_1": 9310265.36,
+    "_layer_id": 1,
+    "_layer_name": "Jakarta Kota-Bekasi"
+   }
+  }
+ ]
+}
