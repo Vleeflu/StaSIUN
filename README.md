@@ -53,11 +53,14 @@ Buat tabel lalu isi datanya:
 
 ```bash
 python -c "import app.models.station; from app.core.database import engine, Base; Base.metadata.create_all(bind=engine)"
-python -m scripts.seed_stations
+python -m scripts.ingest_layers
 ```
 
-Skrip seed bersifat idempoten — aman dijalankan berulang kali. Hasilnya
-`74 stasiun dimasukkan`.
+Skrip ingest menarik data langsung dari Geoserver MAPID sesuai katalog di
+`backend/data/layers.yml`. Sifatnya idempoten — aman dijalankan berulang kali.
+Hasilnya `74 stations stored`.
+
+Perlu `MAPID_API_KEY` dan `MAPID_PROJECT_ID` yang sah di `backend/.env`.
 
 Jalankan servernya:
 
@@ -119,8 +122,8 @@ stasiun-app/
 │  │  ├─ models/            # model SQLAlchemy
 │  │  ├─ schemas/           # skema Pydantic
 │  │  └─ services/          # logika bisnis
-│  ├─ data/                 # sumber GeoJSON stasiun
-│  └─ scripts/seed_stations.py
+│  ├─ data/layers.yml       # katalog layer MAPID
+│  └─ scripts/ingest_layers.py
 └─ frontend/src/
    ├─ app/                  # halaman App Router
    ├─ components/           # Map, StationSearch
@@ -131,8 +134,9 @@ stasiun-app/
 
 ## Catatan data
 
-Sumber data adalah lima berkas GeoJSON stasiun per kota administrasi DKI Jakarta
-tahun 2025, tersimpan di `backend/data/`.
+Data ditarik langsung dari Geoserver MAPID lewat endpoint `get_layer`, satu
+layer per kota administrasi DKI Jakarta, sesuai katalog di
+`backend/data/layers.yml`.
 
 Berkas mentahnya memuat **121 fitur**, tetapi hanya ada **74 stasiun fisik**.
 Satu stasiun yang melayani beberapa moda tercatat sebagai beberapa fitur pada

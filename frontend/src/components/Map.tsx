@@ -11,7 +11,7 @@ import type { StationFeature, StationProps } from "@/types/station";
 const STYLE_URL = `https://v2.basemap.mapid.io/styles/street-v2.0/style.json?key=${process.env.NEXT_PUBLIC_MAPID_KEY}`;
 const PUSAT_JAKARTA: [number, number] = [106.8271129, -6.1754398];
 const ZOOM_AWAL = 11;
-const ZOOM_TERPILIH = 16;
+const ZOOM_TERPILIH = 18;
 const JENIS_LAYANAN = "KERETA API";
 
 function buatIsiPopup(props: StationProps): HTMLElement {

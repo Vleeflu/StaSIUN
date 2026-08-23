@@ -1,0 +1,19 @@
+# Katalog layer MAPID.
+# layer_id bukan rahasia sehingga aman di-commit.
+# api_key & project_id ada di backend/.env
+stations:
+  - key: jakpus
+    label: Stasiun Jakarta Pusat
+    layer_id: "6a8967844da1860f13031857"
+  - key: jakbar
+    label: Stasiun Jakarta Barat
+    layer_id: "6a8a8284dc867ee11d52e02e"
+  - key: jaksel
+    label: Stasiun Jakarta Selatan
+    layer_id: "6a8a828d4da1860f1361ff2c"
+  - key: jaktim
+    label: Stasiun Jakarta Timur
+    layer_id: "6a8a828fdc867ee11d52ed94"
+  - key: jakut
+    label: Stasiun Jakarta Utara
+    layer_id: "6a8a82904da1860f13622c67"
