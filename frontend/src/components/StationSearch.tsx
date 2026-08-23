@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState, type KeyboardEvent } from "react";
 
+import { lineLabel } from "@/lib/lines";
 import { parseLines } from "@/types/station";
 import type { StationFeature } from "@/types/station";
 
@@ -123,7 +124,7 @@ export default function StationSearch({
                 <span className="text-slate-900">{f.properties.name}</span>
                 {parseLines(f.properties.lines).length > 0 && (
                   <span className="ml-2 text-xs text-slate-500">
-                    {parseLines(f.properties.lines).join(", ")}
+                    {lineLabel(parseLines(f.properties.lines))}
                   </span>
                 )}
               </button>

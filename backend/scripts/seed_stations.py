@@ -1,61 +1,34 @@
+"""Isi tabel stations dari berkas GeoJSON lokal.
+
+Sumbernya data OpenStreetMap stasiun kereta di DKI Jakarta. Cuma jaringan KAI
+yang diambil; MRT, LRT, dan Whoosh dilewati.
+"""
+
 import json
+import sys
 from pathlib import Path
 
-from geoalchemy2 import WKTElement
+from app.services.station_import import feature_to_station, report, save_stations
 
-from app.core.database import SessionLocal
-from app.models.station import Station
+SOURCE = Path(__file__).resolve().parents[1] / "data" / "railway_station_DKI.geojson"
 
-DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
-# Semua berkas di folder ini isinya stasiun KRL, jadi jenis layanannya seragam.
-DEFAULT_SERVICE_TYPE = "COMMUTER"
+def main() -> int:
+    if not SOURCE.exists():
+        print(f"Berkas tidak ditemukan: {SOURCE}")
+        return 1
 
-stations: dict[tuple[float, float], dict] = {}
+    payload = json.loads(SOURCE.read_text(encoding="utf-8"))
+    rows = [s for f in payload.get("features", []) if (s := feature_to_station(f))]
 
-for path in sorted(DATA_DIR.glob("*.geojson")):
-    for feature in json.loads(path.read_text(encoding="utf-8"))["features"]:
-        geometry = feature.get("geometry") or {}
-        if geometry.get("type") != "Point":
-            continue
+    if not rows:
+        print("Tidak ada stasiun yang cocok. Database tidak diubah.")
+        return 1
 
-        lon, lat = geometry["coordinates"][:2]
-        props = feature.get("properties") or {}
+    save_stations(rows)
+    report(rows)
+    return 0
 
-        name = (props.get("STASIUN") or "").strip().upper()
-        if not name:
-            continue
 
-        # Satu stasiun bisa muncul di beberapa berkas kalau dilewati lebih dari
-        # satu jalur, jadi dikunci pakai koordinat lalu jalurnya dikumpulkan.
-        station = stations.setdefault(
-            (lon, lat),
-            {
-                "name": name,
-                "address": None,
-                "kecamatan": None,
-                "kabkot": None,
-                "types": [DEFAULT_SERVICE_TYPE],
-                "lines": [],
-            },
-        )
-
-        line = props.get("JALUR")
-        if line and line not in station["lines"]:
-            station["lines"].append(line)
-
-for station in stations.values():
-    station["lines"].sort()
-
-session = SessionLocal()
-try:
-    session.query(Station).delete()
-    for (lon, lat), station in stations.items():
-        session.add(
-            Station(**station, location=WKTElement(f"POINT({lon} {lat})", srid=4326))
-        )
-    session.commit()
-finally:
-    session.close()
-
-print(f"{len(stations)} stations stored")
+if __name__ == "__main__":
+    sys.exit(main())

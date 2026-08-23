@@ -6,6 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import StationSearch from "@/components/StationSearch";
 import { useStations } from "@/hooks/useStations";
+import { FALLBACK_COLOR, LINE_COLOR, lineLabel } from "@/lib/lines";
 import { parseLines } from "@/types/station";
 import type { StationFeature, StationProps } from "@/types/station";
 
@@ -13,25 +14,9 @@ const STYLE_URL = `https://v2.basemap.mapid.io/styles/street-v2.0/style.json?key
 const PUSAT_JAKARTA: [number, number] = [106.8271129, -6.1754398];
 const ZOOM_AWAL = 11;
 const ZOOM_TERPILIH = 18;
-const SERVICE_TYPE = "COMMUTER";
 
-// Warna tiap jalur KRL, mendekati palet resmi Commuter Line.
-const LINE_COLOR: Record<string, string> = {
-  Merah: "#c90025",
-  Biru: "#0066b3",
-  Hijau: "#00a94f",
-  Kuning: "#f2a900",
-  Coklat: "#8b5e3c",
-  Pink: "#fd6bc3",
-};
-
-const FALLBACK_COLOR = "#64748b";
 const ICON_SIZE = 60;
 
-/**
- * Menggambar lingkaran yang dibagi rata jadi beberapa juring, satu warna per
- * jalur, lalu dibingkai putih. Kalau jalurnya cuma satu, hasilnya lingkaran polos.
- */
 function createPieIcon(colors: string[]): ImageData {
   const canvas = document.createElement("canvas");
   canvas.width = ICON_SIZE;
@@ -45,7 +30,6 @@ function createPieIcon(colors: string[]): ImageData {
   const slice = (Math.PI * 2) / colors.length;
 
   colors.forEach((color, i) => {
-    // Mulai dari jam 12 supaya pembagiannya terlihat rapi.
     const start = -Math.PI / 2 + i * slice;
     ctx.beginPath();
     ctx.moveTo(center, center);
@@ -68,12 +52,14 @@ function buatIsiPopup(props: StationProps): HTMLElement {
   const wrapper = document.createElement("div");
 
   const judul = document.createElement("strong");
-  judul.textContent = props.name;
+  judul.textContent = props.code ? `${props.name} (${props.code})` : props.name;
   wrapper.appendChild(judul);
 
-  // Data jalur KRL nggak punya kecamatan, jadi yang ditampilkan daftar jalurnya.
   const lines = parseLines(props.lines);
-  const subtitle = lines.length > 0 ? `Jalur ${lines.join(", ")}` : props.kecamatan;
+  const subtitle =
+    lines.length > 0
+      ? `Lin ${lineLabel(lines)}`
+      : props.kecamatan;
 
   if (subtitle) {
     wrapper.appendChild(document.createElement("br"));
@@ -91,7 +77,7 @@ export default function Map() {
   const popupRef = useRef<maplibregl.Popup | null>(null);
 
   const [mapReady, setMapReady] = useState(false);
-  const { data, stations, loading, error } = useStations(SERVICE_TYPE);
+  const { data, stations, loading, error } = useStations();
 
   const tampilkanPopup = useCallback(
     (lngLat: maplibregl.LngLatLike, props: StationProps) => {
@@ -144,9 +130,6 @@ export default function Map() {
     const map = mapRef.current;
     if (!map || !mapReady || !data) return;
 
-    // Ikon harus terdaftar sebelum layer dipasang. Ditaruh di sini, bukan di
-    // dalam cabang pembuatan layer, supaya kombinasi jalur baru ikut terdaftar
-    // kalau datanya berubah.
     for (const feature of data.features) {
       const key = feature.properties.line_key || "none";
       if (map.hasImage(key)) continue;
@@ -175,6 +158,9 @@ export default function Map() {
         "icon-image": ["coalesce", ["get", "line_key"], "none"],
         "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.45, 14, 0.8, 18, 1.25],
         "icon-allow-overlap": true,
+      },
+      paint: {
+        "icon-opacity": ["case", ["get", "served"], 1, 0.4],
       },
     });
 

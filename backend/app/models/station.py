@@ -11,8 +11,12 @@ class Station(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
+    # Kode resmi KAI, misal MRI buat Manggarai. Ada di sebagian besar stasiun.
+    code: Mapped[str | None]
     types: Mapped[list[str]] = mapped_column(ARRAY(String))
     lines: Mapped[list[str]] = mapped_column(ARRAY(String))
+    # False buat stasiun yang cuma dilewati KRL tanpa berhenti, contohnya Gambir.
+    served: Mapped[bool] = mapped_column(default=True)
     address: Mapped[str | None]
     kecamatan: Mapped[str | None]
     kabkot: Mapped[str | None]

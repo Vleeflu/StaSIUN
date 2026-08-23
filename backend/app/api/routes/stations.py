@@ -9,8 +9,6 @@ from app.models.station import Station
 
 router = APIRouter(tags=["stations"])
 
-PRIORITAS = ["MRT", "LRT", "COMMUTER", "KERETA API", "LOGISTIK"]
-
 
 @router.get("/stations")
 def list_stations(
@@ -20,8 +18,10 @@ def list_stations(
     stmt = select(
         Station.id,
         Station.name,
+        Station.code,
         Station.types,
         Station.lines,
+        Station.served,
         Station.kecamatan,
         Station.address,
         func.ST_AsGeoJSON(Station.location).label("geom"),
@@ -41,12 +41,15 @@ def list_stations(
                 "geometry": json.loads(r.geom),
                 "properties": {
                     "name": r.name,
+                    "code": r.code,
                     "types": r.types,
-                    "primary_type": next((t for t in PRIORITAS if t in r.types), r.types[0]),
                     "lines": r.lines,
+                    # Dua nilai skalar ini disiapkan di sini karena MapLibre
+                    # mengubah properti array jadi string di dalam worker-nya.
                     "primary_line": r.lines[0] if r.lines else None,
                     "is_interchange": len(r.lines) > 1,
                     "line_key": "-".join(r.lines) if r.lines else "none",
+                    "served": r.served,
                     "kecamatan": r.kecamatan,
                     "address": r.address,
                 },

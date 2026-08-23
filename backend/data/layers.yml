@@ -1,6 +1,4 @@
 # Katalog layer MAPID.
-# layer_id bukan rahasia sehingga aman di-commit.
-# api_key & project_id ada di backend/.env
 stations:
   - key: jakpus
     label: Stasiun Jakarta Pusat

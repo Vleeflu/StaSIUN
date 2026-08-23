@@ -2,11 +2,12 @@ import type { Feature, FeatureCollection, Point } from "geojson";
 
 export type StationProps = {
   name: string;
+  code: string | null;
   types: string;
-  primary_type: string;
   lines: string[];
   primary_line: string | null;
   is_interchange: boolean;
+  served: boolean;
   line_key: string;
   kecamatan: string | null;
   address: string | null;
