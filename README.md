@@ -154,3 +154,8 @@ baris memakai nama stasiun di Kota Bekasi (`STASIUN BEKASI BARAT`,
 dan atribut administratifnya berada di Jakarta. Subset MRT, Commuter, dan
 Kereta Api sudah diperiksa dan konsisten. Verifikasi ulang data LRT sebelum
 menampilkannya ke pengguna.
+
+
+## Data Eksternal
+
+1. ESRI Arcgis - data point stasiun https://sigcfe.maps.arcgis.com/home/item.html?id=ed2de5332c8240268bb27c2e1500b141&dataTabView=fields#data
