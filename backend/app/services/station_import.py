@@ -12,9 +12,8 @@ from geoalchemy2 import WKTElement
 from app.core.database import SessionLocal
 from app.models.station import Station
 
-# Cuma jaringan kereta berat milik KAI. MRT, LRT, dan Whoosh tidak ikut.
-# Jakarta Kota, Jatinegara, dan Pasar Senen ditandai "KAI" di OSM padahal
-# stasiun KRL utama, jadi nilai itu harus ikut diterima.
+# Jaringan yang memakai penomoran lin KRL. Dipakai buat menentukan apakah
+# roster lin boleh ditempelkan, bukan lagi buat menyaring stasiun.
 KAI_NETWORKS = {"KAI COMMUTER", "KAI", "COMMUTER", "KERETA API"}
 
 # Emplasemen barang, tidak melayani penumpang.
@@ -84,9 +83,14 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
     if key in EXCLUDED:
         return None
 
-    network = props.get("network") or props.get("TIPE_3") or ""
-    if network.upper() not in KAI_NETWORKS:
-        return None
+    # Semua moda diterima: KRL, MRT, LRT, sampai kereta cepat. Jaringannya
+    # disimpan apa adanya di kolom types supaya bisa dibedakan saat analisis.
+    network = props.get("network") or props.get("TIPE_3") or "Lainnya"
+
+    # Roster lin cuma berlaku buat jaringan KAI. Tanpa penjagaan ini, stasiun
+    # senama dari moda lain ikut kebagian lin KRL — Cawang LRT sempat kena,
+    # padahal letaknya 1,4 km dari Cawang KRL.
+    is_kai = network.upper() in KAI_NETWORKS
 
     lon, lat = geometry["coordinates"][:2]
 
@@ -94,7 +98,7 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
         "name": name,
         "code": props.get("railway:ref"),
         "types": [network],
-        "lines": LINE_LOOKUP.get(key, []),
+        "lines": LINE_LOOKUP.get(key, []) if is_kai else [],
         "served": key not in UNSERVED,
         "address": props.get("addr:full") or props.get("ALAMAT") or None,
         "kecamatan": props.get("addr:subdistrict") or props.get("KECAMATAN") or None,

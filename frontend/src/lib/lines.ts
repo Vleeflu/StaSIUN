@@ -6,6 +6,11 @@ export const LINE_COLOR: Record<string, string> = {
   T: "#f68b1f",
   TP: "#fd6bc3",
   A: "#1b3d8f",
+  // Moda non-KRL diwarnai per jaringan karena tidak memakai penomoran lin.
+  "MRT Jakarta": "#7b3fa0",
+  "LRT Jabodebek": "#00897b",
+  "LRT Jakarta": "#546e7a",
+  Whoosh: "#37474f",
 };
 
 export const LINE_NAME: Record<string, string> = {
@@ -15,6 +20,10 @@ export const LINE_NAME: Record<string, string> = {
   T: "Tangerang",
   TP: "Tanjung Priok",
   A: "Bandara",
+  "MRT Jakarta": "MRT Jakarta",
+  "LRT Jabodebek": "LRT Jabodebek",
+  "LRT Jakarta": "LRT Jakarta",
+  Whoosh: "Whoosh",
 };
 
 export const FALLBACK_COLOR = "#64748b";

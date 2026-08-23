@@ -4,6 +4,7 @@ export type StationProps = {
   name: string;
   code: string | null;
   types: string;
+  network: string | null;
   lines: string[];
   primary_line: string | null;
   is_interchange: boolean;

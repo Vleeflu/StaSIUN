@@ -122,11 +122,11 @@ export default function StationSearch({
                 }`}
               >
                 <span className="text-slate-900">{f.properties.name}</span>
-                {parseLines(f.properties.lines).length > 0 && (
-                  <span className="ml-2 text-xs text-slate-500">
-                    {lineLabel(parseLines(f.properties.lines))}
-                  </span>
-                )}
+                <span className="ml-2 text-xs text-slate-500">
+                  {parseLines(f.properties.lines).length > 0
+                    ? lineLabel(parseLines(f.properties.lines))
+                    : f.properties.network}
+                </span>
               </button>
             </li>
           ))}
