@@ -1,0 +1,18 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Environment / secrets — provided via compose, never baked into the image
+.env
+.env.*
+
+# VCS / editor / OS
+.git
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

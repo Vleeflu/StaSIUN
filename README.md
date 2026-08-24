@@ -20,14 +20,43 @@ dengan MapLibre GL, lengkap dengan pencarian stasiun.
 - Node.js 20+
 - API key MAPID (daftar di https://maps.mapid.io)
 
-## Menjalankan
+## Menjalankan dengan Docker (semua sekaligus)
+
+Cara tercepat: seluruh stack — database, backend, dan frontend — dijalankan
+lewat satu perintah.
+
+```bash
+cp example.env .env      # Windows: copy example.env .env
+docker compose up --build
+```
+
+Isi `NEXT_PUBLIC_MAPID_KEY` di `.env` dengan API key MAPID supaya basemap tampil.
+Nilai ini disematkan ke frontend saat build, jadi setelah mengubahnya jalankan
+`docker compose up --build` lagi.
+
+Setelah semua container hidup:
+
+- Frontend: http://localhost:3000
+- Backend + dokumentasi: http://localhost:8000/docs
+- Database PostGIS: `localhost:5432`
+
+Saat pertama kali start, container backend menunggu database siap, membuat tabel,
+lalu mengisi data stasiun dari berkas GeoJSON bawaan di `backend/data/`
+(tanpa perlu kredensial MAPID). Untuk mengambil data langsung dari Geoserver
+MAPID, set `SEED_SOURCE=mapid` pada service `backend` dan isi `MAPID_API_KEY`
+serta `MAPID_PROJECT_ID` di `.env`. Untuk melewati seeding, set `SEED_ON_START=0`.
+
+Menghentikan: `docker compose down` (tambah `-v` untuk ikut menghapus data
+di volume `pgdata`).
+
+## Menjalankan manual (pengembangan)
 
 Tiga proses harus hidup bersamaan, masing-masing di terminal terpisah.
 
 ### 1. Database
 
 ```bash
-docker compose up -d
+docker compose up -d db
 ```
 
 Container `stasiun-db` akan menyediakan PostGIS di `localhost:5432`. Datanya

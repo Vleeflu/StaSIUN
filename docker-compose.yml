@@ -16,5 +16,41 @@ services:
       interval: 5s
       retries: 10
 
+  backend:
+    build: ./backend
+    container_name: stasiun-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Reach Postgres via the compose service name, not localhost.
+      DATABASE_URL: postgresql+psycopg://stasiun:stasiun@db:5432/stasiun
+      # Allow the browser-served frontend origin through CORS (JSON list).
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      # Seed on start: "local" uses the bundled GeoJSON (no credentials),
+      # "mapid" pulls live layers (needs the MAPID_* values below).
+      SEED_ON_START: "1"
+      SEED_SOURCE: "local"
+      MAPID_API_KEY: ${MAPID_API_KEY:-}
+      MAPID_PROJECT_ID: ${MAPID_PROJECT_ID:-}
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # NEXT_PUBLIC_* are inlined at build time. The API URL is what the
+        # user's browser uses to reach the backend (host-mapped port).
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_MAPID_KEY: ${NEXT_PUBLIC_MAPID_KEY:-}
+    container_name: stasiun-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
 volumes:
   pgdata:
