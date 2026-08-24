@@ -156,6 +156,18 @@ export default function Map() {
       "top-right"
     );
 
+    // Sprite MAPID tidak punya sebagian ikon yang dipanggil style-nya sendiri.
+    // Kita sodorkan gambar kosong 1x1 supaya konsol tidak penuh error.
+    map.on("styleimagemissing", (e) => {
+      if (map.hasImage(e.id)) return;
+
+      map.addImage(e.id, {
+        width: 1,
+        height: 1,
+        data: new Uint8Array(4),
+      });
+    });
+
     map.on("load", () => {
       setMapReady(true);
     });

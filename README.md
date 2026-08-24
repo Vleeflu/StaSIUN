@@ -78,18 +78,40 @@ pip install -r requirements.txt
 copy example.env .env          # Linux/macOS: cp example.env .env
 ```
 
-Buat tabel lalu isi datanya:
+Buat tabelnya:
 
 ```bash
 python -c "import app.models.station; from app.core.database import engine, Base; Base.metadata.create_all(bind=engine)"
+```
+
+Lalu isi datanya. Ada **dua cara**, pilih salah satu — keduanya mengosongkan
+tabel lebih dulu, jadi aman dijalankan berulang kali.
+
+**Cara 1 — dari berkas GeoJSON lokal (disarankan).** Tidak butuh kredensial
+apa pun dan datanya paling mutakhir.
+
+```bash
+python -m scripts.seed_stations
+```
+
+Sumbernya `backend/data/railway_station_DKI.geojson`, ekspor OpenStreetMap
+stasiun kereta di DKI Jakarta. Hasilnya `46 stations stored (45 served, 1 not served)`.
+
+**Cara 2 — tarik langsung dari Geoserver MAPID.**
+
+```bash
 python -m scripts.ingest_layers
 ```
 
-Skrip ingest menarik data langsung dari Geoserver MAPID sesuai katalog di
-`backend/data/layers.yml`. Sifatnya idempoten — aman dijalankan berulang kali.
-Hasilnya `74 stations stored`.
+Layer yang ditarik didaftar di `backend/data/layers.yml`, dan butuh
+`MAPID_API_KEY` serta `MAPID_PROJECT_ID` yang sah di `backend/.env`. Hasilnya
+`48 stations stored` dari sumber yang lebih tua, jadi jumlah dan koordinatnya
+sedikit berbeda dengan Cara 1.
 
-Perlu `MAPID_API_KEY` dan `MAPID_PROJECT_ID` yang sah di `backend/.env`.
+Kedua jalur memakai modul yang sama, `app/services/station_import.py`, sehingga
+penyaringan jaringan, penempelan lin, dan penandaan stasiun tak terlayani
+berlaku identik apa pun sumbernya.
+
 
 Jalankan servernya:
 
@@ -137,7 +159,7 @@ Buka http://localhost:3000
 | ------ | --------------------- | ------------------------------------------------ |
 | GET    | `/api/health`         | Status aplikasi dan konfigurasi database         |
 | GET    | `/api/stations`       | Semua stasiun sebagai GeoJSON `FeatureCollection` |
-| GET    | `/api/stations?type=` | Saring per jenis layanan, mis. `KERETA API`      |
+| GET    | `/api/stations?type=` | Saring per jaringan, mis. `KAI Commuter`         |
 
 ## Struktur
 
@@ -151,40 +173,44 @@ stasiun-app/
 │  │  ├─ models/            # model SQLAlchemy
 │  │  ├─ schemas/           # skema Pydantic
 │  │  └─ services/          # logika bisnis
-│  ├─ data/layers.yml       # katalog layer MAPID
-│  └─ scripts/ingest_layers.py
+│  ├─ data/
+│  │  ├─ railway_station_DKI.geojson   # sumber Cara 1 (OpenStreetMap)
+│  │  └─ layers.yml                    # katalog layer untuk Cara 2 (MAPID)
+│  └─ scripts/
+│     ├─ seed_stations.py              # Cara 1
+│     └─ ingest_layers.py              # Cara 2
 └─ frontend/src/
    ├─ app/                  # halaman App Router
    ├─ components/           # Map, StationSearch
    ├─ hooks/                # useStations
-   ├─ lib/                  # helper pemanggilan API
+   ├─ lib/                  # helper API & konstanta lin
    └─ types/                # tipe bersama
 ```
 
 ## Catatan data
 
-Data ditarik langsung dari Geoserver MAPID lewat endpoint `get_layer`, satu
-layer per kota administrasi DKI Jakarta, sesuai katalog di
-`backend/data/layers.yml`.
+Unit analisisnya stasiun jaringan **KAI** di DKI Jakarta: KRL Commuter beserta
+stasiun antarkota yang juga dilewati KRL. MRT, LRT Jabodebek, LRT Jakarta, dan
+Whoosh sengaja tidak diikutkan.
 
-Berkas mentahnya memuat **121 fitur**, tetapi hanya ada **74 stasiun fisik**.
-Satu stasiun yang melayani beberapa moda tercatat sebagai beberapa fitur pada
-koordinat yang sama, dibedakan oleh atribut `TIPE_3`. Skrip seed
-menggabungkannya menjadi satu baris dengan kolom `types` berupa array.
+Penyaringan memakai tag `network` bernilai `KAI Commuter` **atau** `KAI`. Nilai
+kedua itu penting: Jakarta Kota, Jatinegara, dan Pasar Senen ditandai `KAI` di
+OpenStreetMap padahal ketiganya stasiun KRL utama, dan Jakarta Kota bahkan
+terminus dua lin. Menyaring dengan satu nilai saja akan membuang mereka.
+Jakarta Gudang dikecualikan karena emplasemen barang tanpa layanan penumpang.
 
-Deduplikasi memakai **koordinat**, bukan nama. Stasiun Cawang membuktikan
-pentingnya hal ini: ada dua stasiun fisik berbeda dengan nama sama, satu di
-Tebet (Commuter dan Kereta Api) dan satu lagi LRT di Kramatjati berjarak sekitar
-1,5 km. Deduplikasi berbasis nama akan menggabungkan keduanya secara keliru.
+Keanggotaan lin tidak berasal dari berkas sumber, melainkan dari roster resmi
+peta rute KAI Commuter yang ditanam di `app/services/station_import.py`. Enam
+lin dipakai beserta kodenya: `B` Bogor, `C` Lingkar Cikarang, `R` Rangkasbitung,
+`T` Tangerang, `TP` Tanjung Priok, dan `A` KA Bandara. Stasiun yang dilewati
+lebih dari satu lin ditandai sebagai interchange dan digambar sebagai lingkaran
+berjuring banyak warna di peta.
 
-**Peringatan kualitas data.** Subset LRT bermasalah pada sumbernya: beberapa
-baris memakai nama stasiun di Kota Bekasi (`STASIUN BEKASI BARAT`,
-`JATI BENING BARU`, `CIKUNIR 1`, `CIKUNIR 2`, `JATI MULYA`) padahal koordinat
-dan atribut administratifnya berada di Jakarta. Subset MRT, Commuter, dan
-Kereta Api sudah diperiksa dan konsisten. Verifikasi ulang data LRT sebelum
-menampilkannya ke pengguna.
+Kolom `served` menandai stasiun yang hanya dilewati KRL tanpa berhenti. Saat ini
+hanya **Gambir** yang bernilai `false` — stasiun besar untuk kereta antarkota,
+tetapi KRL melintas tanpa berhenti. Titiknya tetap digambar di peta dengan
+transparansi lebih rendah, karena footfall antarkotanya tetap relevan untuk
+analisis potensi komersial.
 
-
-## Data Eksternal
-
-1. ESRI Arcgis - data point stasiun https://sigcfe.maps.arcgis.com/home/item.html?id=ed2de5332c8240268bb27c2e1500b141&dataTabView=fields#data
+Cakupannya terbatas DKI Jakarta, sesuai lingkup studi kasus awal. Stasiun di
+Bogor, Depok, Bekasi, Tangerang, dan koridor Rangkasbitung belum termasuk.
