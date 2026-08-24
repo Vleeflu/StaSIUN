@@ -1,15 +1,15 @@
 # app/services/gemini_service.py
 from openai import AsyncOpenAI, APIError, RateLimitError
-from app.config import settings
+from app.core.config import settings
 from app.schemas.chat import Message
 
 class GeminiService:
     def __init__(self):
         self._client = AsyncOpenAI(
-            api_key=settings.gemini_api_key,
-            base_url=settings.gemini_base_url,
+            api_key=settings.GEMINI_API_KEY,
+            base_url=settings.GEMINI_BASE_URL,
         )
-        self._model = settings.gemini_model
+        self._model = settings.GEMINI_MODEL
 
     async def chat(self, message: str, history: list[Message]) -> str:
         messages = [{"role": m.role.value, "content": m.content} for m in history]

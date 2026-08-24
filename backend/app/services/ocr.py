@@ -1,22 +1,19 @@
 import httpx
-from fastapi import HTTPException
-import os
+
+from app.core.config import settings
 
 class OCRSpaceError(Exception):
     pass
 
 
 async def extract_text(image_bytes: bytes, filename: str, content_type: str) -> dict:
-    OCR_SPACE_API = os.environ.get("OCR_SPACE_API")
-    OCR_SPACE_URL = os.environ.get("OCR_SPACE_URL")
-
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
             response = await client.post(
-                OCR_SPACE_URL,
+                settings.OCR_SPACE_URL,
                 files={"file": (filename, image_bytes, content_type)},
                 data={
-                    "apikey": OCR_SPACE_API,
+                    "apikey": settings.OCR_SPACE_API,
                     "language": "eng",
                     "OCREngine": "2",  # engine 2 has better accuracy for most cases
                 },

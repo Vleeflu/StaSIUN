@@ -8,8 +8,18 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api"
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     DATABASE_URL: str | None = None
+
     MAPID_GEOSERVER_URL: str = "https://geoserver.mapid.io"
     MAPID_API_KEY: str | None = None
     MAPID_PROJECT_ID: str | None = None
+    MAPID_BASEMAP_KEY: str | None = None
+
+    OCR_SPACE_API: str | None = None
+    OCR_SPACE_URL: str = "https://api.ocr.space/parse/image"
+
+    GEMINI_API_KEY: str | None = None
+    GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
+
 
 settings = Settings()
