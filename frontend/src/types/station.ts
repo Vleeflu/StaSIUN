@@ -3,7 +3,7 @@ import type { Feature, FeatureCollection, Point } from "geojson";
 export type StationProps = {
   name: string;
   code: string | null;
-  types: string;
+  types: string[];
   network: string | null;
   lines: string[];
   primary_line: string | null;
