@@ -1,77 +1,93 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Palet StaSIUN. Putihnya sengaja hangat, bukan putih murni, dan hitamnya
+   agak kecokelatan biar tidak terasa dingin seperti abu-abu bawaan. */
+@theme {
+  --color-canvas: #f3f2f2;
+  --color-panel: #ffffff;
+  --color-ink: #201e1d;
+  --color-ink-soft: #55504d;
+  --color-muted: #8a8481;
+  --color-hair: #dedbd9;
+  --color-accent: #ec3013;
+  --color-accent-soft: #fdeae6;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
+@layer base {
+  /* Tampilannya memang dikunci terang. Tanpa baris ini, input dan checkbox
+     ikut gelap sendiri di perangkat yang setelan sistemnya dark mode. */
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    overflow: hidden;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: #ffffff;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Label huruf besar berjarak longgar. Muncul di hampir tiap kepala seksi,
+     jadi lebih hemat ditulis sekali di sini. Hurufnya mono biar terbaca
+     sebagai penanda alat ukur, bukan sebagai judul tulisan. */
+  .label-caps {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* Angka dan kode dipakai untuk dibandingkan antar baris, jadi lebarnya
+     dikunci supaya digitnya sejajar ke bawah. */
+  .data-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Bayangan keras tanpa blur. Panel jadi terasa seperti kertas yang
+     ditumpuk di atas peta, bukan kotak yang mengambang kabur. */
+  .panel-float {
+    box-shadow: 5px 5px 0 rgb(32 30 29 / 0.06);
+  }
 }
 
-/* --- Popup MapLibre ---
-   Library menetapkan latar putih tapi tidak menetapkan warna teks, sehingga
-   isinya mewarisi --foreground yang terang saat dark mode dan jadi tak terbaca.
-   Selektor dua kelas dipakai agar menang atas aturan bawaan MapLibre yang
-   dimuat setelah CSS ini. */
-.stasiun-popup .maplibregl-popup-content {
-  color: #0f172a;
-  font-family: inherit;
-  line-height: 1.4;
-  border-radius: 0.5rem;
-  padding: 0.75rem 2rem 0.75rem 1rem;
-  box-shadow:
-    0 10px 15px -3px rgb(0 0 0 / 0.15),
-    0 4px 6px -4px rgb(0 0 0 / 0.1);
+/* --- Kontrol bawaan MapLibre ---
+   Aslinya bersudut membulat dengan bayangan lembut. Disetel ulang jadi siku
+   bergaris tegas supaya menyatu dengan panel-panel di sekelilingnya. */
+.maplibregl-ctrl-group {
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  background: var(--color-panel);
+  box-shadow: none;
 }
 
-.stasiun-popup .maplibregl-popup-content strong {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
+.maplibregl-ctrl-group button {
+  border-radius: 0;
 }
 
-.stasiun-popup .maplibregl-popup-content small {
-  color: #64748b;
-  font-size: 0.75rem;
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--color-hair);
 }
 
-.stasiun-popup .maplibregl-popup-close-button {
-  color: #64748b;
-  font-size: 1.125rem;
-  line-height: 1;
-  padding: 0.125rem 0.5rem;
-  border-radius: 0 0.5rem 0 0.25rem;
-}
-
-.stasiun-popup .maplibregl-popup-close-button:hover {
-  background-color: #f1f5f9;
-  color: #0f172a;
-}
-
-/* Fokus hanya ditandai saat benar-benar bernavigasi dengan keyboard (Tab),
-   bukan saat popup dibuka lewat klik atau pencarian. */
-.stasiun-popup .maplibregl-popup-close-button:focus {
-  outline: none;
-}
-
-.stasiun-popup .maplibregl-popup-close-button:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: -2px;
+.maplibregl-ctrl-attrib {
+  font-family: var(--font-sans);
+  border-radius: 0;
 }

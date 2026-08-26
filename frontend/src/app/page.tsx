@@ -1,9 +1,9 @@
-import Map from "@/components/Map";
+import Explorer from "@/components/Explorer";
 
 export default function Home() {
   return (
-    <main>
-      <Map />
+    <main className="h-full">
+      <Explorer />
     </main>
   );
 }

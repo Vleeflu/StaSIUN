@@ -1,32 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import StationSearch from "@/components/StationSearch";
-import { useStations } from "@/hooks/useStations";
-import { FALLBACK_COLOR, LINE_COLOR, lineLabel } from "@/lib/lines";
-import { parseLines } from "@/types/station";
-import type {
-  StationCollection,
-  StationFeature,
-  StationProps,
-} from "@/types/station";
+import { FALLBACK_COLOR, LINE_COLOR } from "@/lib/lines";
+import type { StationCollection, StationFeature } from "@/types/station";
 
 const STYLE_URL = `https://v2.basemap.mapid.io/styles/street-v2.0/style.json?key=${process.env.NEXT_PUBLIC_MAPID_KEY}`;
 
-const PUSAT_JAKARTA: [number, number] = [106.8271129, -6.1754398];
-
-const ZOOM_AWAL = 11;
-const ZOOM_TERPILIH = 18;
+const JAKARTA_CENTER: [number, number] = [106.8271129, -6.1754398];
+const INITIAL_ZOOM = 11;
 
 const ICON_SIZE = 60;
 
-// Buat sekarang peta cuma menggambar stasiun KAI/KRL.
-// Titik MRT, LRT, dan Whoosh tetap tersimpan di GeoJSON dan database,
-// tetapi belum ditampilkan.
-const VISIBLE_NETWORKS = ["KAI Commuter", "KAI"];
+const EMPTY: StationCollection = { type: "FeatureCollection", features: [] };
+
+export type FlyTarget = {
+  lon: number;
+  lat: number;
+  minZoom: number;
+  nonce: number;
+};
+
+type Props = {
+  data: StationCollection | null;
+  showLabels: boolean;
+  selected: StationFeature | null;
+  flyTo: FlyTarget | null;
+  onSelect: (station: StationFeature) => void;
+};
 
 function createPieIcon(colors: string[]): ImageData {
   const canvas = document.createElement("canvas");
@@ -65,96 +68,43 @@ function createPieIcon(colors: string[]): ImageData {
   return ctx.getImageData(0, 0, ICON_SIZE, ICON_SIZE);
 }
 
-function buatIsiPopup(props: StationProps): HTMLElement {
-  const wrapper = document.createElement("div");
-
-  const judul = document.createElement("strong");
-
-  judul.textContent = props.code
-    ? `${props.name} (${props.code})`
-    : props.name;
-
-  wrapper.appendChild(judul);
-
-  const lines = parseLines(props.lines);
-
-  const subtitle =
-    lines.length > 0
-      ? `Lin ${lineLabel(lines)}`
-      : props.network ?? props.kecamatan;
-
-  if (subtitle) {
-    wrapper.appendChild(document.createElement("br"));
-
-    const small = document.createElement("small");
-    small.textContent = subtitle;
-
-    wrapper.appendChild(small);
-  }
-
-  return wrapper;
-}
-
-export default function Map() {
+export default function Map({
+  data,
+  showLabels,
+  selected,
+  flyTo,
+  onSelect,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const popupRef = useRef<maplibregl.Popup | null>(null);
+
+  // Handler klik dipasang sekali seumur peta, jadi ia harus membaca data dan
+  // callback terbaru lewat ref — bukan lewat closure yang keburu basi.
+  const dataRef = useRef<StationCollection | null>(data);
+  const selectRef = useRef(onSelect);
 
   const [mapReady, setMapReady] = useState(false);
 
-  const { data, loading, error } = useStations();
-
-  // Filter data sekali di sini supaya peta dan kotak pencarian
-  // menggunakan daftar stasiun yang sama persis.
-  const visibleData = useMemo<StationCollection | null>(() => {
-    if (!data) return null;
-
-    return {
-      ...data,
-      features: data.features.filter((feature) =>
-        VISIBLE_NETWORKS.includes(feature.properties.network ?? "")
-      ),
-    };
-  }, [data]);
-
-  const visibleStations = visibleData?.features ?? [];
-
-  const tampilkanPopup = useCallback(
-    (lngLat: maplibregl.LngLatLike, props: StationProps) => {
-      const map = mapRef.current;
-
-      if (!map) return;
-
-      popupRef.current?.remove();
-
-      popupRef.current = new maplibregl.Popup({
-        offset: 12,
-        className: "stasiun-popup",
-        focusAfterOpen: false,
-      })
-        .setLngLat(lngLat)
-        .setDOMContent(buatIsiPopup(props))
-        .addTo(map);
-    },
-    []
-  );
+  useEffect(() => {
+    dataRef.current = data;
+    selectRef.current = onSelect;
+  }, [data, onSelect]);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    const container = containerRef.current;
+
+    if (!container) return;
 
     const map = new maplibregl.Map({
-      container: containerRef.current,
+      container,
       style: STYLE_URL,
-      center: PUSAT_JAKARTA,
-      zoom: ZOOM_AWAL,
+      center: JAKARTA_CENTER,
+      zoom: INITIAL_ZOOM,
     });
 
     mapRef.current = map;
 
-    map.addControl(
-      new maplibregl.NavigationControl(),
-      "top-right"
-    );
+    map.addControl(new maplibregl.NavigationControl(), "bottom-left");
 
     // Sprite MAPID tidak punya sebagian ikon yang dipanggil style-nya sendiri.
     // Kita sodorkan gambar kosong 1x1 supaya konsol tidak penuh error.
@@ -172,14 +122,15 @@ export default function Map() {
       setMapReady(true);
     });
 
+    // Lebar peta berubah tiap panel stasiun dibuka atau ditutup. Tanpa ini
+    // kanvasnya tetap seukuran lama dan petanya kelihatan melar.
+    const observer = new ResizeObserver(() => map.resize());
+    observer.observe(container);
+
     return () => {
-      popupRef.current?.remove();
-      popupRef.current = null;
-
+      observer.disconnect();
       map.remove();
-
       mapRef.current = null;
-
       setMapReady(false);
     };
   }, []);
@@ -187,10 +138,9 @@ export default function Map() {
   useEffect(() => {
     const map = mapRef.current;
 
-    if (!map || !mapReady || !visibleData) return;
+    if (!map || !mapReady || !data) return;
 
-    // Buat icon berdasarkan line_key
-    for (const feature of visibleData.features) {
+    for (const feature of data.features) {
       const key = feature.properties.line_key || "none";
 
       if (map.hasImage(key)) continue;
@@ -198,100 +148,79 @@ export default function Map() {
       const colors =
         key === "none"
           ? [FALLBACK_COLOR]
-          : key
-              .split("-")
-              .map(
-                (name) =>
-                  LINE_COLOR[name] ?? FALLBACK_COLOR
-              );
+          : key.split("-").map((name) => LINE_COLOR[name] ?? FALLBACK_COLOR);
 
-      map.addImage(key, createPieIcon(colors), {
-        pixelRatio: 2,
-      });
+      map.addImage(key, createPieIcon(colors), { pixelRatio: 2 });
     }
 
     const source = map.getSource("stations");
 
     if (source) {
-      (source as maplibregl.GeoJSONSource).setData(
-        visibleData
-      );
-
+      (source as maplibregl.GeoJSONSource).setData(data);
       return;
     }
 
-    map.addSource("stations", {
-      type: "geojson",
-      data: visibleData,
+    map.addSource("stations", { type: "geojson", data });
+    map.addSource("selected-station", { type: "geojson", data: EMPTY });
+
+    // Cincin penanda digambar lebih dulu supaya berada di bawah ikon stasiun.
+    map.addLayer({
+      id: "selected-ring",
+      type: "circle",
+      source: "selected-station",
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 14, 18, 32],
+        "circle-color": "#ec3013",
+        "circle-opacity": 0.12,
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "#ec3013",
+      },
     });
 
     map.addLayer({
       id: "stations-circle",
       type: "symbol",
       source: "stations",
-
       layout: {
-        "icon-image": [
-          "coalesce",
-          ["get", "line_key"],
-          "none",
-        ],
-
-        "icon-size": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          10,
-          0.45,
-          14,
-          0.8,
-          18,
-          1.25,
-        ],
-
+        "icon-image": ["coalesce", ["get", "line_key"], "none"],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.45, 14, 0.8, 18, 1.25],
         "icon-allow-overlap": true,
       },
-
       paint: {
-        "icon-opacity": [
-          "case",
-          ["get", "served"],
-          1,
-          0.4,
-        ],
+        "icon-opacity": ["case", ["get", "served"], 1, 0.4],
       },
     });
-
 
     map.addLayer({
       id: "stations-label",
       type: "symbol",
       source: "stations",
-
       layout: {
         "text-field": ["get", "name"],
         "text-font": ["Noto Sans Regular"],
         "text-size": 11,
         "text-offset": [0, 1.6],
         "text-anchor": "top",
+        visibility: "none",
       },
-
       paint: {
-        "text-color": "#0f172a",
+        "text-color": "#201e1d",
         "text-halo-color": "#ffffff",
         "text-halo-width": 1.5,
       },
     });
 
     map.on("click", "stations-circle", (e) => {
-      const feature = e.features?.[0];
+      const hit = e.features?.[0];
+      const collection = dataRef.current;
 
-      if (!feature) return;
+      if (!hit || !collection) return;
 
-      tampilkanPopup(
-        e.lngLat,
-        feature.properties as StationProps
-      );
+      // Properti dari event MapLibre sudah diserialisasi, jadi fitur aslinya
+      // dicari balik lewat id supaya panel menerima data yang utuh.
+      const match = collection.features.find((f) => f.id === hit.id);
+
+      if (match) selectRef.current(match);
     });
 
     map.on("mouseenter", "stations-circle", () => {
@@ -301,45 +230,44 @@ export default function Map() {
     map.on("mouseleave", "stations-circle", () => {
       map.getCanvas().style.cursor = "";
     });
-  }, [mapReady, visibleData, tampilkanPopup]);
+  }, [mapReady, data]);
 
-  const handleSelect = useCallback(
-    (station: StationFeature) => {
-      const map = mapRef.current;
+  useEffect(() => {
+    const map = mapRef.current;
 
-      if (!map) return;
+    if (!map || !mapReady || !map.getLayer("stations-label")) return;
 
-      const [lon, lat] = station.geometry.coordinates;
+    map.setLayoutProperty(
+      "stations-label",
+      "visibility",
+      showLabels ? "visible" : "none"
+    );
+  }, [mapReady, showLabels]);
 
-      map.flyTo({
-        center: [lon, lat],
-        zoom: ZOOM_TERPILIH,
-        duration: 1200,
-      });
+  useEffect(() => {
+    const map = mapRef.current;
+    const source = map?.getSource("selected-station");
 
-      tampilkanPopup(
-        [lon, lat],
-        station.properties
-      );
-    },
-    [tampilkanPopup]
-  );
+    if (!source) return;
 
-  return (
-    <div className="relative h-screen w-full">
-      <div
-        ref={containerRef}
-        className="h-full w-full"
-      />
+    (source as maplibregl.GeoJSONSource).setData(
+      selected ? { type: "FeatureCollection", features: [selected] } : EMPTY
+    );
+  }, [mapReady, selected]);
 
-      <div className="absolute left-4 top-4 z-10">
-        <StationSearch
-          stations={visibleStations}
-          loading={loading}
-          error={error}
-          onSelect={handleSelect}
-        />
-      </div>
-    </div>
-  );
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map || !flyTo) return;
+
+    // Cuma mendekat, tidak pernah menjauh. Kalau user sudah zoom lebih dalam
+    // dari minZoom, tampilannya dibiarkan apa adanya.
+    map.flyTo({
+      center: [flyTo.lon, flyTo.lat],
+      zoom: Math.max(map.getZoom(), flyTo.minZoom),
+      duration: 1200,
+    });
+  }, [flyTo]);
+
+  return <div ref={containerRef} className="h-full w-full" />;
 }

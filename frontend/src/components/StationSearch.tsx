@@ -6,7 +6,7 @@ import { lineLabel } from "@/lib/lines";
 import { parseLines } from "@/types/station";
 import type { StationFeature } from "@/types/station";
 
-const MAKS_SARAN = 8;
+const MAX_SUGGESTIONS = 8;
 
 type Props = {
   stations: StationFeature[];
@@ -31,12 +31,12 @@ export default function StationSearch({
     if (!q) return [];
     return stations
       .filter((f) => f.properties.name.toLowerCase().includes(q))
-      .slice(0, MAKS_SARAN);
+      .slice(0, MAX_SUGGESTIONS);
   }, [query, stations]);
 
   const showDropdown = open && query.trim() !== "";
 
-  function pilih(station: StationFeature) {
+  function choose(station: StationFeature) {
     onSelect(station);
     setQuery(station.properties.name);
     setOpen(false);
@@ -57,12 +57,12 @@ export default function StationSearch({
       setActiveIndex((i) => (i - 1 + results.length) % results.length);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      pilih(results[activeIndex]);
+      choose(results[activeIndex]);
     }
   }
 
   return (
-    <div className="w-80 max-w-[calc(100vw-2rem)]">
+    <div className="relative">
       <input
         type="text"
         role="combobox"
@@ -76,7 +76,7 @@ export default function StationSearch({
         }
         aria-label="Cari stasiun"
         value={query}
-        placeholder={loading ? "Memuat data stasiun…" : "Cari stasiun…"}
+        placeholder={loading ? "Memuat data stasiun…" : "mis. Manggarai"}
         disabled={loading || error !== null}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -86,55 +86,66 @@ export default function StationSearch({
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         onKeyDown={handleKeyDown}
-        className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-lg outline-none placeholder:text-slate-400 focus:border-slate-500 disabled:bg-slate-100"
+        className="w-full border border-hair bg-panel px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-ink disabled:bg-canvas disabled:text-muted"
       />
 
       {error !== null && (
         <p
           role="alert"
-          className="mt-1 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 shadow-lg"
+          className="mt-2 border border-accent bg-accent-soft px-3 py-2 text-xs text-ink"
         >
           {error}
         </p>
       )}
 
+      {/* Dropdown mengambang di atas isi panel supaya seksi di bawahnya tidak
+          ikut terdorong tiap kali user mengetik. */}
       {showDropdown && results.length > 0 && (
         <ul
           id={listId}
           role="listbox"
           onMouseDown={(e) => e.preventDefault()}
-          className="mt-1 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+          className="absolute left-0 right-0 top-full z-20 mt-px max-h-72 overflow-y-auto border border-ink bg-panel"
         >
-          {results.map((f, i) => (
-            <li
-              key={String(f.id ?? f.properties.name)}
-              id={`${listId}-opt-${i}`}
-              role="option"
-              aria-selected={i === activeIndex}
-            >
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => pilih(f)}
-                onMouseEnter={() => setActiveIndex(i)}
-                className={`block w-full px-4 py-2 text-left text-sm ${
-                  i === activeIndex ? "bg-slate-100" : "bg-white"
-                }`}
+          {results.map((f, i) => {
+            const codes = parseLines(f.properties.lines);
+            return (
+              <li
+                key={String(f.id ?? f.properties.name)}
+                id={`${listId}-opt-${i}`}
+                role="option"
+                aria-selected={i === activeIndex}
               >
-                <span className="text-slate-900">{f.properties.name}</span>
-                <span className="ml-2 text-xs text-slate-500">
-                  {parseLines(f.properties.lines).length > 0
-                    ? lineLabel(parseLines(f.properties.lines))
-                    : f.properties.network}
-                </span>
-              </button>
-            </li>
-          ))}
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => choose(f)}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  className={`block w-full px-3 py-2 text-left ${
+                    i === activeIndex ? "bg-accent text-white" : "bg-panel"
+                  }`}
+                >
+                  <span className="block text-sm font-medium">
+                    {f.properties.name}
+                  </span>
+                  <span
+                    className={`block text-xs ${
+                      i === activeIndex ? "text-white/80" : "text-muted"
+                    }`}
+                  >
+                    {codes.length > 0
+                      ? lineLabel(codes)
+                      : (f.properties.network ?? "Tanpa lin")}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 
       {showDropdown && results.length === 0 && !loading && error === null && (
-        <p className="mt-1 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-lg">
+        <p className="absolute left-0 right-0 top-full z-20 mt-px border border-hair bg-panel px-3 py-2 text-xs text-muted">
           Tidak ada stasiun yang cocok
         </p>
       )}

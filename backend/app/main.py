@@ -20,4 +20,4 @@ app.add_middleware(
 app.include_router(health.router, prefix=settings.API_PREFIX)
 app.include_router(stations.router, prefix=settings.API_PREFIX)
 app.include_router(ocr.router, prefix=settings.API_PREFIX)
-app.include_router(chat.router)
+app.include_router(chat.router, prefix=settings.API_PREFIX)
