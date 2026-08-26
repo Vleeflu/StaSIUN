@@ -100,11 +100,21 @@ export default function Map({
       style: STYLE_URL,
       center: JAKARTA_CENTER,
       zoom: INITIAL_ZOOM,
+      // Kredit bawaan mendarat di kanan bawah, tepat di bawah tombol asisten.
+      // Dimatikan di sini lalu dipasang ulang di kiri bawah dalam bentuk ringkas.
+      attributionControl: false,
     });
 
     mapRef.current = map;
 
     map.addControl(new maplibregl.NavigationControl(), "bottom-left");
+
+    // Kredit peta wajib tetap ada — lisensi OpenStreetMap dan ketentuan MAPID
+    // mengharuskannya. Mode ringkas menyusutkannya jadi satu tombol info.
+    map.addControl(
+      new maplibregl.AttributionControl({ compact: true }),
+      "bottom-left"
+    );
 
     // Sprite MAPID tidak punya sebagian ikon yang dipanggil style-nya sendiri.
     // Kita sodorkan gambar kosong 1x1 supaya konsol tidak penuh error.

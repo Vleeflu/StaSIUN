@@ -70,24 +70,92 @@
 }
 
 /* --- Kontrol bawaan MapLibre ---
-   Aslinya bersudut membulat dengan bayangan lembut. Disetel ulang jadi siku
-   bergaris tegas supaya menyatu dengan panel-panel di sekelilingnya. */
-.maplibregl-ctrl-group {
+   Semua selektor di bawah sengaja diawali `.maplibregl-map`. Berkas CSS
+   MapLibre dimuat SETELAH berkas ini, jadi aturan berkekhususan sama akan
+   kalah; satu kelas tambahan bikin timpaannya menang tanpa perlu !important. */
+.maplibregl-map .maplibregl-ctrl-group {
   border: 1px solid var(--color-ink);
   border-radius: 0;
   background: var(--color-panel);
   box-shadow: none;
 }
 
-.maplibregl-ctrl-group button {
+.maplibregl-map .maplibregl-ctrl-group button {
   border-radius: 0;
 }
 
-.maplibregl-ctrl-group button + button {
+.maplibregl-map .maplibregl-ctrl-group button + button {
   border-top: 1px solid var(--color-hair);
 }
 
-.maplibregl-ctrl-attrib {
-  font-family: var(--font-sans);
+/* --- Pojok kiri bawah ---
+   MapLibre menata sudut ini dengan float, dan menyisipkan kontrol baru di
+   depan, jadi kredit peta mendarat di atas tombol zoom. Diubah jadi satu baris
+   rata bawah, urutannya dibalik lewat `order` supaya kreditnya duduk di kanan
+   tombol kompas. */
+.maplibregl-map .maplibregl-ctrl-bottom-left {
+  display: flex;
+  align-items: flex-end;
+}
+
+.maplibregl-map .maplibregl-ctrl-bottom-left .maplibregl-ctrl {
+  float: none;
+}
+
+.maplibregl-map .maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib {
+  order: 1;
+}
+
+/* Di sudut kiri, tombol info menempel di sisi kiri kotaknya — bukan kanan
+   seperti di sudut kanan — jadi ruang kosongnya ikut ditaruh di kiri. */
+.maplibregl-map
+  .maplibregl-ctrl-bottom-left
+  .maplibregl-ctrl-attrib.maplibregl-compact,
+.maplibregl-map
+  .maplibregl-ctrl-bottom-left
+  .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  box-sizing: border-box;
+  min-height: 31px;
+  margin: 0 0 10px 10px;
+  padding: 0 0 0 31px;
+  border: 1px solid var(--color-ink);
   border-radius: 0;
+  background: var(--color-panel);
+  box-shadow: none;
+  font-family: var(--font-sans);
+  font-size: 10px;
+}
+
+/* Ikonnya gambar latar 24px. Begitu kotaknya dibesarkan jadi 29px, gambar itu
+   tetap menempel di pojok kiri atas — jadi posisinya harus disetel sendiri. */
+.maplibregl-map .maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib-button {
+  top: 0;
+  right: auto;
+  left: 0;
+  width: 29px;
+  height: 29px;
+  border-radius: 0;
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 18px 18px;
+}
+
+/* Cincin biru bawaan MapLibre ikut muncul saat diklik pakai tetikus. Fokus
+   ditandai hanya kalau benar-benar bernavigasi dengan keyboard. */
+.maplibregl-map .maplibregl-ctrl-attrib-button:focus,
+.maplibregl-map .maplibregl-ctrl-group button:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+.maplibregl-map .maplibregl-ctrl-attrib-button:focus-visible,
+.maplibregl-map .maplibregl-ctrl-group button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.maplibregl-map .maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib-inner {
+  padding-right: 8px;
+  line-height: 29px;
 }

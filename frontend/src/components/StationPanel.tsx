@@ -2,12 +2,13 @@
 
 import { useState, type ReactNode } from "react";
 
-import ChatPanel from "@/components/ChatPanel";
 import { badgeLabel, lineColor, lineLabel, lineTextColor } from "@/lib/lines";
 import { parseLines } from "@/types/station";
 import type { StationFeature } from "@/types/station";
 
-const TABS = ["Ikhtisar", "Ad-Space", "Tenant", "Naming", "AI Chat"] as const;
+// Empat sisi dari satu stasiun. Asisten tidak ikut di sini karena dia alat,
+// bukan sisi dari stasiun — tempatnya tombol mengambang di pojok peta.
+const TABS = ["Ikhtisar", "Ad-Space", "Tenant", "Naming"] as const;
 type Tab = (typeof TABS)[number];
 
 // Lima komponen SEPI persis seperti di proposal. Bobotnya belum ada angkanya
@@ -40,7 +41,7 @@ export default function StationPanel({ station, onClose }: Props) {
 
   return (
     <aside className="flex w-[400px] shrink-0 flex-col overflow-hidden border-l border-ink bg-panel">
-      <div className="border-b border-hair p-4">
+      <div className="shrink-0 border-b border-hair p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="label-caps text-accent">Stasiun</p>
@@ -96,7 +97,10 @@ export default function StationPanel({ station, onClose }: Props) {
         )}
       </div>
 
-      <nav className="flex shrink-0 border-b border-hair" aria-label="Bagian detail stasiun">
+      <nav
+        className="flex shrink-0 border-b border-hair"
+        aria-label="Bagian detail stasiun"
+      >
         {TABS.map((t) => (
           <button
             key={t}
@@ -114,17 +118,13 @@ export default function StationPanel({ station, onClose }: Props) {
         ))}
       </nav>
 
-      {tab === "AI Chat" ? (
-        <ChatPanel station={station} />
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {tab === "Ikhtisar" ? (
-            <Overview station={station} />
-          ) : (
-            <EmptyTab name={tab} />
-          )}
-        </div>
-      )}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {tab === "Ikhtisar" ? (
+          <Overview station={station} />
+        ) : (
+          <EmptyTab name={tab} />
+        )}
+      </div>
     </aside>
   );
 }
@@ -153,7 +153,7 @@ function Overview({ station }: { station: StationFeature }) {
         <ul className="flex flex-col gap-2.5">
           {SEPI_COMPONENTS.map((c) => (
             <li key={c.key} className="flex items-center gap-3">
-              <span className="w-3 shrink-0 text-xs font-bold text-ink-soft">
+              <span className="data-num w-3 shrink-0 text-xs font-semibold text-ink-soft">
                 {c.key}
               </span>
               <span className="min-w-0 flex-1">
@@ -162,7 +162,7 @@ function Overview({ station }: { station: StationFeature }) {
                     angka asli dari mesin skoring. */}
                 <span className="mt-1 block h-1.5 w-full bg-canvas" />
               </span>
-              <span className="w-6 shrink-0 text-right text-xs text-muted">
+              <span className="data-num w-6 shrink-0 text-right text-xs text-muted">
                 —
               </span>
             </li>

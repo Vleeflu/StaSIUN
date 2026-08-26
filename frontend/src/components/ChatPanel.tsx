@@ -27,7 +27,7 @@ function toPlainText(text: string): string {
 }
 
 type Props = {
-  station: StationFeature;
+  station: StationFeature | null;
 };
 
 export default function ChatPanel({ station }: Props) {
@@ -36,7 +36,14 @@ export default function ChatPanel({ station }: Props) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Menyimpan stasiun yang konteksnya sengaja dilepas user, bukan sekadar
+  // benar/salah. Dengan begitu pindah ke stasiun lain otomatis memunculkan
+  // chip-nya lagi tanpa perlu efek tambahan.
+  const [dismissedId, setDismissedId] = useState<string | number | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const context = station && station.id !== dismissedId ? station : null;
 
   useEffect(() => {
     const box = scrollRef.current;
@@ -59,7 +66,7 @@ export default function ChatPanel({ station }: Props) {
         history,
         // Backend memakai ini supaya pertanyaan seperti "lin apa saja di sini"
         // tahu stasiun mana yang sedang dibuka.
-        station_id: typeof station.id === "number" ? station.id : null,
+        station_id: typeof context?.id === "number" ? context.id : null,
       });
 
       setMessages((prev) => [
@@ -143,27 +150,43 @@ export default function ChatPanel({ station }: Props) {
         )}
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="flex shrink-0 gap-2 border-t border-hair p-3"
-      >
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={sending}
-          placeholder="Tanya soal stasiun atau metodenya…"
-          aria-label="Pertanyaan untuk asisten"
-          className="min-w-0 flex-1 border border-hair bg-panel px-3 py-2 text-xs outline-none placeholder:text-muted focus:border-ink disabled:bg-canvas"
-        />
-        <button
-          type="submit"
-          disabled={sending || input.trim() === ""}
-          className="shrink-0 bg-ink px-3 py-2 text-xs font-semibold text-white disabled:bg-hair disabled:text-muted"
-        >
-          Kirim
-        </button>
-      </form>
+      <div className="shrink-0 border-t border-hair">
+        {context && (
+          <div className="flex items-center gap-2 border-b border-hair px-3 py-2">
+            <span className="label-caps shrink-0 text-muted">Konteks</span>
+            <span className="truncate text-xs text-ink">
+              {context.properties.name}
+            </span>
+            <button
+              type="button"
+              onClick={() => setDismissedId(context.id ?? null)}
+              aria-label={`Lepas konteks ${context.properties.name}`}
+              className="ml-auto shrink-0 border border-hair px-1.5 text-xs leading-5 text-muted hover:border-ink hover:text-ink"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex gap-2 p-3">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={sending}
+            placeholder="Tanya soal stasiun atau metodenya…"
+            aria-label="Pertanyaan untuk asisten"
+            className="min-w-0 flex-1 border border-hair bg-panel px-3 py-2 text-xs outline-none placeholder:text-muted focus:border-ink disabled:bg-canvas"
+          />
+          <button
+            type="submit"
+            disabled={sending || input.trim() === ""}
+            className="shrink-0 bg-ink px-3 py-2 text-xs font-semibold text-white disabled:bg-hair disabled:text-muted"
+          >
+            Kirim
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

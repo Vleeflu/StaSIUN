@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import AppHeader from "@/components/AppHeader";
+import Assistant from "@/components/Assistant";
 import ControlPanel from "@/components/ControlPanel";
 import Map, { type FlyTarget } from "@/components/Map";
 import StationPanel from "@/components/StationPanel";
@@ -107,6 +108,8 @@ export default function Explorer() {
               onToggleLabels={setShowLabels}
             />
           </div>
+
+          <Assistant station={selected} />
         </div>
 
         {selected && (
