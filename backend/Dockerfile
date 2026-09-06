@@ -18,6 +18,10 @@ COPY app ./app
 COPY scripts ./scripts
 COPY data ./data
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
+# Kerangka migrasi. Belum dipakai entrypoint (lihat alembic/README.md), tapi
+# ikut disalin supaya peralihan ke `alembic upgrade head` nanti cukup satu baris.
+COPY alembic.ini ./alembic.ini
+COPY alembic ./alembic
 RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 8000

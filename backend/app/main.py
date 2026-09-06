@@ -1,4 +1,4 @@
-from app.api.routes import health, stations, ocr, chat
+from app.api.routes import health, stations, chat
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -19,5 +19,4 @@ app.add_middleware(
 
 app.include_router(health.router, prefix=settings.API_PREFIX)
 app.include_router(stations.router, prefix=settings.API_PREFIX)
-app.include_router(ocr.router, prefix=settings.API_PREFIX)
 app.include_router(chat.router, prefix=settings.API_PREFIX)

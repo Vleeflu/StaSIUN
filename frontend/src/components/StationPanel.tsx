@@ -21,12 +21,16 @@ const SEPI_COMPONENTS = [
   { key: "C", label: "Komersial" },
 ];
 
+// Sumber sesuai PRD. Dataset Mission (StrukGo, MenuGo, PropertiGo) sengaja
+// tidak ada di sini: cakupannya di wilayah studi belum memadai, jadi tidak ada
+// satu variabel pun yang boleh bergantung padanya.
 const PLANNED_SOURCES = [
-  "StrukGo · OCR struk",
-  "MenuGo · harga & densitas",
-  "PropertiGo · benchmark",
-  "Activity · korpus NLP",
-  "OSM · jaringan pejalan",
+  "Activity · korpus + objek",
+  "Isochrone · GeoMAPID",
+  "OSM · pejalan & titik minat",
+  "Volume penumpang",
+  "Profil kawasan",
+  "Riset harga terbuka",
 ];
 
 type Props = {

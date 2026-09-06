@@ -14,9 +14,6 @@ class Settings(BaseSettings):
     MAPID_PROJECT_ID: str | None = None
     MAPID_BASEMAP_KEY: str | None = None
 
-    OCR_SPACE_API: str | None = None
-    OCR_SPACE_URL: str = "https://api.ocr.space/parse/image"
-
     GEMINI_API_KEY: str | None = None
     GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
     GEMINI_MODEL: str = "gemini-3.5-flash"

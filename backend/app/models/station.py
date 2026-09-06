@@ -4,6 +4,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.core.geo import SRID_RENDER
 
 
 class Station(Base):
@@ -20,4 +21,9 @@ class Station(Base):
     address: Mapped[str | None]
     kecamatan: Mapped[str | None]
     kabkot: Mapped[str | None]
-    location: Mapped[str] = mapped_column(Geometry("POINT", srid=4326))
+    # spatial_index dieksplisitkan, bukan diandalkan ke default GeoAlchemy2:
+    # PRD menjadikan indeks GiST syarat performa kueri kedekatan, jadi jangan
+    # sampai hilang diam-diam kalau defaultnya berubah.
+    location: Mapped[str] = mapped_column(
+        Geometry("POINT", srid=SRID_RENDER, spatial_index=True)
+    )

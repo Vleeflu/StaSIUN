@@ -10,6 +10,7 @@ from typing import Any
 from geoalchemy2 import WKTElement
 
 from app.core.database import SessionLocal
+from app.core.geo import SRID_RENDER
 from app.models.station import Station
 
 # Jaringan yang memakai penomoran lin KRL. Dipakai buat menentukan apakah
@@ -103,7 +104,7 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
         "address": props.get("addr:full") or props.get("ALAMAT") or None,
         "kecamatan": props.get("addr:subdistrict") or props.get("KECAMATAN") or None,
         "kabkot": props.get("addr:district") or props.get("KABKOT") or None,
-        "location": WKTElement(f"POINT({lon} {lat})", srid=4326),
+        "location": WKTElement(f"POINT({lon} {lat})", srid=SRID_RENDER),
     }
 
 
