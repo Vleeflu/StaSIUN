@@ -98,12 +98,16 @@ mendekati nol lewat free tier (Vercel, Supabase, MapLibre, OSM).
 
 ## Status Pengerjaan
 
-Yang sudah berjalan hari ini: PostGIS dengan satu tabel titik stasiun, dua jalur pengisian data
-(GeoJSON OSM lokal dan Geoserver MAPID), tiga endpoint API, peta MapLibre di atas basemap MAPID
-dengan pencarian dan filter lin, serta asisten chat berbasis LLM.
+Per 6 Sep 2026, yang sudah berjalan: PostGIS dengan **15 tabel** terpasang lewat migrasi Alembic
+— stasiun, rantai Activity, isochrone, zona indoor, tenant, spot iklan, keluhan fasilitas, dan
+data pendukung — lengkap dengan indeks spasial GiST. Ditambah dua jalur pengisian data stasiun
+(GeoJSON OSM lokal dan Geoserver MAPID) dengan 78 titik tersimpan, tiga endpoint API, peta
+MapLibre di atas basemap MAPID dengan pencarian dan filter lin, serta asisten chat berbasis LLM
+yang menjawab dari isi database.
 
-Yang belum: seluruh lapisan analitik — Activity, isochrone, zona indoor, mesin skor, dan tiga
-fitur utamanya.
+Yang belum: **isi** dari tabel-tabel analitik itu. Data Activity dan poligon isochrone belum
+ditarik, mesin skor belum dibangun, dan tiga fitur utamanya belum ada. Kerangkanya siap, isinya
+menunggu data masuk.
 
 Rincian per berkas, daftar yang harus diperbaiki, dan blocker data ada di **`ADJUSTMENT.md`**.
 Daftar build task per lapisan ada di **`LAYER.md`**.

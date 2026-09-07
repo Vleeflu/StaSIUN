@@ -95,7 +95,7 @@ python -m scripts.seed_stations
 ```
 
 Sumbernya `backend/data/railway_station_DKI.geojson`, ekspor OpenStreetMap
-stasiun kereta di DKI Jakarta. Hasilnya `46 stations stored (45 served, 1 not served)`.
+stasiun kereta di DKI Jakarta. Hasilnya `78 stations stored (77 served, 1 not served)`.
 
 **Cara 2 — tarik langsung dari Geoserver MAPID.**
 
@@ -189,15 +189,22 @@ stasiun-app/
 
 ## Catatan data
 
-Unit analisisnya stasiun jaringan **KAI** di DKI Jakarta: KRL Commuter beserta
-stasiun antarkota yang juga dilewati KRL. MRT, LRT Jabodebek, LRT Jakarta, dan
-Whoosh sengaja tidak diikutkan.
+Unit analisisnya stasiun KRL di DKI Jakarta, tetapi **seluruh moda rel ikut
+disimpan**: 42 KAI Commuter, 13 MRT Jakarta, 12 LRT Jabodebek, 6 LRT Jakarta,
+4 KAI, dan 1 Whoosh — total 78 titik, 77 dilayani.
 
-Penyaringan memakai tag `network` bernilai `KAI Commuter` **atau** `KAI`. Nilai
-kedua itu penting: Jakarta Kota, Jatinegara, dan Pasar Senen ditandai `KAI` di
-OpenStreetMap padahal ketiganya stasiun KRL utama, dan Jakarta Kota bahkan
-terminus dua lin. Menyaring dengan satu nilai saja akan membuang mereka.
-Jakarta Gudang dikecualikan karena emplasemen barang tanpa layanan penumpang.
+Titik non-KRL tidak ikut sekadar untuk melengkapi peta. PRD menjadikan
+**konektivitas antarmoda** salah satu indikator Aksesibilitas (variabel A), jadi
+keberadaan MRT, LRT, atau kereta cepat di dekat sebuah stasiun KRL adalah data
+yang dipakai perhitungan, bukan hiasan.
+
+Roster lin hanya ditempelkan ke jaringan KAI, lewat penjagaan `KAI_NETWORKS` di
+`backend/app/services/station_import.py`. Tanpa itu stasiun senama dari moda lain
+ikut kebagian lin KRL — Cawang LRT sempat kena, padahal letaknya 1,4 km dari
+Cawang KRL. Nilai `KAI` di samping `KAI Commuter` juga penting: Jakarta Kota,
+Jatinegara, dan Pasar Senen ditandai `KAI` di OpenStreetMap padahal ketiganya
+stasiun KRL utama. Jakarta Gudang dikecualikan karena emplasemen barang tanpa
+layanan penumpang.
 
 Keanggotaan lin tidak berasal dari berkas sumber, melainkan dari roster resmi
 peta rute KAI Commuter yang ditanam di `app/services/station_import.py`. Enam

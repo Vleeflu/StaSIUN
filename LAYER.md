@@ -22,11 +22,17 @@ Pengolahan Data, AI, dan Analisis Spasial), 8 (Fitur dan Acceptance Criteria), d
 - **Tidak memakai pgRouting.** Poligon isochrone datang jadi dari tools GeoMAPID lalu
   disimpan di PostGIS agar bisa diolah berulang tanpa memanggil service eksternal.
 
-Tabel yang dibutuhkan (baru `stations` yang ada):
+Seluruh tabel dasar di bawah **sudah ada di database** per 6 Sep 2026, lewat tiga revisi
+Alembic berantai (`d4a7fc2da6ce`, `8e28c27f6231`, `0883f21f1e5d`). Yang belum dibuat tinggal
+empat materialized view di bagian bawah tabel, karena isinya menunggu mesin skor.
+Rinciannya di `ADJUSTMENT.md` bagian 7.9.
+
+Kolom berdefault memakai `server_default` sisi database, bukan hanya `default` sisi Python,
+supaya impor massal lewat `COPY` tidak gagal.
 
 | Tabel | Isi |
 |---|---|
-| `stations` | Titik stasiun, roster lin, status dilayani. **Sudah ada.** |
+| `stations` | Titik stasiun, roster lin, status dilayani |
 | `activity_raw` | Payload entri Activity apa adanya + provenance (sumber, adapter, waktu tarik). Staging sebelum gating |
 | `activity_points` | Titik Activity lolos gate: narasi, foto, kategori, waktu pengamatan, koordinat |
 | `activity_extractions` | Keluaran lapis 1 per titik: arketipe, entitas merek, polaritas sentimen |
@@ -115,6 +121,14 @@ Aturan yang mengikat seluruh lapisan ini:
 **Isochrone.** Tiga poligon jangkauan berjalan kaki 5, 10, dan 15 menit per stasiun, mengikuti
 jaringan jalan pejalan kaki dan bukan buffer lingkaran. Seluruh agregasi transaksi dan kepadatan
 titik minat dihitung berdasarkan batas isochrone.
+
+Poligonnya **ditarik lewat API GeoMAPID** (`layers_new/get_layer`, jalur yang sudah dipakai
+`scripts/ingest_layers.py`), dijalankan sebagai skrip importer — tidak pernah dipanggil dari
+endpoint yang diakses pengguna, sesuai PRD hal. 12. Satu kali generate menghasilkan dua layer,
+point dan polygon; layer point adalah titik asal isochrone dan dipakai untuk mencocokkan
+poligon ke stasiun. Poligon 5/10/15 bersarang, jadi agregasi titik wajib memakai cincin
+eksklusif (`ST_Difference`) supaya satu titik tidak terhitung tiga kali. Rinciannya di
+`ADJUSTMENT.md` bagian 7.6.
 
 **Permeability Index.** Rasio luas isochrone terhadap luas lingkaran setara. Makin kecil rasionya,
 makin besar hambatan fisik (rel, sungai, jalan arteri) yang membatasi jangkauan nyata pejalan kaki.

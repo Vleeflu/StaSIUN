@@ -18,8 +18,8 @@ COPY app ./app
 COPY scripts ./scripts
 COPY data ./data
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
-# Kerangka migrasi. Belum dipakai entrypoint (lihat alembic/README.md), tapi
-# ikut disalin supaya peralihan ke `alembic upgrade head` nanti cukup satu baris.
+# Migrasi database. Dipakai entrypoint lewat `alembic upgrade head`, jadi
+# berkas ini wajib ada di dalam image — tanpanya container gagal start.
 COPY alembic.ini ./alembic.ini
 COPY alembic ./alembic
 RUN chmod +x docker-entrypoint.sh

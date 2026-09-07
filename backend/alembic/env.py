@@ -14,15 +14,16 @@ Dua hal yang perlu diketahui sebelum mengubah berkas ini:
 from logging.config import fileConfig
 
 from alembic import context
+from geoalchemy2 import Geometry
 from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
 from app.core.database import Base
 
-# Impor seluruh model supaya tabelnya terdaftar di Base.metadata. Tambahkan
-# baris baru di sini setiap kali ada berkas model baru, kalau tidak tabelnya
-# tidak akan pernah muncul di autogenerate.
-import app.models.station  # noqa: F401
+# Impor seluruh model supaya tabelnya terdaftar di Base.metadata. Cukup satu
+# baris: pendaftaran berkas per berkas dilakukan di app/models/__init__.py,
+# jadi berkas ini tidak perlu diubah lagi setiap ada model baru.
+import app.models  # noqa: F401
 
 config = context.config
 
@@ -45,13 +46,60 @@ POSTGIS_TABLES = {
     "raster_overviews",
 }
 
+# Nama kolom geometri yang dipakai di seluruh model. Dipakai sebagai cadangan
+# pengenalan indeks spasial saat tipe kolomnya tidak terbaca — lihat
+# _is_spatial_index di bawah. Tambahkan di sini kalau ada nama kolom baru.
+GEOMETRY_COLUMN_NAMES = {"location", "geom", "origin_point"}
+
+
+def _is_spatial_index(object_, name) -> bool:
+    """Apakah indeks ini dibuat sendiri oleh GeoAlchemy2?
+
+    GeoAlchemy2 membuat indeks spasialnya lewat event DDL saat tabel dibuat,
+    dengan pola nama idx_<tabel>_<kolom>. Kalau indeks itu ikut ditulis ke
+    berkas migrasi, hasilnya indeks ganda dan migrasinya gagal.
+
+    Pengenalannya dua lapis. Lapis pertama memeriksa tipe kolomnya: kalau ada
+    kolom bertipe Geometry, itu pasti indeks spasial. Lapis kedua memeriksa
+    nama, dipakai untuk indeks hasil refleksi dari database yang tipenya
+    tidak selalu terbaca sebagai Geometry.
+    """
+    if not name or not name.startswith("idx_"):
+        return False
+
+    columns = getattr(object_, "columns", None)
+    if columns is not None:
+        for column in columns:
+            if isinstance(getattr(column, "type", None), Geometry):
+                return True
+
+    return any(name.endswith(f"_{column}") for column in GEOMETRY_COLUMN_NAMES)
+
 
 def include_object(object_, name, type_, reflected, compare_to):
+    """Menyaring objek mana yang boleh masuk ke berkas migrasi.
+
+    Aturan pertama yang paling penting: tabel atau indeks yang dibaca dari
+    database tetapi tidak punya padanan di model kita BUKAN milik kita, jadi
+    jangan pernah diusulkan untuk dihapus.
+
+    Ini bukan kehati-hatian berlebihan. Image postgis/postgis memasang ekstensi
+    postgis_tiger_geocoder yang membawa 36 tabel geocoder ke database yang
+    sama. Tanpa aturan ini, autogenerate pertama menghasilkan 42 op.drop_table
+    dan menjalankannya akan membongkar ekstensi PostGIS-nya.
+
+    Konsekuensi yang harus diketahui: kalau suatu saat sebuah model memang
+    sengaja dihapus, autogenerate tidak akan membuatkan drop_table-nya. Itu
+    ditulis manual — sedikit repot, tetapi jauh lebih murah daripada risiko
+    kehilangan tabel yang tidak diniatkan.
+    """
+    if type_ in ("table", "index") and reflected and compare_to is None:
+        return False
+
     if type_ == "table" and name in POSTGIS_TABLES:
         return False
 
-    # Indeks spasial dibuat GeoAlchemy2 sendiri saat tabelnya dibuat.
-    if type_ == "index" and name and name.startswith("idx_") and name.endswith("_location"):
+    if type_ == "index" and _is_spatial_index(object_, name):
         return False
 
     return True
@@ -63,6 +111,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         include_object=include_object,
+        compare_type=True,
+        compare_server_default=True,
         dialect_opts={"paramstyle": "named"},
     )
 
@@ -82,8 +132,13 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             include_object=include_object,
-            # Perubahan tipe kolom tidak terdeteksi tanpa ini.
+            # Dua pembanding ini mati secara bawaan, dan matinya tidak
+            # menghasilkan error apa pun — autogenerate hanya menghasilkan
+            # migrasi kosong seolah tidak ada yang berubah.
+            #   compare_type          : perubahan tipe kolom
+            #   compare_server_default: perubahan nilai bawaan sisi database
             compare_type=True,
+            compare_server_default=True,
         )
 
         with context.begin_transaction():

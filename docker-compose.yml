@@ -48,7 +48,11 @@ services:
       MAPID_API_KEY: ${MAPID_API_KEY:-}
       MAPID_PROJECT_ID: ${MAPID_PROJECT_ID:-}
       # Tanpa ini asisten AI mati di jalur Docker walau .env sudah diisi.
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Base URL dan model ikut diteruskan supaya penyedia bisa diganti dari
+      # .env saja, tanpa membangun ulang image.
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.groq.com/openai/v1}
+      LLM_MODEL: ${LLM_MODEL:-openai/gpt-oss-120b}
     ports:
       - "8000:8000"
 

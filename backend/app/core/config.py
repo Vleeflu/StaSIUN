@@ -14,9 +14,13 @@ class Settings(BaseSettings):
     MAPID_PROJECT_ID: str | None = None
     MAPID_BASEMAP_KEY: str | None = None
 
-    GEMINI_API_KEY: str | None = None
-    GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
-    GEMINI_MODEL: str = "gemini-3.5-flash"
+    # Panel AI Insight. Namanya sengaja netral penyedia: kode memakai SDK
+    # OpenAI yang bisa diarahkan ke layanan mana pun yang menyediakan endpoint
+    # OpenAI-compatible, jadi berpindah penyedia cukup mengubah tiga nilai ini
+    # tanpa menyentuh kode. Bawaannya Groq — lihat ADJUSTMENT.md bagian 7.7.
+    LLM_API_KEY: str | None = None
+    LLM_BASE_URL: str = "https://api.groq.com/openai/v1"
+    LLM_MODEL: str = "openai/gpt-oss-120b"
 
 
 settings = Settings()

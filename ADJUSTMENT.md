@@ -166,7 +166,7 @@ Jalur OCR tidak lagi punya tempat di PRD. Bukan bug, tapi beban rawat dan bisa m
 | A1 | Backend | PRD hal. 18 menulis "**Next.js API Routes** untuk lapisan penyajian data", kode nyatanya **FastAPI**. PRD juga menulis "Python juga digunakan untuk komputasi", jadi ini bisa dibaca sebagai satu lapisan Python yang sah | **Pertahankan FastAPI.** Menulis ulang jadi API Routes membuang waktu yang tidak ada. Sebut FastAPI sebagai realisasi lapisan komputasi Python saat presentasi |
 | A2 | Hosting backend | PRD hal. 22 hanya menyebut **Vercel + Supabase**. FastAPI tidak punya tempat di rencana itu | Frontend → Vercel, database → Supabase, **backend FastAPI → Railway / Render / Fly (free tier)**. Tambahkan ke bagian deployment |
 | A3 | Database | Kode memakai PostgreSQL Docker lokal, PRD memakai **Supabase** | Migrasikan lebih awal, jangan di hari terakhir. `DATABASE_URL` sudah terkonfigurasi, jadi ini sebagian besar soal ekstensi PostGIS + kredensial |
-| A4 | Isochrone | PRD: dibangkitkan dari tools GeoMAPID | Konfirmasi bentuk keluarannya — unduhan GeoJSON atau API. Kalau unduhan manual, simpan di `backend/data/isochrones/` dan buat skrip importer; jangan menunggu API |
+| A4 | Isochrone | PRD: dibangkitkan dari tools GeoMAPID | **Terjawab 6 Sep — lewat API, lihat 7.6.** Layernya sudah ada di GeoMAPID dan ditarik lewat `layers_new/get_layer` yang jalurnya sudah ada di repo. Rencana folder `backend/data/isochrones/` dibatalkan |
 | A5 | Sumber Activity | Belum ada satu pun jalur pengambilan data Activity di kode | `backend/app/services/mapid.py` sekarang hanya bisa `layers_new/get_layer` per `layer_id`. Perlu `layer_id` Activity, termasuk milik tim lain sesuai PRD hal. 8 |
 
 ---
@@ -476,12 +476,187 @@ hal. 21. Tenant dan Naming tampil terbatas dengan confidence rendah yang ditanda
 
 Diurut menurut seberapa besar ia menahan yang lain:
 
-1. **Ekspor poligon isochrone GeoMAPID** untuk stasiun studi (N2). Membuka variabel A,
-   gate spasial Activity, dan satu acceptance criteria penuh. Paling murah, paling besar
-   dampaknya — kerjakan pertama.
+1. **`layer_id` layer isochrone di GeoMAPID** (N2, lihat 7.6). Bukan lagi ekspor manual —
+   layernya ditarik lewat API yang jalurnya sudah ada di repo. Membuka variabel A, gate
+   spasial Activity, dan satu acceptance criteria penuh. Sertakan juga daftar stasiun yang
+   isochrone-nya sudah di-generate, karena itu yang menentukan cakupan variabel A.
 2. **Ekspor Activity hasil survey tim** (N1). Membuka E, C, dan seluruh lapis 1.
 3. **Kredensial Supabase** (N11). Menahan A3, dan A3 tidak boleh jatuh di hari terakhir.
 4. **Matriks perbandingan berpasangan AHP** (N9). Dibutuhkan Fase 3; tanpa ini bobot
    hanya bisa dari entropy.
 5. Konfirmasi apakah Activity tim lain dapat diakses, dan lewat jalur apa. Menentukan
    adapter mana yang dipakai, bukan menahan pipeline.
+
+### 7.6 Isochrone ditarik lewat API GeoMAPID, bukan ekspor manual
+
+Diputuskan 6 Sep, menggantikan A4 di bagian 2.5 yang menyarankan menyimpan unduhan manual
+di `backend/data/isochrones/`. Tim sudah membangkitkan layer walking isochrone di GeoMAPID
+dan layernya bisa ditarik lewat API.
+
+**Sesuai PRD, bukan penyimpangan.** PRD hal. 12 dan Tabel 9 hal. 18 hanya menyebut isochrone
+dibangkitkan lewat tools GeoMAPID lalu disimpan dan diolah di PostGIS. Cara pemindahannya
+tidak pernah ditentukan, jadi ekspor manual maupun API sama-sama sah. Satu batasan yang
+mengikat: PRD mensyaratkan hasilnya diolah "tanpa bergantung pada pemanggilan service
+eksternal secara langsung", jadi **API dipanggil di skrip importer, tidak pernah di endpoint
+yang dipanggil pengguna**. Jalur API justru lebih sesuai daripada ekspor manual karena bisa
+diulang dan diaudit.
+
+**Tidak butuh kode transport baru.** `app/services/mapid.py` sudah memanggil
+`layers_new/get_layer` per `layer_id`, dan `scripts/ingest_layers.py` sudah menarik katalog
+`data/layers.yml`. Layer isochrone cukup jadi bagian baru di katalog yang sama; penamaan
+`*_jakpus` menunjukkan pembagiannya per kota administrasi, persis struktur yang sudah dipakai
+bagian `stations:`.
+
+**Satu isochrone menghasilkan dua layer: point dan polygon.** Ini menguntungkan. Layer point
+adalah titik asal isochrone, jadi menjadi jangkar untuk mencocokkan poligon ke stasiun —
+tanpa itu, satu layer poligon per kota berisi banyak poligon yang harus ditebak pemiliknya
+lewat containment saja.
+
+| Perkara | Penanganan di importer |
+|---|---|
+| Poligon ke stasiun | Atribut eksplisit kalau ada; kalau tidak, `ST_Contains(poligon, titik)` lalu stasiun terdekat dari titik itu dalam toleransi 150 m lewat `geo.metric()`. Baris yang gagal ditandai `unmatched`, tidak dibuang diam-diam |
+| Menentukan 5/10/15 menit | Baca atribut durasi kalau ada; kalau tidak, urutkan luas per titik asal — terkecil 5, terbesar 15. Deterministik, dan metode penentuannya dicatat per baris |
+| Poligon bersarang | 5 di dalam 10 di dalam 15. Disimpan apa adanya, tetapi agregasi titik memakai cincin eksklusif (`ST_Difference`); tanpa itu satu titik minat terhitung tiga kali dan variabel U langsung salah |
+| Permeability Index | Butuh kecepatan berjalan yang dipakai tools GeoMAPID, karena radius lingkaran setara = v x t. Kalau tidak diketahui dari parameter tools-nya, asumsinya disimpan di kolom dan ikut tampil sebagai metadata |
+
+**Yang masih ditunggu:** `layer_id` tiap layer isochrone, daftar stasiun yang sudah
+di-generate (menentukan cakupan variabel A — stasiun tanpa isochrone berujung confidence
+rendah, bukan error), dan `backend/.env` terisi `MAPID_API_KEY` + `MAPID_PROJECT_ID` yang
+sampai hari ini belum ada di mesin pengerjaan.
+
+**Catatan dokumentasi.** `https://mapid.co.id/docs/dokumentasi-api` dirender di sisi klien
+dan tidak dapat dibaca oleh pengambil halaman biasa — yang keluar hanya layar "Memuat
+dokumentasi". Spesifikasi endpoint karena itu belum terverifikasi dari sumber resmi; yang
+dipakai adalah pola yang sudah terbukti jalan di `mapid.py`.
+
+### 7.7 Penyedia model bahasa: Gemini diganti Groq
+
+Penyesuaian dari Villyan, 6 Sep. Alasannya pengalaman sebelumnya dengan Gemini kurang baik.
+
+**Kedudukan terhadap PRD: netral.** PRD Tabel 9 hal. 18 hanya menyebut "AI Router untuk
+memanggil LLM pada panel AI Insight", tanpa menyebut penyedia mana pun. Jadi ini bukan
+penyimpangan, melainkan pengisian ruang yang memang dibiarkan terbuka.
+
+**Bukan sekadar tukar kunci.** Kode memakai SDK OpenAI, yang arahnya ditentukan tiga nilai:
+kunci, base URL, dan id model. Menempelkan kunci Groq ke setelan lama akan tetap mengirimkannya
+ke alamat Google dan ditolak. Karena itu ketiganya diganti sekaligus.
+
+**Nama setelan diganti jadi netral penyedia.** `GEMINI_API_KEY`, `GEMINI_BASE_URL`, dan
+`GEMINI_MODEL` menjadi `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`; `gemini_service.py` menjadi
+`llm_service.py`, kelas `GeminiService` menjadi `LLMService`. Alasannya bukan kerapian:
+nama yang menyebut Gemini sementara isinya kunci Groq akan menyesatkan pembaca berikutnya, dan
+pesan errornya akan menyebut penyedia yang salah saat ada yang gagal.
+
+**Berkas yang berubah:** `backend/app/core/config.py`, `backend/app/services/llm_service.py`
+(menggantikan `gemini_service.py`), `backend/app/api/routes/chat.py`, `backend/example.env`,
+`example.env`, `docker-compose.yml`.
+
+**Nilai bawaan sekarang:**
+
+| Setelan | Nilai |
+|---|---|
+| `LLM_BASE_URL` | `https://api.groq.com/openai/v1` |
+| `LLM_MODEL` | `llama-3.3-70b-versatile` |
+
+**Menggantikan B7 di bagian 2.4.** Isi kekhawatirannya tetap sama dan belum hilang: id model
+yang keliru baru gagal saat chat dipakai, bukan saat backend start. Yang berubah hanya id
+model mana yang harus diverifikasi. Daftar model yang benar-benar tersedia dapat diperiksa
+dengan `curl https://api.groq.com/openai/v1/models -H "Authorization: Bearer <kunci>"`.
+
+**Terverifikasi sejauh ini:** seluruh backend terimpor bersih setelah penggantian, dan ketiga
+rute lama (`/api/health`, `/api/stations`, `/api/chat`) masih terdaftar. **Belum terverifikasi:**
+panggilan sungguhan ke Groq, karena kuncinya belum ada di mesin pengerjaan.
+
+### 7.8 Eksekusi Fase 0 — hasil dan satu temuan penting
+
+Dikerjakan 6 Sep, setelah Docker dinyalakan dan kredensial diisi. Bagian ini menjawab keempat
+butir verifikasi di bagian 6 yang selama ini menggantung.
+
+**Temuan: penyaring `include_object` di `alembic/env.py` jauh dari cukup.**
+
+Autogenerate pertama menghasilkan revisi 818 baris berisi **42 `op.drop_table`**. Penyebabnya
+image `postgis/postgis` memasang ekstensi `postgis_tiger_geocoder`, yang membawa 36 tabel
+geocoder Amerika ke database yang sama. Alembic membandingkan model kita dengan seluruh isi
+database, tidak menemukan tabel-tabel itu di model, lalu menyimpulkan semuanya harus dihapus.
+Menjalankannya akan membongkar ekstensi PostGIS-nya.
+
+Penyaring lama hanya mendaftar lima nama tabel secara manual, jadi 36 tabel tiger lolos.
+Diganti dengan aturan yang tidak bergantung pada daftar nama:
+
+```python
+if type_ in ("table", "index") and reflected and compare_to is None:
+    return False
+```
+
+Artinya: tabel atau indeks yang dibaca dari database tetapi tidak punya padanan di model kita
+bukan milik kita, jadi tidak pernah diusulkan untuk dihapus. Konsekuensinya, kalau suatu saat
+sebuah model memang sengaja dihapus, `drop_table`-nya ditulis manual. Itu jauh lebih murah
+daripada risiko kehilangan tabel yang tidak diniatkan.
+
+Setelah diperbaiki, revisi ulang menghasilkan 141 baris: 6 `create_table`, 7 `create_index`,
+nol indeks spasial (GeoAlchemy2 membuatnya sendiri), nol tabel PostGIS tersentuh.
+
+**Jawaban atas empat butir verifikasi bagian 6:**
+
+| # | Butir | Hasil |
+|---|---|---|
+| 1 | Compose naik bersih setelah MinIO dicabut | Service `db` naik sehat; stack penuh sedang dibangun saat catatan ini ditulis |
+| 2 | Asisten AI hidup di jalur Docker (B1) | Panggilan sungguhan ke penyedia **berhasil** di luar Docker. Jalur Docker menunggu build selesai |
+| 3 | Indeks `idx_stations_location` benar ada (B3) | **Ada.** Lima indeks GiST terbentuk: `idx_stations_location`, `idx_poi_location`, `idx_price_references_location`, `idx_isochrones_geom`, `idx_isochrones_origin_point`. Koreksi pada baris B3 terbukti benar — `spatial_index=True` memang default GeoAlchemy2 |
+| 4 | Tuntaskan Alembic (B5) | **Selesai.** Revisi `d4a7fc2da6ce` dibuat dan diterapkan; `docker-entrypoint.sh` langkah 2 sekarang `alembic upgrade head`, bukan `Base.metadata.create_all` |
+
+**Koreksi pada 7.7.** `LLM_MODEL` bawaan `llama-3.3-70b-versatile` **tidak tersedia** di Groq.
+Daftar model yang benar-benar ada di akun hanya 14, dan yang layak untuk chat: `groq/compound`,
+`groq/compound-mini`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b`,
+`qwen/qwen3.8-27b`. Dipilih **`openai/gpt-oss-120b`** dan sudah diuji dengan panggilan sungguhan.
+Ini persis kegagalan yang diperingatkan B7: id model yang keliru tidak membuat backend gagal
+start, hanya meledak saat chat dipakai.
+
+**Catatan kredensial.** Villyan mengisi `backend/.env`, tetapi `.env` di root belum ada — padahal
+itu yang dibaca Docker Compose, dan `backend/.dockerignore` sengaja melarang `.env` masuk image.
+Root `.env` dibuat dengan menyalin nilai dari `backend/.env`. Keduanya diabaikan Git.
+
+**Skema di database sekarang:** `stations`, `isochrones`, `poi`, `passenger_volume`,
+`area_profile`, `price_references`, plus `alembic_version`.
+
+### 7.9 Fase 1 tuntas — dua lubang konfigurasi Alembic dan satu bug nilai bawaan
+
+Lima belas tabel sekarang hidup di database, lewat tiga revisi berantai:
+
+| Revisi | Isi |
+|---|---|
+| `d4a7fc2da6ce` | `stations` (yang lama) + `isochrones`, `poi`, `passenger_volume`, `area_profile`, `price_references` |
+| `8e28c27f6231` | Rantai Activity (`activity_raw`, `activity_points`, `activity_extractions`, `crowd_ratings`) dan objek stasiun (`station_zones`, `tenants`, `tenant_clusters`, `ad_spots`, `facility_issues`) |
+| `0883f21f1e5d` | Nilai bawaan sisi database untuk 30 kolom |
+
+**Lubang 1 — `include_object` meloloskan tabel ekstensi.** Dicatat di bagian 7.8.
+
+**Lubang 2 — `compare_server_default` mati secara bawaan.** Setelah `server_default` ditambahkan
+ke model, autogenerate menghasilkan migrasi **kosong**. Bukan karena tidak ada perubahan,
+melainkan karena Alembic tidak membandingkan nilai bawaan kecuali diminta. `compare_type` yang
+sudah ada sebelumnya punya sifat sama. Keduanya kini dinyalakan di kedua mode (online dan
+offline) di `alembic/env.py`.
+
+Sifat kedua lubang ini sama dan itu yang berbahaya: **matinya tidak menghasilkan error apa pun.**
+Autogenerate tetap jalan, tetap menghasilkan berkas, hanya isinya salah atau kosong. Satu-satunya
+cara menemukannya adalah membaca berkas migrasinya sebelum dijalankan.
+
+**Bug — `default=` bukan nilai bawaan database.** Ditemukan lewat uji langsung, bukan pembacaan
+kode: memasukkan satu baris ke `activity_points` lewat SQL gagal dengan
+`null value in column "photo_urls" violates not-null constraint`. Penyebabnya `default=list` di
+SQLAlchemy hanya diterapkan saat data masuk lewat ORM. Jalur lain — SQL langsung, `COPY` untuk
+impor massal, Adminer — melewatinya sepenuhnya.
+
+Karena impor massal justru rencana utama Fase 2, ini akan menggigit. Diperbaiki dengan menambah
+`server_default` pada seluruh kolom JSONB, boolean, penghitung, dan status berdefault, lalu
+diverifikasi ulang: baris yang sama sekarang masuk, dengan `pending`, `[]`, dan `f` diisi
+database sendiri.
+
+**Terverifikasi:** 15 tabel ada, 11 indeks GiST terbentuk, 34 tabel PostGIS tiger utuh, tiga
+`CheckConstraint` terbukti menolak data tidak sah (`rating` di luar 1-5, `gate_status` tak
+dikenal, `minutes` nol), backend dibangun ulang dan start bersih dengan `alembic upgrade head`,
+serta `/api/health`, `/api/stations`, dan `/api/chat` semuanya menjawab benar.
+
+**Catatan operasional.** Menambah revisi Alembic tanpa membangun ulang image backend membuat
+container gagal start — image lama tidak memuat berkas revisi yang sudah tercatat di database.
+Setiap kali ada revisi baru, `docker compose up -d --build backend` wajib menyusul.

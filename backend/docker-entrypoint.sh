@@ -31,8 +31,11 @@ else:
     sys.exit(1)
 PY
 
-# 2. Create tables (idempotent — SQLAlchemy skips ones that already exist).
-python -c "import app.models.station; from app.core.database import engine, Base; Base.metadata.create_all(bind=engine)"
+# 2. Bawa skema ke bentuk terbaru. Menggantikan Base.metadata.create_all, yang
+#    hanya bisa MEMBUAT tabel baru dan diam saja kalau ada kolom baru di tabel
+#    yang sudah ada. Alembic menerapkan perubahannya juga, dan riwayatnya
+#    tercatat di tabel alembic_version.
+alembic upgrade head
 
 # 3. Seed stations. Defaults to the bundled GeoJSON so the stack works without
 #    MAPID credentials. Set SEED_ON_START=0 to skip, or SEED_SOURCE=mapid to
