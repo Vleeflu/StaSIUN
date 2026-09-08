@@ -1,0 +1,98 @@
+# Matriks perbandingan berpasangan AHP untuk bobot variabel SEPI (blocker N9).
+#
+# ============================================================================
+# SIAPA YANG DITANYA
+# ============================================================================
+# PRD hal. 13 hanya menulis "AHP dari penilaian ahli" dan TIDAK mendefinisikan
+# siapa ahlinya. Yang dinilai kepentingan relatif ANTAR-VARIABEL SEPI, bukan
+# kondisi stasiun mana pun — jadi tidak ada kaitannya dengan data Activity,
+# survey lapangan, maupun NLP.
+#
+# Urutan pilihan, dari yang paling kuat:
+#
+#   1. PELAKU USAHA di dalam atau sekitar stasiun. Paling dianjurkan. Mereka
+#      sudah mengambil keputusan komersial sungguhan dengan modal sendiri,
+#      jadi tahu dari pengalaman langsung apa yang menentukan lapak bertahan.
+#   2. Praktisi ritel transit, pengelola properti stasiun, dosen perencanaan
+#      kota atau ekonomi perkotaan.
+#   3. Tim sendiri berbasis riset literatur. Sah, ASALKAN ditulis jujur di
+#      kolom peran sebagai "tim, berbasis literatur" dan sumbernya dicatat.
+#
+# Petugas keamanan atau kebersihan TIDAK dianjurkan untuk AHP. Mereka
+# narasumber yang tepat untuk skala keramaian (PRD hal. 10: punya basis
+# pembanding harian), tetapi itu pertanyaan berbeda — soal seberapa ramai,
+# bukan soal apa yang membuat ruang komersial bernilai.
+#
+# ============================================================================
+# CARA BERTANYA — pakai kalimat ini, jangan istilah variabelnya
+# ============================================================================
+# Jangan tanyakan "Transportasi versus Ekonomi". Pakai terjemahan operasional
+# berikut; jawabannya tetap masuk ke variabel yang sama.
+#
+#   T_vs_E  "Mana yang lebih menentukan ramainya jualan di sini: banyaknya
+#            orang yang LEWAT, atau DAYA BELI orang di sekitar sini?"
+#   T_vs_A  "...banyaknya orang LEWAT, atau seberapa MUDAH orang berjalan kaki
+#            ke sini tanpa terhalang rel, sungai, atau jalan besar?"
+#   T_vs_U  "...banyaknya orang LEWAT, atau RAMAINYA KAWASAN sekitar - banyak
+#            kantor, sekolah, rumah sakit, pertokoan?"
+#   T_vs_C  "...banyaknya orang LEWAT, atau kondisi DI DALAM stasiunnya -
+#            banyak lapak lain, ada papan iklan, fasilitas terawat?"
+#   E_vs_A  "...DAYA BELI orang sekitar, atau kemudahan orang BERJALAN ke sini?"
+#   E_vs_U  "...DAYA BELI orang sekitar, atau RAMAINYA KAWASAN sekitar?"
+#   E_vs_C  "...DAYA BELI orang sekitar, atau kondisi DI DALAM stasiun?"
+#   A_vs_U  "...kemudahan BERJALAN ke sini, atau RAMAINYA KAWASAN sekitar?"
+#   A_vs_C  "...kemudahan BERJALAN ke sini, atau kondisi DI DALAM stasiun?"
+#   U_vs_C  "...RAMAINYA KAWASAN sekitar, atau kondisi DI DALAM stasiun?"
+#
+# Lalu tanyakan seberapa jauh bedanya: "sama saja" (1), "sedikit lebih" (3),
+# "jelas lebih" (5), "jauh lebih" (7), "tidak sebanding" (9).
+#
+# ============================================================================
+# SKALA SAATY
+# ============================================================================
+#     1  sama penting            5  yang KIRI jelas lebih penting
+#     3  yang KIRI sedikit lebih 7  yang KIRI sangat lebih penting
+#     9  yang KIRI mutlak lebih  2,4,6,8  nilai antara
+#
+#   Kalau yang KANAN yang lebih penting, tulis kebalikannya sebagai desimal:
+#     sedikit -> 0.333   jelas -> 0.2   sangat -> 0.143   mutlak -> 0.111
+#
+# ============================================================================
+# BEBERAPA PENILAI SEKALIGUS
+# ============================================================================
+# Boleh mengisi lebih dari satu blok penilai. Jawaban digabung memakai RATA-
+# RATA GEOMETRIK, bukan rata-rata biasa. Itu cara baku AHP (Aggregation of
+# Individual Judgements), dan alasannya matematis: rata-rata geometrik
+# mempertahankan sifat resiprokal matriks, rata-rata biasa merusaknya. Kalau
+# satu orang menjawab 3 dan satu lagi 1/3, rata-rata geometriknya 1 (memang
+# seimbang); rata-rata biasanya 1,67 - condong ke penjawab pertama tanpa
+# alasan apa pun.
+#
+# Tiga penilai sudah cukup baik. Satu pun tetap sah.
+#
+# Setelah diisi:  python -m scripts.check_ahp
+
+penilai:
+  - nama: ""          # nama orang, atau "Tim StaSIUN"
+    peran: ""         # mis. "pemilik kedai di Stasiun Manggarai"
+                      #      "tim, berbasis literatur"
+    tanggal: ""       # YYYY-MM-DD
+    catatan: ""       # opsional: lokasi wawancara, atau sumber literaturnya
+    perbandingan:
+      T_vs_E: null
+      T_vs_A: null
+      T_vs_U: null
+      T_vs_C: null
+      E_vs_A: null
+      E_vs_U: null
+      E_vs_C: null
+      A_vs_U: null
+      A_vs_C: null
+      U_vs_C: null
+
+  # Salin blok di atas untuk penilai kedua dan ketiga. Hapus kalau tidak ada.
+
+# Penggabungan entropy dan AHP: w = lambda*w_entropy + (1-lambda)*w_ahp.
+# PRD tidak menetapkan nilainya. 0,5 = percaya data dan ahli sama besar.
+# Turunkan kalau bobot entropi terbukti timpang (lihat ADJUSTMENT 7.13).
+lambda_entropy: 0.5

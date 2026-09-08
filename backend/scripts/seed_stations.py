@@ -1,7 +1,10 @@
 """Isi tabel stations dari berkas GeoJSON lokal.
 
-Sumbernya data OpenStreetMap stasiun kereta di DKI Jakarta. Cuma jaringan KAI
-yang diambil; MRT, LRT, dan Whoosh dilewati.
+Sumbernya data OpenStreetMap stasiun kereta di DKI Jakarta. Seluruh moda rel
+disimpan — KRL, MRT, LRT, sampai kereta cepat — karena titik non-KRL dipakai
+sebagai indikator konektivitas antarmoda pada variabel Aksesibilitas. Yang
+dibatasi hanya penempelan roster lin, yang cuma berlaku untuk jaringan KAI;
+penjagaannya ada di `KAI_NETWORKS` di app/services/station_import.py.
 """
 
 import json
