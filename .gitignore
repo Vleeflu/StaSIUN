@@ -14,3 +14,10 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Markdown = catatan kerja internal, bukan untuk GitHub — kecuali README
+# (di kedalaman mana pun), yang tetap dilacak seperti biasa.
+*.md
+!**/README.md
+
+PRD_StaSIUN_Jujursayatidaktahudanjugatidakdiberitahu.pdf
