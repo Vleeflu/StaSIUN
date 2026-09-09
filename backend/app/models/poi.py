@@ -10,9 +10,7 @@ class Poi(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
-    # Kategori dari katalog, misal "alfamart". Dipakai buat pelaporan per jenis.
     category: Mapped[str] = mapped_column(String, index=True)
-    # Variabel SEPI yang disuapi kategori ini: E, U, atau C.
     variable: Mapped[str] = mapped_column(String(1), index=True)
     kabkot: Mapped[str | None]
     kecamatan: Mapped[str | None]

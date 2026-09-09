@@ -20,19 +20,15 @@ class StationScore(Base):
     )
     minutes: Mapped[int] = mapped_column(Integer)
 
-    # Skor akhir TOPSIS, 0 sampai 100, dan peringkatnya di antara stasiun lain.
     sepi: Mapped[float] = mapped_column(Float)
     rank: Mapped[int] = mapped_column(Integer)
 
-    # Nilai tiap variabel sebelum dinormalisasi TOPSIS. T sudah berupa gabungan
-    # 0-1; sisanya satuan aslinya.
     raw_t: Mapped[float] = mapped_column(Float)
     raw_e: Mapped[float] = mapped_column(Float)
     raw_a: Mapped[float] = mapped_column(Float)
     raw_u: Mapped[float] = mapped_column(Float)
     raw_c: Mapped[float] = mapped_column(Float)
 
-    # Bahan penyusun T dan luas jangkauannya, buat penelusuran.
     line_count: Mapped[int] = mapped_column(Integer)
     halte_count: Mapped[int] = mapped_column(Integer)
     other_mode_count: Mapped[int] = mapped_column(Integer)

@@ -55,12 +55,8 @@ def list_stations(
                     "types": r.types,
                     "network": r.types[0] if r.types else None,
                     "lines": r.lines,
-                    # Dua nilai skalar ini disiapkan di sini karena MapLibre
-                    # mengubah properti array jadi string di dalam worker-nya.
                     "primary_line": r.lines[0] if r.lines else None,
                     "is_interchange": len(r.lines) > 1,
-                    # Stasiun non-KRL tidak punya lin, jadi ikon dan warnanya
-                    # jatuh ke nama jaringannya.
                     "line_key": "-".join(r.lines) if r.lines else (r.types[0] if r.types else "none"),
                     "served": r.served,
                     "sepi": r.sepi,

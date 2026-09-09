@@ -12,6 +12,30 @@ export type StationProps = {
   line_key: string;
   kecamatan: string | null;
   address: string | null;
+  /** Skor SEPI 0-100 dan peringkatnya. Null selama belum dihitung. */
+  sepi: number | null;
+  sepi_rank: number | null;
+};
+
+/** Rincian skor satu stasiun, dari /stations/{id}/score. */
+export type StationScore = {
+  station_id: number;
+  minutes: number;
+  sepi: number;
+  rank: number;
+  components: {
+    T: number;
+    E: number;
+    A: number;
+    U: number;
+    C: number;
+  };
+  detail: {
+    line_count: number;
+    halte_count: number;
+    other_mode_count: number;
+    area_km2: number;
+  };
 };
 
 export type StationFeature = Feature<Point, StationProps>;

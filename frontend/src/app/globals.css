@@ -11,6 +11,14 @@
   --color-hair: #dedbd9;
   --color-accent: #ec3013;
   --color-accent-soft: #fdeae6;
+
+  /* Tiga lapisan peta dulu sama-sama merah, jadi skor, pilihan, dan jangkauan
+     saling tertukar. Sekarang tiap peran punya ronanya sendiri, dan ketiganya
+     dijaga berjarak dari warna lin KRL yang tampil di peta:
+       lin B 349°  T 30°  R 85°  C 197°  A 222°  TP 324°
+     Kuning 48° dan magenta 303° masing-masing 18° dan 21° dari tetangganya. */
+  --color-select: #f2c101;
+  --color-reach: #a4249e;
 }
 
 @theme inline {

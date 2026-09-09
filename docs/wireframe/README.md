@@ -38,8 +38,12 @@ node -e "const s=require('sharp'),f=require('fs');for(const [n,w] of [['1-layar-
 ## Yang perlu diingat
 
 Garis utuh berarti sudah dibangun dan berjalan. Garis putus-putus berarti masih
-rencana — termasuk blok skor SEPI, yang kerangkanya sudah digambar tetapi
-angkanya menunggu mesin skoring.
+rencana.
+
+Blok skor SEPI sekarang bergaris utuh: mesin skoringnya sudah jalan, dan angka
+yang tergambar — 63,7 dari 100, peringkat #2 — contoh nyata dari stasiun Sawah
+Besar pada pita 10 menit, bukan angka karangan. Yang masih sementara justru
+bobot AHP-nya; itu ditandai sebagai catatan tersendiri di lembar 2.
 
 Ini wireframe rendah-fidelitas: proporsinya mengikuti tata letak yang sudah
 jalan, tetapi warna dan tipografi final sengaja tidak diwakili.

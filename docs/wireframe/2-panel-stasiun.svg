@@ -31,38 +31,43 @@
 <line x1="40" y1="280" x2="46" y2="280" stroke="#ec3013" stroke-width="1.4"/>
 <circle cx="30" cy="280" r="10" fill="#ec3013"/>
 <text x="30" y="283.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">7</text>
-<rect x="62" y="304" width="222" height="64" fill="#ffffff" stroke="#9aa0a6" stroke-width="1" stroke-dasharray="5 4"/>
+<rect x="62" y="304" width="222" height="64" fill="#ffffff" stroke="#1f2328" stroke-width="1"/>
 <text x="72" y="322" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8" fill="#9aa0a6" font-weight="600" text-anchor="start" letter-spacing="1">INDEKS SEPI</text>
-<rect x="198" y="312" width="72" height="13" fill="#ffffff" stroke="#9aa0a6" stroke-width="1" stroke-dasharray="3 2"/>
-<text x="234" y="321" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="6.5" fill="#6b7280" font-weight="400" text-anchor="middle">belum terhitung</text>
-<rect x="72" y="338" width="92" height="5" fill="#eceef1"/>
-<rect x="72" y="348" width="64" height="5" fill="#eceef1"/>
-<text x="272" y="356" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="20" fill="#9aa0a6" font-weight="700" text-anchor="end">—/100</text>
+<rect x="190" y="312" width="80" height="13" fill="#ffffff" stroke="#1f2328" stroke-width="1"/>
+<text x="230" y="321" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="6.5" fill="#6b7280" font-weight="400" text-anchor="middle">pita 10 menit</text>
+<text x="72" y="340" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7.5" fill="#6b7280" font-weight="400" text-anchor="start">Peringkat #2 dari 46 stasiun KRL</text>
+<text x="72" y="352" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7" fill="#9aa0a6" font-weight="400" text-anchor="start">TOPSIS di atas bobot Entropy + AHP</text>
+<text x="272" y="356" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="20" fill="#ec3013" font-weight="700" text-anchor="end">63,7/100</text>
 <line x1="40" y1="320" x2="46" y2="320" stroke="#ec3013" stroke-width="1.4"/>
 <circle cx="30" cy="320" r="10" fill="#ec3013"/>
 <text x="30" y="323.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">8</text>
-<rect x="62" y="380" width="222" height="112" fill="#ffffff" stroke="#9aa0a6" stroke-width="1" stroke-dasharray="5 4"/>
+<rect x="62" y="380" width="222" height="112" fill="#ffffff" stroke="#1f2328" stroke-width="1"/>
 <text x="72" y="398" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8" fill="#9aa0a6" font-weight="600" text-anchor="start" letter-spacing="1">KOMPONEN SEPI · 5 VARIABEL</text>
 <text x="72" y="416" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8.5" fill="#6b7280" font-weight="700" text-anchor="start">T</text>
 <text x="86" y="416" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7.5" fill="#6b7280" font-weight="400" text-anchor="start">Transportasi</text>
 <rect x="86" y="419" width="154" height="5" fill="#e4e7ec"/>
-<text x="272" y="416" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8" fill="#9aa0a6" font-weight="400" text-anchor="end">—</text>
+<rect x="86" y="419" width="16.94" height="5" fill="#ec3013"/>
+<text x="272" y="416" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7" fill="#6b7280" font-weight="400" text-anchor="end">11%</text>
 <text x="72" y="432" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8.5" fill="#6b7280" font-weight="700" text-anchor="start">E</text>
 <text x="86" y="432" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7.5" fill="#6b7280" font-weight="400" text-anchor="start">Ekonomi</text>
 <rect x="86" y="435" width="154" height="5" fill="#e4e7ec"/>
-<text x="272" y="432" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8" fill="#9aa0a6" font-weight="400" text-anchor="end">—</text>
+<rect x="86" y="435" width="123.2" height="5" fill="#ec3013"/>
+<text x="272" y="432" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7" fill="#6b7280" font-weight="400" text-anchor="end">80 titik</text>
 <text x="72" y="448" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8.5" fill="#6b7280" font-weight="700" text-anchor="start">A</text>
 <text x="86" y="448" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7.5" fill="#6b7280" font-weight="400" text-anchor="start">Aksesibilitas</text>
 <rect x="86" y="451" width="154" height="5" fill="#e4e7ec"/>
-<text x="272" y="448" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8" fill="#9aa0a6" font-weight="400" text-anchor="end">—</text>
+<rect x="86" y="451" width="23.099999999999998" height="5" fill="#ec3013"/>
+<text x="272" y="448" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7" fill="#6b7280" font-weight="400" text-anchor="end">1,46 km²</text>
 <text x="72" y="464" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8.5" fill="#6b7280" font-weight="700" text-anchor="start">U</text>
 <text x="86" y="464" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7.5" fill="#6b7280" font-weight="400" text-anchor="start">Urban</text>
 <rect x="86" y="467" width="154" height="5" fill="#e4e7ec"/>
-<text x="272" y="464" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8" fill="#9aa0a6" font-weight="400" text-anchor="end">—</text>
+<rect x="86" y="467" width="115.5" height="5" fill="#ec3013"/>
+<text x="272" y="464" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7" fill="#6b7280" font-weight="400" text-anchor="end">75 titik</text>
 <text x="72" y="480" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8.5" fill="#6b7280" font-weight="700" text-anchor="start">C</text>
 <text x="86" y="480" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7.5" fill="#6b7280" font-weight="400" text-anchor="start">Komersial</text>
 <rect x="86" y="483" width="154" height="5" fill="#e4e7ec"/>
-<text x="272" y="480" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8" fill="#9aa0a6" font-weight="400" text-anchor="end">—</text>
+<rect x="86" y="483" width="154.0" height="5" fill="#ec3013"/>
+<text x="272" y="480" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7" fill="#6b7280" font-weight="400" text-anchor="end">100 titik</text>
 <rect x="62" y="504" width="222" height="116" fill="#ffffff" stroke="#1f2328" stroke-width="1"/>
 <text x="72" y="522" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="8" fill="#9aa0a6" font-weight="600" text-anchor="start" letter-spacing="1">PROFIL STASIUN</text>
 <text x="72" y="539" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="7.5" fill="#6b7280" font-weight="400" text-anchor="start">Kode KAI</text>
@@ -95,17 +100,21 @@
 <circle cx="370" cy="258" r="10" fill="#ec3013"/>
 <text x="370" y="261.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">8</text>
 <text x="388" y="256" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Blok skor SEPI</text>
-<text x="388" y="271" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Susunan akhirnya sudah digambar lengkap, tetapi angkanya menunggu mesin skoring. Nilai ditulis sebagai</text>
-<text x="388" y="283" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">tanda hubung dan bar dibiarkan kosong, dengan penanda BELUM TERHITUNG di kepala seksi — bukan diisi angka</text>
-<text x="388" y="295" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">contoh.</text>
+<text x="388" y="271" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Skor dan peringkatnya berasal dari mesin skoring yang sudah berjalan: TOPSIS di atas bobot gabungan Entropy</text>
+<text x="388" y="283" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">dan AHP, dihitung di dalam poligon isochrone. Panjang bar dibandingkan dengan komponen tertinggi di stasiun</text>
+<text x="388" y="295" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">itu sendiri, dan angka mentahnya tetap ditulis di sebelahnya lengkap dengan satuannya.</text>
 <rect x="366" y="338" width="8" height="8" fill="#9aa0a6"/>
-<text x="388" y="340" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Profil stasiun</text>
-<text x="388" y="355" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Satu-satunya blok bergaris utuh di panel ini: kode KAI, lin dilayani, status dilayani atau dilintasi,</text>
-<text x="388" y="367" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">kecamatan, alamat, dan koordinat. Semuanya diambil langsung dari basis data.</text>
+<text x="388" y="340" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Bobot AHP</text>
+<text x="388" y="355" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Perbandingan berpasangannya masih angka sementara dan harus diganti hasil kesepakatan tim. Consistency</text>
+<text x="388" y="367" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">ratio diperiksa tiap kali dihitung; kalau mencapai 0,10 skoringnya berhenti.</text>
 <rect x="366" y="410" width="8" height="8" fill="#9aa0a6"/>
-<text x="388" y="412" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Menunggu data</text>
-<text x="388" y="427" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Footfall, dwell-time, dan arketipe LDA sengaja ditampilkan kosong supaya kebutuhan datanya terbaca sejak</text>
-<text x="388" y="439" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">awal, bukan disembunyikan.</text>
+<text x="388" y="412" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Profil stasiun</text>
+<text x="388" y="427" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Satu-satunya blok bergaris utuh di panel ini: kode KAI, lin dilayani, status dilayani atau dilintasi,</text>
+<text x="388" y="439" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">kecamatan, alamat, dan koordinat. Semuanya diambil langsung dari basis data.</text>
+<rect x="366" y="482" width="8" height="8" fill="#9aa0a6"/>
+<text x="388" y="484" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Menunggu data</text>
+<text x="388" y="499" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Footfall, dwell-time, dan arketipe LDA sengaja ditampilkan kosong supaya kebutuhan datanya terbaca sejak</text>
+<text x="388" y="511" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">awal, bukan disembunyikan.</text>
 <line x1="48" y1="766" x2="892" y2="766" stroke="#c9ced6" stroke-width="1"/>
 <text x="48" y="784" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9.5" fill="#9aa0a6" font-weight="400" text-anchor="start">Garis utuh berarti sudah berjalan; garis putus-putus berarti masih rencana.</text>
 <text x="892" y="784" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9.5" fill="#9aa0a6" font-weight="400" text-anchor="end">StaSIUN · MAPID WebGIS Competition 2026</text>

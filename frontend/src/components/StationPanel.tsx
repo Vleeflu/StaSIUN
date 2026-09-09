@@ -2,24 +2,16 @@
 
 import { useState, type ReactNode } from "react";
 
+import { useStationScore } from "@/hooks/useStationScore";
 import { badgeLabel, lineColor, lineLabel, lineTextColor } from "@/lib/lines";
+import { SEPI_COMPONENTS, componentShares, sepiColor } from "@/lib/sepi";
 import { parseLines } from "@/types/station";
 import type { StationFeature } from "@/types/station";
 
-// Empat sisi dari satu stasiun. Asisten tidak ikut di sini karena dia alat,
-// bukan sisi dari stasiun — tempatnya tombol mengambang di pojok peta.
 const TABS = ["Ikhtisar", "Ad-Space", "Tenant", "Naming"] as const;
 type Tab = (typeof TABS)[number];
 
-// Lima komponen SEPI persis seperti di proposal. Bobotnya belum ada angkanya
-// karena masih menunggu perhitungan Entropy + AHP.
-const SEPI_COMPONENTS = [
-  { key: "T", label: "Transportasi" },
-  { key: "E", label: "Ekonomi" },
-  { key: "A", label: "Aksesibilitas" },
-  { key: "U", label: "Urban" },
-  { key: "C", label: "Komersial" },
-];
+const SCORE_MINUTES = 10;
 
 const PLANNED_SOURCES = [
   "StrukGo · OCR struk",
@@ -134,41 +126,107 @@ function Overview({ station }: { station: StationFeature }) {
   const codes = parseLines(props.lines);
   const [lon, lat] = station.geometry.coordinates;
 
+  const stationId = typeof station.id === "number" ? station.id : null;
+  const { score, loading } = useStationScore(stationId, SCORE_MINUTES);
+
+  const shares = score ? componentShares(score.components) : null;
+
   return (
     <div className="flex flex-col">
-      <Section title="Indeks SEPI" pending>
+      <Section title="Indeks SEPI" pending={!score}>
         <div className="flex items-end justify-between">
-          <p className="text-xs leading-relaxed text-muted">
-            Akan dihitung dengan TOPSIS di atas bobot gabungan Entropy + AHP
-            (CR &lt; 0,10).
-          </p>
-          <p className="data-num shrink-0 pl-4 text-4xl font-semibold leading-none text-muted">
-            —
-            <span className="text-base font-medium">/100</span>
+          <div className="min-w-0 pr-4">
+            {score ? (
+              <>
+                <p className="text-xs leading-relaxed text-ink-soft">
+                  Peringkat{" "}
+                  <span className="data-num font-semibold text-ink">
+                    #{score.rank}
+                  </span>{" "}
+                  dari 46 stasiun KRL.
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted">
+                  TOPSIS di atas bobot Entropy + AHP, dihitung dalam jangkauan
+                  jalan kaki {score.minutes} menit.
+                </p>
+              </>
+            ) : (
+              <p className="text-xs leading-relaxed text-muted">
+                {loading
+                  ? "Memuat skor…"
+                  : "Belum dihitung untuk stasiun ini. Jalankan compute_sepi di backend."}
+              </p>
+            )}
+          </div>
+
+          <p
+            className="data-num shrink-0 text-4xl font-semibold leading-none"
+            style={{ color: score ? sepiColor(score.sepi) : undefined }}
+          >
+            {score ? score.sepi.toFixed(1) : "—"}
+            <span className="text-base font-medium text-muted">/100</span>
           </p>
         </div>
       </Section>
 
-      <Section title="Komponen SEPI — w₁T + w₂E + w₃A + w₄U + w₅C" pending>
+      <Section
+        title="Komponen SEPI — w₁T + w₂E + w₃A + w₄U + w₅C"
+        pending={!score}
+      >
         <ul className="flex flex-col gap-2.5">
-          {SEPI_COMPONENTS.map((c) => (
-            <li key={c.key} className="flex items-center gap-3">
-              <span className="data-num w-3 shrink-0 text-xs font-semibold text-ink-soft">
-                {c.key}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-xs text-ink-soft">{c.label}</span>
-                {/* Track kosong: kerangkanya sudah terlihat, isinya menunggu
-                    angka asli dari mesin skoring. */}
-                <span className="mt-1 block h-1.5 w-full bg-canvas" />
-              </span>
-              <span className="data-num w-6 shrink-0 text-right text-xs text-muted">
-                —
-              </span>
-            </li>
-          ))}
+          {SEPI_COMPONENTS.map((c) => {
+            const value = score?.components[c.key];
+            const share = shares?.[c.key] ?? 0;
+
+            return (
+              <li key={c.key} className="flex items-center gap-3">
+                <span className="data-num w-3 shrink-0 text-xs font-semibold text-ink-soft">
+                  {c.key}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs text-ink-soft">{c.label}</span>
+                  <span className="mt-1 block h-1.5 w-full bg-canvas">
+                    <span
+                      className="block h-full bg-accent"
+                      style={{ width: `${Math.round(share * 100)}%` }}
+                    />
+                  </span>
+                </span>
+                <span className="data-num w-16 shrink-0 text-right text-xs text-ink-soft">
+                  {value === undefined ? "—" : c.format(value)}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       </Section>
+
+      {score && (
+        <Section title="Isi jangkauan jalan kaki">
+          <dl className="flex flex-col gap-2">
+            <Row
+              label="Luas terjangkau"
+              value={`${score.detail.area_km2.toFixed(2)} km²`}
+              mono
+            />
+            <Row
+              label="Lin KRL berhenti"
+              value={String(score.detail.line_count)}
+              mono
+            />
+            <Row
+              label="Halte bus"
+              value={String(score.detail.halte_count)}
+              mono
+            />
+            <Row
+              label="Stasiun moda lain"
+              value={String(score.detail.other_mode_count)}
+              mono
+            />
+          </dl>
+        </Section>
+      )}
 
       <Section title="Profil stasiun">
         <dl className="flex flex-col gap-2">

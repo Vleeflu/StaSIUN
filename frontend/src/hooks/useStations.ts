@@ -17,14 +17,6 @@ type UseStationsResult = State & {
 
 const STATE_AWAL: State = { data: null, loading: true, error: null };
 
-/**
- * Mengambil data stasiun dari backend.
- * Beri `serviceType` untuk menyaring per jenis layanan (mis. "KERETA API"),
- * atau biarkan kosong untuk mengambil semua stasiun.
- *
- * State hanya diperbarui dari dalam callback async, tidak pernah sinkron di
- * badan effect, agar tidak memicu render berantai.
- */
 export function useStations(serviceType?: string): UseStationsResult {
   const [state, setState] = useState<State>(STATE_AWAL);
 

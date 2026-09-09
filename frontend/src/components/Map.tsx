@@ -5,6 +5,9 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { FALLBACK_COLOR, LINE_COLOR } from "@/lib/lines";
+import { SEPI_RAMP_EXPRESSION } from "@/lib/sepi";
+import type { FeatureCollection } from "geojson";
+
 import type { StationCollection, StationFeature } from "@/types/station";
 
 const STYLE_URL = `https://v2.basemap.mapid.io/styles/street-v2.0/style.json?key=${process.env.NEXT_PUBLIC_MAPID_KEY}`;
@@ -14,7 +17,16 @@ const INITIAL_ZOOM = 11;
 
 const ICON_SIZE = 60;
 
+// Warna peran, dijaga sama dengan token di globals.css. MapLibre menggambar di
+// kanvas WebGL, jadi tidak bisa membaca custom property CSS — nilainya harus
+// ditulis di sini, dan berubahnya wajib berbarengan.
+const COLOR_SEPI_UNSCORED = "#c9c4c1";
+const COLOR_SELECT = "#f2c101";
+const COLOR_REACH = "#a4249e";
+
 const EMPTY: StationCollection = { type: "FeatureCollection", features: [] };
+
+const EMPTY_POLYGONS: FeatureCollection = { type: "FeatureCollection", features: [] };
 
 export type FlyTarget = {
   lon: number;
@@ -26,6 +38,8 @@ export type FlyTarget = {
 type Props = {
   data: StationCollection | null;
   showLabels: boolean;
+  showSepi: boolean;
+  isochrones: FeatureCollection | null;
   selected: StationFeature | null;
   flyTo: FlyTarget | null;
   onSelect: (station: StationFeature) => void;
@@ -71,6 +85,8 @@ function createPieIcon(colors: string[]): ImageData {
 export default function Map({
   data,
   showLabels,
+  showSepi,
+  isochrones,
   selected,
   flyTo,
   onSelect,
@@ -78,8 +94,6 @@ export default function Map({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
-  // Handler klik dipasang sekali seumur peta, jadi ia harus membaca data dan
-  // callback terbaru lewat ref — bukan lewat closure yang keburu basi.
   const dataRef = useRef<StationCollection | null>(data);
   const selectRef = useRef(onSelect);
 
@@ -100,8 +114,6 @@ export default function Map({
       style: STYLE_URL,
       center: JAKARTA_CENTER,
       zoom: INITIAL_ZOOM,
-      // Kredit bawaan mendarat di kanan bawah, tepat di bawah tombol asisten.
-      // Dimatikan di sini lalu dipasang ulang di kiri bawah dalam bentuk ringkas.
       attributionControl: false,
     });
 
@@ -109,15 +121,11 @@ export default function Map({
 
     map.addControl(new maplibregl.NavigationControl(), "bottom-left");
 
-    // Kredit peta wajib tetap ada — lisensi OpenStreetMap dan ketentuan MAPID
-    // mengharuskannya. Mode ringkas menyusutkannya jadi satu tombol info.
     map.addControl(
       new maplibregl.AttributionControl({ compact: true }),
       "bottom-left"
     );
 
-    // Sprite MAPID tidak punya sebagian ikon yang dipanggil style-nya sendiri.
-    // Kita sodorkan gambar kosong 1x1 supaya konsol tidak penuh error.
     map.on("styleimagemissing", (e) => {
       if (map.hasImage(e.id)) return;
 
@@ -132,8 +140,6 @@ export default function Map({
       setMapReady(true);
     });
 
-    // Lebar peta berubah tiap panel stasiun dibuka atau ditutup. Tanpa ini
-    // kanvasnya tetap seukuran lama dan petanya kelihatan melar.
     const observer = new ResizeObserver(() => map.resize());
     observer.observe(container);
 
@@ -172,18 +178,88 @@ export default function Map({
 
     map.addSource("stations", { type: "geojson", data });
     map.addSource("selected-station", { type: "geojson", data: EMPTY });
+    map.addSource("isochrones", { type: "geojson", data: EMPTY_POLYGONS });
 
-    // Cincin penanda digambar lebih dulu supaya berada di bawah ikon stasiun.
+    map.addLayer({
+      id: "isochrone-fill",
+      type: "fill",
+      source: "isochrones",
+      layout: { visibility: "none" },
+      paint: {
+        "fill-color": COLOR_REACH,
+        "fill-opacity": [
+          "match",
+          ["get", "minutes"],
+          5,
+          0.18,
+          10,
+          0.12,
+          0.07,
+        ],
+      },
+    });
+
+    map.addLayer({
+      id: "isochrone-line",
+      type: "line",
+      source: "isochrones",
+      layout: { visibility: "none" },
+      paint: {
+        "line-color": COLOR_REACH,
+        "line-width": 1.2,
+        "line-opacity": 0.55,
+      },
+    });
+
     map.addLayer({
       id: "selected-ring",
       type: "circle",
       source: "selected-station",
       paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 14, 18, 32],
-        "circle-color": "#ec3013",
-        "circle-opacity": 0.12,
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#ec3013",
+        "circle-radius": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10,
+          18,
+          14,
+          28,
+          18,
+          42,
+        ],
+        "circle-color": COLOR_SELECT,
+        "circle-opacity": 0.16,
+        "circle-stroke-width": 2.5,
+        "circle-stroke-color": COLOR_SELECT,
+      },
+    });
+
+    map.addLayer({
+      id: "stations-sepi",
+      type: "circle",
+      source: "stations",
+      layout: { visibility: "none" },
+      paint: {
+        "circle-radius": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          10,
+          12,
+          14,
+          21,
+          18,
+          32,
+        ],
+        "circle-color": [
+          "case",
+          ["==", ["get", "sepi"], null],
+          COLOR_SEPI_UNSCORED,
+          ["interpolate", ["linear"], ["get", "sepi"], ...SEPI_RAMP_EXPRESSION],
+        ],
+        "circle-opacity": 0.75,
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#ffffff",
       },
     });
 
@@ -220,26 +296,26 @@ export default function Map({
       },
     });
 
-    map.on("click", "stations-circle", (e) => {
+    const handleClick = (e: maplibregl.MapLayerMouseEvent) => {
       const hit = e.features?.[0];
       const collection = dataRef.current;
 
       if (!hit || !collection) return;
 
-      // Properti dari event MapLibre sudah diserialisasi, jadi fitur aslinya
-      // dicari balik lewat id supaya panel menerima data yang utuh.
       const match = collection.features.find((f) => f.id === hit.id);
 
       if (match) selectRef.current(match);
-    });
+    };
 
-    map.on("mouseenter", "stations-circle", () => {
-      map.getCanvas().style.cursor = "pointer";
-    });
-
-    map.on("mouseleave", "stations-circle", () => {
-      map.getCanvas().style.cursor = "";
-    });
+    for (const layer of ["stations-circle", "stations-sepi"]) {
+      map.on("click", layer, handleClick);
+      map.on("mouseenter", layer, () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", layer, () => {
+        map.getCanvas().style.cursor = "";
+      });
+    }
   }, [mapReady, data]);
 
   useEffect(() => {
@@ -253,6 +329,31 @@ export default function Map({
       showLabels ? "visible" : "none"
     );
   }, [mapReady, showLabels]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map || !mapReady || !map.getLayer("stations-sepi")) return;
+
+    map.setLayoutProperty(
+      "stations-sepi",
+      "visibility",
+      showSepi ? "visible" : "none"
+    );
+  }, [mapReady, showSepi]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const source = map?.getSource("isochrones");
+
+    if (!map || !mapReady || !source || !map.getLayer("isochrone-fill")) return;
+
+    (source as maplibregl.GeoJSONSource).setData(isochrones ?? EMPTY_POLYGONS);
+
+    const visibility = isochrones ? "visible" : "none";
+    map.setLayoutProperty("isochrone-fill", "visibility", visibility);
+    map.setLayoutProperty("isochrone-line", "visibility", visibility);
+  }, [mapReady, isochrones]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -270,8 +371,6 @@ export default function Map({
 
     if (!map || !flyTo) return;
 
-    // Cuma mendekat, tidak pernah menjauh. Kalau user sudah zoom lebih dalam
-    // dari minZoom, tampilannya dibiarkan apa adanya.
     map.flyTo({
       center: [flyTo.lon, flyTo.lat],
       zoom: Math.max(map.getZoom(), flyTo.minZoom),

@@ -145,9 +145,9 @@ def planned_block(x, y, w, h):
         ("Ad-Space Opportunity", "peringkat kategori merek per zona"),
         ("Tenant Valuation", "matchmaking + Tenant Survival Index"),
         ("Naming Rights", "nilai kontrak + kandidat sponsor"),
-        ("Heatmap SEPI", "layer intensitas per kawasan"),
-        ("Isochrone 5/10/15 menit", "butuh pgRouting + jaringan pejalan"),
         ("Ekspor laporan", "unduhan PDF ringkasan stasiun"),
+        ("Footfall & dwell-time", "menunggu data operasional KAI"),
+        ("Arketipe stasiun (LDA)", "menunggu korpus Activity terisi"),
     ]
     colw = (w - 28) / 3
     for i, (a, b) in enumerate(items):
@@ -185,17 +185,22 @@ def draw_station_panel_inline(SPX, MPY, SPW, MPH):
     line(SPX, MPY + 122, SPX + SPW, MPY + 122, stroke=LINE)
 
     s = MPY + 122
-    rect(SPX + 12, s + 12, SPW - 24, 62, fill="#ffffff", stroke=SOFT, dash=DASH)
+    rect(SPX + 12, s + 12, SPW - 24, 62, fill="#ffffff", stroke=INK)
     caps(SPX + 22, s + 30, "Indeks SEPI")
-    txt(SPX + SPW - 22, s + 60, "—/100", size=17, anchor="end", fill=SOFT, weight="700")
+    txt(SPX + 22, s + 46, "peringkat #2 dari 46", size=7.5, fill=MID)
+    txt(SPX + SPW - 22, s + 60, "63,7/100", size=17, anchor="end", fill=ACC, weight="700")
 
-    rect(SPX + 12, s + 84, SPW - 24, 102, fill="#ffffff", stroke=SOFT, dash=DASH)
+    rect(SPX + 12, s + 84, SPW - 24, 102, fill="#ffffff", stroke=INK)
     caps(SPX + 22, s + 102, "Komponen SEPI")
+    # Panjang bar dan angka di bawah ini contoh nyata dari stasiun Sawah Besar.
+    shares = [0.11, 0.80, 0.15, 0.75, 1.00]
+    values = ["11%", "80", "1,46", "75", "100"]
     for i in range(5):
         yy = s + 112 + i * 15
         txt(SPX + 22, yy + 7, "TEAUC"[i], size=8, weight="700", fill=MID)
         rect(SPX + 34, yy + 2, SPW - 74, 5, fill=FILL)
-        txt(SPX + SPW - 20, yy + 7, "—", size=8, anchor="end", fill=SOFT)
+        rect(SPX + 34, yy + 2, (SPW - 74) * shares[i], 5, fill=ACC)
+        txt(SPX + SPW - 20, yy + 7, values[i], size=7, anchor="end", fill=MID)
 
     rect(SPX + 12, s + 204, SPW - 24, 108, fill="#ffffff", stroke=INK)
     caps(SPX + 22, s + 222, "Profil stasiun")
@@ -275,11 +280,11 @@ def draw_main_frame(AX, AY, AW, AH):
     line(CPX, CPY + 158, CPX + CPW, CPY + 158, stroke=LINE)
 
     caps(CPX + 10, CPY + 176, "Layer")
-    rect(CPX + 10, CPY + 183, 9, 9, fill="#ffffff", stroke=INK)
-    bar(CPX + 25, CPY + 186, 94, 5)
-    for dy in (200, 217):
-        rect(CPX + 10, CPY + dy, 9, 9, fill="#ffffff", stroke=SOFT, dash="3 2")
-        bar(CPX + 25, CPY + dy + 3, 108, 5, fill="#eceef1")
+    # Ketiga saklar sudah berfungsi: label stasiun, skor SEPI, dan isochrone.
+    # Yang isochrone baru bisa dinyalakan setelah ada stasiun terpilih.
+    for dy, width in ((183, 94), (200, 108), (217, 116)):
+        rect(CPX + 10, CPY + dy, 9, 9, fill="#ffffff", stroke=INK)
+        bar(CPX + 25, CPY + dy + 3, width, 5)
     line(CPX, CPY + 236, CPX + CPW, CPY + 236, stroke=LINE)
 
     caps(CPX + 10, CPY + 254, "Legenda")
@@ -354,17 +359,21 @@ def draw_station_frame(BX, BY, BW, BH):
     badge(BX - 18, BY + 128, 7, tick=(BX - 8, BY + 128, BX - 2, BY + 128))
 
     s = BY + 138
-    rect(BX + 14, s + 14, BW - 28, 64, fill="#ffffff", stroke=SOFT, dash=DASH)
+    rect(BX + 14, s + 14, BW - 28, 64, fill="#ffffff", stroke=INK)
     caps(BX + 24, s + 32, "Indeks SEPI")
-    rect(BX + BW - 100, s + 22, 72, 13, fill="#ffffff", stroke=SOFT, dash="3 2")
-    txt(BX + BW - 64, s + 31, "belum terhitung", size=6.5, anchor="middle", fill=MID)
-    bar(BX + 24, s + 48, 92, 5, fill="#eceef1")
-    bar(BX + 24, s + 58, 64, 5, fill="#eceef1")
-    txt(BX + BW - 26, s + 66, "—/100", size=20, anchor="end", fill=SOFT, weight="700")
+    rect(BX + BW - 108, s + 22, 80, 13, fill="#ffffff", stroke=INK)
+    txt(BX + BW - 68, s + 31, "pita 10 menit", size=6.5, anchor="middle", fill=MID)
+    txt(BX + 24, s + 50, "Peringkat #2 dari 46 stasiun KRL", size=7.5, fill=MID)
+    txt(BX + 24, s + 62, "TOPSIS di atas bobot Entropy + AHP", size=7, fill=SOFT)
+    txt(BX + BW - 26, s + 66, "63,7/100", size=20, anchor="end", fill=ACC, weight="700")
     badge(BX - 18, s + 30, 8, tick=(BX - 8, s + 30, BX - 2, s + 30))
 
-    rect(BX + 14, s + 90, BW - 28, 112, fill="#ffffff", stroke=SOFT, dash=DASH)
+    rect(BX + 14, s + 90, BW - 28, 112, fill="#ffffff", stroke=INK)
     caps(BX + 24, s + 108, "Komponen SEPI · 5 variabel")
+    # Angka contoh dari stasiun Sawah Besar, pita 10 menit. Satuannya sengaja
+    # ditulis karena tiap variabel beda: T skala 0-1, A luas, sisanya jumlah.
+    shares = [0.11, 0.80, 0.15, 0.75, 1.00]
+    values = ["11%", "80 titik", "1,46 km²", "75 titik", "100 titik"]
     for i, lb in enumerate(
         ["Transportasi", "Ekonomi", "Aksesibilitas", "Urban", "Komersial"]
     ):
@@ -372,7 +381,8 @@ def draw_station_frame(BX, BY, BW, BH):
         txt(BX + 24, yy + 8, "TEAUC"[i], size=8.5, weight="700", fill=MID)
         txt(BX + 38, yy + 8, lb, size=7.5, fill=MID)
         rect(BX + 38, yy + 11, BW - 96, 5, fill=FILL)
-        txt(BX + BW - 26, yy + 8, "—", size=8, anchor="end", fill=SOFT)
+        rect(BX + 38, yy + 11, (BW - 96) * shares[i], 5, fill=ACC)
+        txt(BX + BW - 26, yy + 8, values[i], size=7, anchor="end", fill=MID)
 
     rect(BX + 14, s + 214, BW - 28, 116, fill="#ffffff", stroke=INK)
     caps(BX + 24, s + 232, "Profil stasiun")
@@ -460,8 +470,8 @@ def sheet_main():
         1010, 152, 342,
         [
             (1, "Bilah aplikasi", "Identitas produk, hitungan stasiun aktif, dan tombol ekspor laporan yang belum berfungsi."),
-            (2, "Panel kontrol", "Pencarian stasiun dengan saran ketik, filter enam lin KRL, saklar layer, dan legenda simbol. Mengambang di atas peta."),
-            (3, "Peta", "MapLibre GL dengan basemap MAPID. Titik berwarna mengikuti lin; stasiun interchange digambar sebagai lingkaran multiwarna."),
+            (2, "Panel kontrol", "Pencarian stasiun dengan saran ketik, filter enam lin KRL, tiga saklar layer — label nama, skor SEPI, dan isochrone stasiun terpilih — serta legenda yang ikut berganti mengikuti saklar mana yang menyala."),
+            (3, "Peta", "MapLibre GL dengan basemap MAPID. Titik berwarna mengikuti lin; stasiun interchange digambar sebagai lingkaran multiwarna. Saat layer SEPI menyala, cincin berwarna skor muncul di belakang tiap penanda — penandanya sendiri tetap terlihat, jadi lin dan skor terbaca sekaligus."),
             (4, "Kontrol peta", "Zoom, kompas, dan kredit basemap. Kredit wajib tampil karena lisensi OpenStreetMap."),
             (5, "Tombol asisten", "Mengambang di pojok peta, tidak menempel pada stasiun mana pun. Lihat lembar 3."),
             (6, "Panel stasiun", "Dok kanan selebar 400 px, muncul setelah satu stasiun dipilih. Lihat lembar 2."),
@@ -490,7 +500,8 @@ def sheet_station():
         360, 152, 532,
         [
             (7, "Tab modul", "Ikhtisar sudah berisi data asli dari basis data. Ad-Space, Tenant, dan Naming masih berupa kerangka kosong dengan keterangan bahwa modulnya belum dibangun."),
-            (8, "Blok skor SEPI", "Susunan akhirnya sudah digambar lengkap, tetapi angkanya menunggu mesin skoring. Nilai ditulis sebagai tanda hubung dan bar dibiarkan kosong, dengan penanda BELUM TERHITUNG di kepala seksi — bukan diisi angka contoh."),
+            (8, "Blok skor SEPI", "Skor dan peringkatnya berasal dari mesin skoring yang sudah berjalan: TOPSIS di atas bobot gabungan Entropy dan AHP, dihitung di dalam poligon isochrone. Panjang bar dibandingkan dengan komponen tertinggi di stasiun itu sendiri, dan angka mentahnya tetap ditulis di sebelahnya lengkap dengan satuannya."),
+            (0, "Bobot AHP", "Perbandingan berpasangannya masih angka sementara dan harus diganti hasil kesepakatan tim. Consistency ratio diperiksa tiap kali dihitung; kalau mencapai 0,10 skoringnya berhenti."),
             (0, "Profil stasiun", "Satu-satunya blok bergaris utuh di panel ini: kode KAI, lin dilayani, status dilayani atau dilintasi, kecamatan, alamat, dan koordinat. Semuanya diambil langsung dari basis data."),
             (0, "Menunggu data", "Footfall, dwell-time, dan arketipe LDA sengaja ditampilkan kosong supaya kebutuhan datanya terbaca sejak awal, bukan disembunyikan."),
         ],
@@ -518,7 +529,7 @@ def sheet_assistant():
         [
             (9, "Asisten berbasis data", "Model bahasa dibekali seluruh daftar stasiun dari basis data — nama, kode KAI, lin, status — beserta penjelasan metode SEPI. Konteksnya disusun ulang setiap pertanyaan supaya selalu ikut data terbaru."),
             (0, "Chip konteks", "Stasiun yang sedang dibuka otomatis menjadi konteks, sehingga pertanyaan seperti “lin apa saja di sini” punya rujukan. Bisa dilepas lewat tanda silang untuk bertanya hal umum."),
-            (0, "Pagar kejujuran", "Asisten dilarang mengarang angka. Ditanya skor SEPI atau footfall, dia menyatakan datanya belum ada lalu menjelaskan bagaimana nanti dihitung."),
+            (0, "Pagar kejujuran", "Asisten dilarang mengarang angka. Ditanya hal yang datanya memang belum ada — footfall, arketipe LDA — dia menyatakannya belum ada lalu menjelaskan bagaimana nanti dihitung."),
         ],
         gap=76,
     )
