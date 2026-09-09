@@ -167,3 +167,23 @@
   padding-right: 8px;
   line-height: 29px;
 }
+
+/* Popup nama titik minat. Kotak putih bergaris tegas, sama seperti panel lain,
+   bukan gelembung membulat bawaan MapLibre. */
+.maplibregl-map .poi-popup .maplibregl-popup-content {
+  padding: 6px 9px;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  box-shadow: 3px 3px 0 rgb(32 30 29 / 0.06);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.maplibregl-map .poi-popup .maplibregl-popup-content span {
+  color: var(--color-muted);
+}
+
+.maplibregl-map .poi-popup .maplibregl-popup-tip {
+  display: none;
+}

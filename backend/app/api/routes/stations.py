@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.isochrone import Isochrone
+from app.models.poi import Poi
 from app.models.score import StationScore
 from app.models.station import Station
 from app.models.tenant_score import TenantScore
@@ -187,5 +188,54 @@ def station_tenants(
                 "headroom": r.headroom,
             }
             for r in rows
+        ],
+    }
+
+
+@router.get("/stations/{station_id}/pois")
+def station_pois(
+    station_id: int,
+    db: Session = Depends(get_db),
+    minutes: int = Query(default=10, ge=5, le=15),
+):
+    """Titik minat yang jatuh di dalam isochrone satu stasiun.
+
+    Sengaja per stasiun, bukan seluruh DKI: tabelnya 32 ribu baris, dan yang
+    berguna dilihat cuma yang ada di sekitar stasiun yang sedang dibuka.
+    """
+    area = (
+        select(Isochrone.area)
+        .where(
+            Isochrone.station_id == station_id,
+            Isochrone.minutes == minutes,
+        )
+        .scalar_subquery()
+    )
+
+    rows = db.execute(
+        select(
+            Poi.name,
+            Poi.category,
+            Poi.variable,
+            func.ST_AsGeoJSON(Poi.location).label("geom"),
+        )
+        .where(func.ST_Contains(area, Poi.location))
+        .order_by(Poi.category, Poi.name)
+    ).all()
+
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "id": index,
+                "geometry": json.loads(r.geom),
+                "properties": {
+                    "name": r.name,
+                    "category": r.category,
+                    "variable": r.variable,
+                },
+            }
+            for index, r in enumerate(rows)
         ],
     }

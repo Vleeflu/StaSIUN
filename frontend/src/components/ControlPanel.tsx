@@ -4,6 +4,12 @@ import type { ReactNode } from "react";
 
 import StationSearch from "@/components/StationSearch";
 import { KRL_LINES, lineColor, shortLabel } from "@/lib/lines";
+import {
+  REACH_CHOICES,
+  bandLabel,
+  bandOpacity,
+  type ReachBand,
+} from "@/lib/reach";
 import type { StationFeature } from "@/types/station";
 
 type Props = {
@@ -19,6 +25,9 @@ type Props = {
   onToggleSepi: (next: boolean) => void;
   showIsochrone: boolean;
   onToggleIsochrone: (next: boolean) => void;
+  reachBand: ReachBand;
+  onReachBand: (next: ReachBand) => void;
+  poiMinutes: number;
   hasSelection: boolean;
 };
 
@@ -35,6 +44,9 @@ export default function ControlPanel({
   onToggleSepi,
   showIsochrone,
   onToggleIsochrone,
+  reachBand,
+  onReachBand,
+  poiMinutes,
   hasSelection,
 }: Props) {
   return (
@@ -92,7 +104,7 @@ export default function ControlPanel({
             onChange={onToggleSepi}
           />
           <Toggle
-            label="Isochrone stasiun terpilih"
+            label="Isochrone & titik minat"
             checked={showIsochrone}
             onChange={onToggleIsochrone}
             disabled={!hasSelection}
@@ -143,25 +155,70 @@ export default function ControlPanel({
             <p className="label-caps mb-1.5 text-[9px] text-muted">
               Jangkauan jalan kaki
             </p>
-            <div className="flex gap-3">
-              {[
-                { minutes: 5, opacity: 0.18 },
-                { minutes: 10, opacity: 0.12 },
-                { minutes: 15, opacity: 0.07 },
-              ].map((band) => (
-                <span
-                  key={band.minutes}
-                  className="flex items-center gap-1.5 text-xs text-ink-soft"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="h-3 w-3 shrink-0 border border-reach"
-                    style={{ backgroundColor: `rgb(164 36 158 / ${band.opacity})` }}
-                  />
-                  <span className="data-num">{band.minutes}′</span>
-                </span>
-              ))}
+            {/* Pilih satu pita atau ketiganya. Sengaja bukan kotak centang:
+                pilihannya saling meniadakan, dan "Semua" tidak masuk akal
+                dicentang bersama salah satu pita. */}
+            <div
+              role="radiogroup"
+              aria-label="Pita jangkauan jalan kaki"
+              className="flex flex-wrap gap-1.5"
+            >
+              {REACH_CHOICES.map((choice) => {
+                const active = choice === reachBand;
+                // Contoh warnanya mengikuti apa yang sedang digambar, bukan
+                // tombol mana yang ditekan: saat "Semua" dipilih, ketiga pita
+                // memang tampil, jadi ketiganya tidak boleh diredupkan.
+                const drawn = active || reachBand === "all";
+                return (
+                  <button
+                    key={String(choice)}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => onReachBand(choice)}
+                    className={`flex items-center gap-1.5 border px-2 py-1 text-xs ${
+                      active
+                        ? "border-ink bg-panel text-ink"
+                        : "border-hair bg-canvas text-muted"
+                    }`}
+                  >
+                    {choice !== "all" && (
+                      <span
+                        aria-hidden="true"
+                        className="h-2.5 w-2.5 shrink-0 border border-reach"
+                        style={{
+                          backgroundColor: `rgb(164 36 158 / ${bandOpacity(choice)})`,
+                          opacity: drawn ? 1 : 0.4,
+                        }}
+                      />
+                    )}
+                    <span className={choice === "all" ? "" : "data-num"}>
+                      {bandLabel(choice)}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+
+            <p className="label-caps mb-1.5 mt-3 text-[9px] text-muted">
+              Titik minat dalam {poiMinutes} menit
+            </p>
+            <ul className="flex flex-col gap-1.5 text-xs text-ink-soft">
+              <li className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="h-2.5 w-2.5 shrink-0 rounded-full border border-white bg-ink-soft"
+                />
+                Gerai komersial — pesaing
+              </li>
+              <li className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="h-2.5 w-2.5 shrink-0 rounded-full border border-ink-soft bg-panel"
+                />
+                Kantor, hunian, faskes — calon pelanggan
+              </li>
+            </ul>
           </div>
         )}
       </Section>

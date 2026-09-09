@@ -5,6 +5,8 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { FALLBACK_COLOR, LINE_COLOR } from "@/lib/lines";
+import { SUPPLY_VARIABLE, poiLabel } from "@/lib/poi";
+import { REACH_BANDS } from "@/lib/reach";
 import { SEPI_RAMP_EXPRESSION } from "@/lib/sepi";
 import type { FeatureCollection } from "geojson";
 
@@ -23,6 +25,12 @@ const ICON_SIZE = 60;
 const COLOR_SEPI_UNSCORED = "#c9c4c1";
 const COLOR_SELECT = "#f2c101";
 const COLOR_REACH = "#a4249e";
+const COLOR_POI = "#55504d";
+
+// Diurai satu per satu, bukan di-spread: tipe ekspresi MapLibre menuntut
+// jumlah unsurnya pasti, dan spread menghilangkan informasi itu. Nilainya
+// tetap dari lib/reach supaya tidak pernah beda dengan legenda.
+const [BAND_NEAR, BAND_MID, BAND_FAR] = REACH_BANDS;
 
 const EMPTY: StationCollection = { type: "FeatureCollection", features: [] };
 
@@ -40,6 +48,9 @@ type Props = {
   showLabels: boolean;
   showSepi: boolean;
   isochrones: FeatureCollection | null;
+  /** Menit yang poligonnya digambar; sisanya disaring keluar. */
+  reachMinutes: number[];
+  pois: FeatureCollection | null;
   selected: StationFeature | null;
   flyTo: FlyTarget | null;
   onSelect: (station: StationFeature) => void;
@@ -87,6 +98,8 @@ export default function Map({
   showLabels,
   showSepi,
   isochrones,
+  reachMinutes,
+  pois,
   selected,
   flyTo,
   onSelect,
@@ -179,6 +192,7 @@ export default function Map({
     map.addSource("stations", { type: "geojson", data });
     map.addSource("selected-station", { type: "geojson", data: EMPTY });
     map.addSource("isochrones", { type: "geojson", data: EMPTY_POLYGONS });
+    map.addSource("station-pois", { type: "geojson", data: EMPTY_POLYGONS });
 
     map.addLayer({
       id: "isochrone-fill",
@@ -190,11 +204,11 @@ export default function Map({
         "fill-opacity": [
           "match",
           ["get", "minutes"],
-          5,
-          0.18,
-          10,
-          0.12,
-          0.07,
+          BAND_NEAR.minutes,
+          BAND_NEAR.opacity,
+          BAND_MID.minutes,
+          BAND_MID.opacity,
+          BAND_FAR.opacity,
         ],
       },
     });
@@ -208,6 +222,38 @@ export default function Map({
         "line-color": COLOR_REACH,
         "line-width": 1.2,
         "line-opacity": 0.55,
+      },
+    });
+
+    // Gerai komersial berisi penuh (pesaing), sisanya berongga (calon
+    // pelanggan). Dibedakan lewat isian, bukan rona baru: peta sudah memikul
+    // tiga peran warna plus enam warna lin.
+    map.addLayer({
+      id: "poi-demand",
+      type: "circle",
+      source: "station-pois",
+      filter: ["!=", ["get", "variable"], SUPPLY_VARIABLE],
+      layout: { visibility: "none" },
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 2, 18, 5],
+        "circle-color": "#ffffff",
+        "circle-stroke-width": 1.2,
+        "circle-stroke-color": COLOR_POI,
+        "circle-opacity": 0.9,
+      },
+    });
+
+    map.addLayer({
+      id: "poi-supply",
+      type: "circle",
+      source: "station-pois",
+      filter: ["==", ["get", "variable"], SUPPLY_VARIABLE],
+      layout: { visibility: "none" },
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 2.5, 18, 5.5],
+        "circle-color": COLOR_POI,
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#ffffff",
       },
     });
 
@@ -307,6 +353,37 @@ export default function Map({
       if (match) selectRef.current(match);
     };
 
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      offset: 10,
+      className: "poi-popup",
+    });
+
+    for (const layer of ["poi-demand", "poi-supply"]) {
+      map.on("mouseenter", layer, (e) => {
+        const hit = e.features?.[0];
+        if (!hit) return;
+
+        map.getCanvas().style.cursor = "pointer";
+
+        // Nama datang dari basis data, jadi ditempel lewat textContent —
+        // tidak pernah lewat innerHTML, sekalipun kelihatannya aman.
+        const box = document.createElement("div");
+        const title = document.createElement("strong");
+        title.textContent = String(hit.properties?.name ?? "");
+        const kind = document.createElement("span");
+        kind.textContent = poiLabel(String(hit.properties?.category ?? ""));
+
+        box.append(title, document.createElement("br"), kind);
+        popup.setLngLat(e.lngLat).setDOMContent(box).addTo(map);
+      });
+
+      map.on("mouseleave", layer, () => {
+        map.getCanvas().style.cursor = "";
+        popup.remove();
+      });
+    }
+
     for (const layer of ["stations-circle", "stations-sepi"]) {
       map.on("click", layer, handleClick);
       map.on("mouseenter", layer, () => {
@@ -354,6 +431,37 @@ export default function Map({
     map.setLayoutProperty("isochrone-fill", "visibility", visibility);
     map.setLayoutProperty("isochrone-line", "visibility", visibility);
   }, [mapReady, isochrones]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+
+    if (!map || !mapReady || !map.getLayer("isochrone-fill")) return;
+
+    // Pita disaring di peta, bukan dengan menarik ulang datanya. Ketiga
+    // poligonnya sudah diambil sekaligus, jadi berganti pilihan tidak perlu
+    // menunggu jaringan.
+    const filter: maplibregl.FilterSpecification = [
+      "in",
+      ["get", "minutes"],
+      ["literal", reachMinutes],
+    ];
+
+    map.setFilter("isochrone-fill", filter);
+    map.setFilter("isochrone-line", filter);
+  }, [mapReady, reachMinutes]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const source = map?.getSource("station-pois");
+
+    if (!map || !mapReady || !source || !map.getLayer("poi-supply")) return;
+
+    (source as maplibregl.GeoJSONSource).setData(pois ?? EMPTY_POLYGONS);
+
+    const visibility = pois ? "visible" : "none";
+    map.setLayoutProperty("poi-demand", "visibility", visibility);
+    map.setLayoutProperty("poi-supply", "visibility", visibility);
+  }, [mapReady, pois]);
 
   useEffect(() => {
     const map = mapRef.current;
