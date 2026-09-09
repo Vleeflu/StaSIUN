@@ -1,12 +1,5 @@
-/** Tampilan skor SEPI: tangga warna, label, dan satuan tiap komponen. */
-
 import type { StationScore } from "@/types/station";
 
-/**
- * Tangga warna dari netral ke merah aksen. Sengaja satu rona saja, bukan
- * pelangi merah-kuning-hijau: skor rendah artinya potensinya kecil, bukan
- * berbahaya, jadi tidak perlu diberi kesan peringatan.
- */
 const RAMP: Array<{ stop: number; color: string }> = [
   { stop: 0, color: "#e8e4e2" },
   { stop: 25, color: "#f6c3b6" },
@@ -15,7 +8,6 @@ const RAMP: Array<{ stop: number; color: string }> = [
   { stop: 100, color: "#a41c07" },
 ];
 
-/** Pasangan [nilai, warna] yang siap dipakai ekspresi interpolate MapLibre. */
 export const SEPI_RAMP_EXPRESSION = RAMP.flatMap((s) => [s.stop, s.color]);
 
 export function sepiColor(score: number | null): string {
@@ -55,7 +47,6 @@ function mix(from: string, to: string, ratio: number): string {
 type Component = {
   key: keyof StationScore["components"];
   label: string;
-  /** Cara menuliskan nilai mentahnya, karena satuannya beda-beda. */
   format: (value: number) => string;
 };
 
@@ -63,7 +54,6 @@ export const SEPI_COMPONENTS: Component[] = [
   {
     key: "T",
     label: "Transportasi",
-    // T gabungan tiga hal bersatuan beda, jadi sudah berupa skala 0-1.
     format: (v) => `${Math.round(v * 100)}%`,
   },
   { key: "E", label: "Ekonomi", format: (v) => `${Math.round(v)} titik` },
@@ -72,18 +62,10 @@ export const SEPI_COMPONENTS: Component[] = [
   { key: "C", label: "Komersial", format: (v) => `${Math.round(v)} titik` },
 ];
 
-/**
- * Panjang bar tiap komponen, 0-1. Nilainya dibandingkan dengan yang tertinggi
- * di antara kelimanya, bukan dengan seluruh stasiun — bar ini menjawab
- * "stasiun ini kuat di sisi mana", bukan "sekuat apa dibanding stasiun lain".
- * Angka mentahnya tetap ditulis di sebelahnya supaya tidak menyesatkan.
- */
 export function componentShares(
   components: StationScore["components"]
 ): Record<string, number> {
   const scaled: Record<string, number> = {
-    // T sudah 0-1; sisanya jumlah titik atau luas, jadi tidak sebanding kalau
-    // dipakai apa adanya. Semuanya dibawa ke skala yang sama dulu.
     T: components.T,
     E: components.E,
     A: components.A,

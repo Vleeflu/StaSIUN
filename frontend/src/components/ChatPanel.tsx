@@ -8,9 +8,9 @@ import type { StationFeature } from "@/types/station";
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const SUGGESTIONS = [
-  "Stasiun mana saja yang interchange?",
+  "Stasiun mana yang skor SEPI-nya paling tinggi?",
+  "Gerai apa yang belum ada di sekitar Gondangdia?",
   "Apa itu SEPI dan bagaimana dihitungnya?",
-  "Kenapa Gambir tidak dilayani KRL?",
 ];
 
 /**
@@ -93,10 +93,11 @@ export default function ChatPanel({ station }: Props) {
         {messages.length === 0 && (
           <div className="flex flex-col gap-3">
             <p className="text-xs leading-relaxed text-ink-soft">
-              Asisten ini dibekali seluruh daftar stasiun di database beserta
-              lin, kode, dan statusnya. Skor SEPI dan turunannya belum dihitung,
-              jadi kalau ditanya soal itu dia akan bilang belum ada — bukan
-              mengarang angka.
+              Asisten ini dibekali isi database: daftar stasiun, skor SEPI
+              ketiga pita waktu, dan hitungan titik minat di dalam tiap
+              isochrone. Sebut nama stasiun, dan rincian sekitarnya ikut
+              dibaca. Yang memang belum ada — footfall, TSI, nilai naming
+              rights — akan dibilang belum ada, bukan dikarang.
             </p>
 
             <div className="flex flex-col gap-1.5">

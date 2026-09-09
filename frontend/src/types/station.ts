@@ -12,12 +12,10 @@ export type StationProps = {
   line_key: string;
   kecamatan: string | null;
   address: string | null;
-  /** Skor SEPI 0-100 dan peringkatnya. Null selama belum dihitung. */
   sepi: number | null;
   sepi_rank: number | null;
 };
 
-/** Rincian skor satu stasiun, dari /stations/{id}/score. */
 export type StationScore = {
   station_id: number;
   minutes: number;
@@ -42,11 +40,6 @@ export type StationFeature = Feature<Point, StationProps>;
 
 export type StationCollection = FeatureCollection<Point, StationProps>;
 
-/**
- * `lines` datangnya array kalau feature-nya dari state React, tapi string JSON
- * kalau dibaca dari event klik MapLibre — worker-nya menyerialisasi properti
- * non-primitif. Fungsi ini merapikan keduanya jadi array.
- */
 export function parseLines(value: unknown): string[] {
   if (Array.isArray(value)) return value as string[];
   if (typeof value === "string") {
