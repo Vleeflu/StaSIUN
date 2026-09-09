@@ -7,7 +7,7 @@ Pakai:
     python -m scripts.init_db            # buat tabel yang belum ada
     python -m scripts.init_db --reset    # hapus lalu buat ulang tabel proyek
 
---reset menghapus isi stations, isochrones, dan pois. Ketiganya bisa diisi
+--reset menghapus isi stations, isochrones, pois, dan station_scores. Ketiganya bisa diisi
 ulang penuh dari MAPID lewat scripts.ingest_layers, jadi tidak ada yang
 hilang permanen — tapi tetap perlu diketik sendiri, bukan jalan diam-diam.
 """
@@ -20,9 +20,15 @@ from sqlalchemy import inspect, text
 from app.core.database import Base, engine
 
 # Diimpor supaya metadata-nya kebaca, walau namanya tidak dipakai langsung.
-from app.models import Isochrone, Poi, Station  # noqa: F401
+from app.models import Isochrone, Poi, StationScore, Station  # noqa: F401
 
-PROJECT_TABLES = (Isochrone.__table__, Poi.__table__, Station.__table__)
+# Urutannya penting saat --reset: yang mengacu ke tabel lain dihapus dulu.
+PROJECT_TABLES = (
+    StationScore.__table__,
+    Isochrone.__table__,
+    Poi.__table__,
+    Station.__table__,
+)
 
 
 def main() -> int:

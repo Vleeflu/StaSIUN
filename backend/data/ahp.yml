@@ -1,0 +1,29 @@
+# Perbandingan berpasangan AHP untuk lima variabel SEPI.
+#
+# ANGKA DI BAWAH MASIH SEMENTARA. Ini titik masuk penilaian ahli, dan harus
+# diganti.
+#
+# Skala Saat: a[i][j] artinya "i sepenting apa dibanding j".
+#   1 sama penting   3 sedikit lebih   5 lebih   7 jauh lebih   9 mutlak lebih
+# Cukup isi separuh atas; kebalikannya (a[j][i] = 1/a[i][j]) dihitung sendiri.
+#
+# Konsistensinya diperiksa saat dijalankan. Kalau CR >= 0,10 perbandingannya
+# dianggap saling bertentangan dan skoring berhenti — persis syarat di proposal.
+
+order: [T, E, A, U, C]
+
+pairwise:
+  # T Transportasi: inti asetnya, stasiun tanpa lalu lintas tidak bisa dijual.
+  T: { T: 1, E: 2, A: 2, U: 3, C: 2 }
+  # E Ekonomi: daya beli di sekitar stasiun.
+  E: { E: 1, A: 1, U: 2, C: 1 }
+  # A Aksesibilitas: seberapa luas wilayah yang terjangkau jalan kaki.
+  A: { A: 1, U: 2, C: 1 }
+  # U Urban: kepadatan kegiatan kota, paling tidak langsung ke pendapatan.
+  U: { U: 1, C: 0.5 }
+  # C Komersial: calon penyewa lapak dan pemasang iklan.
+  C: { C: 1 }
+
+# Perpaduan bobot: w = lambda * w_entropy + (1 - lambda) * w_ahp.
+# 0 berarti murni penilaian ahli, 1 murni sebaran data.
+lambda_entropy: 0.5

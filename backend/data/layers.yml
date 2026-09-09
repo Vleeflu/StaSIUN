@@ -1,9 +1,4 @@
 # Katalog layer MAPID.
-#
-# Id dipatok di sini, tidak dicari otomatis. Proyek GEO MAPID menyimpan
-# beberapa layer dengan nama yang sama persis, dan API-nya tetap melayani layer
-# yang sudah masuk tempat sampah — jadi "bisa ditarik" bukan jaminan layernya
-# masih hidup. Impor akan memberi tahu kalau ada id yang sudah di tempat sampah.
 
 # Layer turunan OpenStreetMap. Cuma layer ini yang membawa osm_id, dan osm_id
 # itu kunci sambungan ke poligon isochrone.
@@ -24,9 +19,7 @@ stations:
     label: Stasiun Jakarta Utara
     layer_id: "6a9faffedcb8de4208daffe5"
 
-# Poligon jangkauan jalan kaki. Semua id di bawah sudah dipastikan aktif.
-# Tiap layer divalidasi saat impor: harus ada isinya, berprofil foot, dan
-# time_limit-nya cocok dengan minutes. Kalau gagal, impornya berhenti.
+# Poligon jangkauan jalan kaki
 isochrones:
   - { key: jakpus, minutes: 5,  layer_id: "6a9fac02753cb27abe00ed93" }
   - { key: jakpus, minutes: 10, layer_id: "6a9fac46753cb27abe010c56" }
@@ -45,15 +38,7 @@ isochrones:
   - { key: jakut,  minutes: 15, layer_id: "6a9fb179753cb27abe03a590" }
 
 # Kategori titik minat yang dipakai, dan variabel SEPI yang disuapinya:
-#   T transportasi, E ekonomi, U urban, C komersial.
-#
-# Daftar ini patokannya Jakarta Pusat — kategori di sini persis yang pernah
-# lengkap di sana. Wilayah lain mengikuti kategori yang sama supaya angkanya
-# bisa dibandingkan; tanpa itu, entropy weighting menghukum wilayah yang cuma
-# kekurangan data, bukan yang benar-benar sepi.
-#
-# MINUMAN dan ROTI DAN KUE sengaja tidak masuk: keduanya terbukti 100% bagian
-# dari MAKANAN DAN MINUMAN, jadi kalau ikut dihitung variabel C jadi berlipat.
+# T transportasi, E ekonomi, U urban, C komersial.
 poi_categories:
   - { category: makanan_minuman, variable: C, hint: "MAKANAN DAN MINUMAN" }
   - { category: alfamart,        variable: C, hint: "ALFAMART" }
@@ -69,20 +54,8 @@ poi_categories:
   - { category: museum,          variable: U, hint: "MUSEUM" }
   - { category: wisata_alam,     variable: U, hint: "WISATA ALAM" }
   - { category: wisata_budaya,   variable: U, hint: "WISATA BUDAYA DAN SEJARAH" }
-  # Halte bus TransJakarta. Belum ada di proyek, dan tidak tercakup data
-  # stasiun kita yang isinya murni rel. Stasiun MRT dan LRT tidak perlu
-  # layer sendiri — sudah ada di tabel stations.
   - { category: halte,           variable: T, hint: "HALTE" }
 
-# Id layer POI tiap wilayah. Kosongkan dengan "" kalau layernya belum diunggah;
-# baris kosong dilewati dengan catatan, impornya tidak gagal. Jadi katalog ini
-# boleh diisi bertahap sambil unggahannya jalan.
-#
-# Cari id-nya tanpa membuka dasbor:
-#   python -m scripts.list_layers alfamart pusat
-#
-# Catatan: layer bertanda premium tidak muncul di daftar itu, id-nya harus
-# disalin dari dasbor.
 pois:
   jakpus:
     makanan_minuman: "6aa13d23753cb27abebcefd9"

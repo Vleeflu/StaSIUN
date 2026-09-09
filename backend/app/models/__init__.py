@@ -6,6 +6,7 @@ modul lain — dan tabel yang belum dipakai siapa pun diam-diam tidak terbentuk.
 
 from app.models.isochrone import Isochrone
 from app.models.poi import Poi
+from app.models.score import StationScore
 from app.models.station import Station
 
-__all__ = ["Isochrone", "Poi", "Station"]
+__all__ = ["Isochrone", "Poi", "StationScore", "Station"]
