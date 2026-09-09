@@ -174,6 +174,24 @@ dijalankan; kalau mencapai 0,10 skoringnya berhenti.
 Skornya lalu ikut menempel di `/api/stations` sebagai `sepi` dan `sepi_rank`,
 dengan rinciannya di `/api/stations/{id}/score`.
 
+Lalu Tenant Survival Index, yang mengambil pengali konektivitasnya dari skor
+SEPI — jadi jalankan setelahnya:
+
+```bash
+python -m scripts.compute_tsi              # pita 10 menit
+python -m scripts.compute_tsi --minutes 5
+```
+
+TSI membandingkan calon pelanggan yang bisa berjalan kaki ke sebuah stasiun
+dengan pesaing sejenis yang sudah ada di sana. Calon pelanggan dihitung dari
+titik variabel E dan U saja; titik komersial sengaja tidak ikut, supaya daerah
+yang sudah padat warung tidak tercatat butuh lebih banyak warung. Hasilnya
+dibentangkan ke 0–100 **per kategori**, jadi peringkatnya berarti "stasiun ini
+urutan ke berapa untuk usaha jenis itu" — bukan perbandingan antar kategori.
+
+Lima kategori yang diskor: makanan & minuman, kedai kopi merek, Alfamart,
+Indomaret, dan apotek. Hasilnya tersedia di `/api/stations/{id}/tenants`.
+
 
 Jalankan servernya:
 

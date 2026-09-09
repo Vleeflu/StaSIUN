@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 
 import { useStationScore } from "@/hooks/useStationScore";
+import { useStationTenants } from "@/hooks/useStationTenants";
 import { badgeLabel, lineColor, lineLabel, lineTextColor } from "@/lib/lines";
 import { SEPI_COMPONENTS, componentShares, sepiColor } from "@/lib/sepi";
 import { parseLines } from "@/types/station";
@@ -12,6 +13,16 @@ const TABS = ["Ikhtisar", "Ad-Space", "Tenant", "Naming"] as const;
 type Tab = (typeof TABS)[number];
 
 const SCORE_MINUTES = 10;
+
+// Alasan tiap modul belum dibangun ditulis apa adanya. Menyebut kebutuhan
+// datanya lebih berguna daripada "segera hadir" — pembacanya jadi tahu apa
+// yang harus dicari, dan tidak menyangka angkanya sengaja disembunyikan.
+const PENDING_REASON: Record<string, string> = {
+  "Ad-Space":
+    "Peringkat kategori merek sudah bisa dihitung dari kepadatan titik, tapi perkiraan nilai sewanya belum. Belum ada satu pun data pembanding harga sewa ruang stasiun di database, dan angka tanpa pembanding cuma tebakan berbaju hitungan.",
+  Naming:
+    "Butuh data merek dan pembanding nilai kontrak penamaan yang belum kita punya sama sekali.",
+};
 
 const PLANNED_SOURCES = [
   "StrukGo · OCR struk",
@@ -111,10 +122,10 @@ export default function StationPanel({ station, onClose }: Props) {
       </nav>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === "Ikhtisar" ? (
-          <Overview station={station} />
-        ) : (
-          <EmptyTab name={tab} />
+        {tab === "Ikhtisar" && <Overview station={station} />}
+        {tab === "Tenant" && <TenantTab station={station} />}
+        {(tab === "Ad-Space" || tab === "Naming") && (
+          <EmptyTab name={tab} reason={PENDING_REASON[tab]} />
         )}
       </div>
     </aside>
@@ -273,15 +284,120 @@ function Overview({ station }: { station: StationFeature }) {
   );
 }
 
-function EmptyTab({ name }: { name: string }) {
+function TenantTab({ station }: { station: StationFeature }) {
+  const stationId = typeof station.id === "number" ? station.id : null;
+  const { report, loading, error } = useStationTenants(stationId, SCORE_MINUTES);
+
+  if (loading) {
+    return <p className="p-4 text-xs text-muted">Memuat skor tenant…</p>;
+  }
+
+  if (error || !report || report.categories.length === 0) {
+    return (
+      <div className="p-4">
+        <div className="border border-dashed border-hair p-6 text-center">
+          <p className="text-sm font-semibold text-ink-soft">Tenant</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            {error ??
+              "Skor tenant belum dihitung untuk stasiun ini. Jalankan compute_tsi di backend."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col">
+      <Section title="Tenant Survival Index">
+        <p className="text-xs leading-relaxed text-ink-soft">
+          Perbandingan calon pelanggan yang bisa berjalan kaki ke sini dengan
+          pesaing sejenis yang sudah ada, dalam jangkauan {report.minutes}{" "}
+          menit. Skor tinggi berarti masih lapang.
+        </p>
+        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+          Peringkatnya dihitung per kategori, jadi bacanya &ldquo;stasiun ini
+          urutan ke berapa untuk usaha jenis itu&rdquo; — bukan perbandingan
+          antar kategori.
+        </p>
+      </Section>
+
+      <Section title={`Peluang per kategori — ${report.station_count} stasiun KRL`}>
+        <ul className="flex flex-col gap-4">
+          {report.categories.map((c) => (
+            <li key={c.category}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-xs font-semibold text-ink">{c.label}</span>
+                <span className="data-num shrink-0 text-sm font-semibold text-ink">
+                  {c.tsi.toFixed(0)}
+                  <span className="text-[10px] font-medium text-muted">/100</span>
+                </span>
+              </div>
+
+              <span className="mt-1.5 block h-1.5 w-full bg-canvas">
+                <span
+                  className="block h-full bg-accent"
+                  style={{ width: `${Math.round(c.tsi)}%` }}
+                />
+              </span>
+
+              <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-muted">
+                <span className="label-caps border border-hair px-1.5 py-0.5 text-[9px] text-ink-soft">
+                  #{c.rank} dari {report.station_count}
+                </span>
+                <span>
+                  <span className="data-num text-ink-soft">{c.demand}</span> calon
+                  pelanggan
+                </span>
+                <span>
+                  <span className="data-num text-ink-soft">{c.supply}</span> pesaing
+                </span>
+                <span>
+                  rasio{" "}
+                  <span className="data-num text-ink-soft">
+                    {c.headroom.toFixed(0)}
+                  </span>
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section title="Cara membacanya">
+        <ul className="flex flex-col gap-2 text-[11px] leading-relaxed text-muted">
+          <li>
+            <span className="text-ink-soft">Calon pelanggan</span> — titik ekonomi
+            dan urban di dalam isochrone: kantor, bank, hunian, tempat ibadah,
+            faskes. Gerai komersial sengaja tidak dihitung di sini supaya
+            daerah yang sudah padat warung tidak tercatat butuh lebih banyak
+            warung.
+          </li>
+          <li>
+            <span className="text-ink-soft">Pengali arus lewat</span> ×
+            {" "}
+            <span className="data-num">
+              {report.categories[0]?.connectivity.toFixed(2)}
+            </span>{" "}
+            — dari komponen T. Stasiun yang terhubung banyak moda melewatkan
+            orang yang tidak tinggal maupun bekerja di sekitarnya.
+          </li>
+          <li>
+            <span className="text-ink-soft">Batasnya</span> — skor ini mengukur
+            kelapangan pasar, bukan kecocokan merek atau daya beli. Angkanya
+            juga terbatas pada lima kategori yang datanya kita punya.
+          </li>
+        </ul>
+      </Section>
+    </div>
+  );
+}
+
+function EmptyTab({ name, reason }: { name: string; reason: string }) {
   return (
     <div className="p-4">
-      <div className="border border-dashed border-hair p-6 text-center">
-        <p className="text-sm font-semibold text-ink-soft">{name}</p>
-        <p className="mt-1 text-xs leading-relaxed text-muted">
-          Modul ini belum dibangun. Butuh mesin skoring SEPI dan data mitra
-          MAPID lebih dulu.
-        </p>
+      <div className="border border-dashed border-hair p-6">
+        <p className="text-center text-sm font-semibold text-ink-soft">{name}</p>
+        <p className="mt-2 text-xs leading-relaxed text-muted">{reason}</p>
       </div>
     </div>
   );
