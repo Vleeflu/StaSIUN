@@ -10,6 +10,10 @@ class Station(Base):
     __tablename__ = "stations"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Id OpenStreetMap, dibawa turun dari sumbernya. Jadi kunci sambungan ke
+    # poligon isochrone: nama tidak bisa dipakai karena Halim dan Cawang
+    # masing-masing dipakai dua stasiun dari moda yang berbeda.
+    osm_id: Mapped[str | None] = mapped_column(String, unique=True, index=True)
     name: Mapped[str]
     # Kode resmi KAI, misal MRI buat Manggarai. Ada di sebagian besar stasiun.
     code: Mapped[str | None]

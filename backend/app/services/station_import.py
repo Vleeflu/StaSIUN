@@ -79,6 +79,11 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
     if not name:
         return None
 
+    # Kunci sambungan ke poligon isochrone. Nama tidak bisa dipakai: Halim dan
+    # Cawang masing-masing dipakai dua stasiun dari moda yang berbeda.
+    osm_id = props.get("osm_id") or props.get("full_id")
+    osm_id = str(osm_id).lstrip("nwr") if osm_id else None
+
     key = normalize(name)
     if key in EXCLUDED:
         return None
@@ -95,6 +100,7 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
     lon, lat = geometry["coordinates"][:2]
 
     return {
+        "osm_id": osm_id,
         "name": name,
         "code": props.get("railway:ref"),
         "types": [network],

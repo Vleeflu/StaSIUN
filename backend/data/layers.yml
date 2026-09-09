@@ -1,17 +1,170 @@
 # Katalog layer MAPID.
+#
+# Id dipatok di sini, tidak dicari otomatis. Proyek GEO MAPID menyimpan
+# beberapa layer dengan nama yang sama persis, dan API-nya tetap melayani layer
+# yang sudah masuk tempat sampah — jadi "bisa ditarik" bukan jaminan layernya
+# masih hidup. Impor akan memberi tahu kalau ada id yang sudah di tempat sampah.
+
+# Layer turunan OpenStreetMap. Cuma layer ini yang membawa osm_id, dan osm_id
+# itu kunci sambungan ke poligon isochrone.
 stations:
   - key: jakpus
     label: Stasiun Jakarta Pusat
-    layer_id: "6a8967844da1860f13031857"
+    layer_id: "6a8c4f80ba6cb8dfce8ed2cf"
   - key: jakbar
     label: Stasiun Jakarta Barat
-    layer_id: "6a8a8284dc867ee11d52e02e"
+    layer_id: "6a9fb9addcb8de4208df0416"
   - key: jaksel
     label: Stasiun Jakarta Selatan
-    layer_id: "6a8a828d4da1860f1361ff2c"
+    layer_id: "6a9fbc0cdcb8de4208e06644"
   - key: jaktim
     label: Stasiun Jakarta Timur
-    layer_id: "6a8a828fdc867ee11d52ed94"
+    layer_id: "6a9fad6adcb8de4208da29f3"
   - key: jakut
     label: Stasiun Jakarta Utara
-    layer_id: "6a8a82904da1860f13622c67"
+    layer_id: "6a9faffedcb8de4208daffe5"
+
+# Poligon jangkauan jalan kaki. Semua id di bawah sudah dipastikan aktif.
+# Tiap layer divalidasi saat impor: harus ada isinya, berprofil foot, dan
+# time_limit-nya cocok dengan minutes. Kalau gagal, impornya berhenti.
+isochrones:
+  - { key: jakpus, minutes: 5,  layer_id: "6a9fac02753cb27abe00ed93" }
+  - { key: jakpus, minutes: 10, layer_id: "6a9fac46753cb27abe010c56" }
+  - { key: jakpus, minutes: 15, layer_id: "6a9fac76dcb8de4208d9d0ea" }
+  - { key: jakbar, minutes: 5,  layer_id: "6a9fba41753cb27abe07e2ee" }
+  - { key: jakbar, minutes: 10, layer_id: "6a9fba82753cb27abe08017f" }
+  - { key: jakbar, minutes: 15, layer_id: "6a9fbaa3753cb27abe080c9d" }
+  - { key: jaksel, minutes: 5,  layer_id: "6a9fbca2753cb27abe08c9ba" }
+  - { key: jaksel, minutes: 10, layer_id: "6a9fbcdb753cb27abe08ceab" }
+  - { key: jaksel, minutes: 15, layer_id: "6a9fbd08753cb27abe08d69c" }
+  - { key: jaktim, minutes: 5,  layer_id: "6a9fae9b753cb27abe021d1b" }
+  - { key: jaktim, minutes: 10, layer_id: "6a9faf65753cb27abe02aa72" }
+  - { key: jaktim, minutes: 15, layer_id: "6a9faf95753cb27abe02af43" }
+  - { key: jakut,  minutes: 5,  layer_id: "6a9fb113dcb8de4208dbceac" }
+  - { key: jakut,  minutes: 10, layer_id: "6a9fb14a753cb27abe038172" }
+  - { key: jakut,  minutes: 15, layer_id: "6a9fb179753cb27abe03a590" }
+
+# Kategori titik minat yang dipakai, dan variabel SEPI yang disuapinya:
+#   T transportasi, E ekonomi, U urban, C komersial.
+#
+# Daftar ini patokannya Jakarta Pusat — kategori di sini persis yang pernah
+# lengkap di sana. Wilayah lain mengikuti kategori yang sama supaya angkanya
+# bisa dibandingkan; tanpa itu, entropy weighting menghukum wilayah yang cuma
+# kekurangan data, bukan yang benar-benar sepi.
+#
+# MINUMAN dan ROTI DAN KUE sengaja tidak masuk: keduanya terbukti 100% bagian
+# dari MAKANAN DAN MINUMAN, jadi kalau ikut dihitung variabel C jadi berlipat.
+poi_categories:
+  - { category: makanan_minuman, variable: C, hint: "MAKANAN DAN MINUMAN" }
+  - { category: alfamart,        variable: C, hint: "ALFAMART" }
+  - { category: indomaret,       variable: C, hint: "INDOMARET" }
+  - { category: coffee_shop,     variable: C, hint: "BRAND COFFEE SHOP" }
+  - { category: atm_bank,        variable: E, hint: "ATM DAN BANK" }
+  - { category: kantor,          variable: E, hint: "KANTOR" }
+  - { category: kantor_swasta,   variable: E, hint: "KANTOR SWASTA" }
+  - { category: apartemen,       variable: U, hint: "APARTEMEN" }
+  - { category: apotek,          variable: U, hint: "APOTEK" }
+  - { category: ibadah,          variable: U, hint: "IBADAH" }
+  - { category: hiburan,         variable: U, hint: "HIBURAN DAN KESENIAN" }
+  - { category: museum,          variable: U, hint: "MUSEUM" }
+  - { category: wisata_alam,     variable: U, hint: "WISATA ALAM" }
+  - { category: wisata_budaya,   variable: U, hint: "WISATA BUDAYA DAN SEJARAH" }
+  # Halte bus TransJakarta. Belum ada di proyek, dan tidak tercakup data
+  # stasiun kita yang isinya murni rel. Stasiun MRT dan LRT tidak perlu
+  # layer sendiri — sudah ada di tabel stations.
+  - { category: halte,           variable: T, hint: "HALTE" }
+
+# Id layer POI tiap wilayah. Kosongkan dengan "" kalau layernya belum diunggah;
+# baris kosong dilewati dengan catatan, impornya tidak gagal. Jadi katalog ini
+# boleh diisi bertahap sambil unggahannya jalan.
+#
+# Cari id-nya tanpa membuka dasbor:
+#   python -m scripts.list_layers alfamart pusat
+#
+# Catatan: layer bertanda premium tidak muncul di daftar itu, id-nya harus
+# disalin dari dasbor.
+pois:
+  jakpus:
+    makanan_minuman: "6aa13d23753cb27abebcefd9"
+    alfamart:        "6aa13d5b753cb27abebdcb11"
+    indomaret:       "6aa13d74753cb27abebe5f23"
+    coffee_shop:     "6aa13d8a753cb27abebee25b"
+    atm_bank:        "6aa13da0753cb27abebf903e"
+    kantor:          "6aa13dbb753cb27abec07d00"
+    kantor_swasta:   "6aa13dc9753cb27abec184ce"
+    apartemen:       "6aa13def753cb27abec25c7d"
+    apotek:          "6aa13dfc753cb27abec353d3"
+    ibadah:          "6aa13e0e753cb27abec45bc9"
+    hiburan:         "6aa13e21753cb27abec58247"
+    museum:          "6aa13e2c753cb27abec6a1cd"
+    wisata_alam:     "6aa13e36753cb27abec7af41"
+    wisata_budaya:   "6aa13e3f753cb27abec8bc61"
+    halte:           "6aa13eff753cb27abecd99fe"
+
+  jakbar:
+    makanan_minuman: "6aa13d20753cb27abebcdf12"
+    alfamart:        "6aa13d59753cb27abebdb4ed"
+    indomaret:       "6aa13d71753cb27abebe4368"
+    coffee_shop:     "6aa13d89753cb27abebecef7"
+    atm_bank:        "6aa13d9f753cb27abebf887d"
+    kantor:          "6aa13dba753cb27abec07548"
+    kantor_swasta:   "6aa13dc6753cb27abec15c3a"
+    apartemen:       "6aa13dee753cb27abec246e8"
+    apotek:          "6aa13dfc753cb27abec34d09"
+    ibadah:          "6aa13e0c753cb27abec4517c"
+    hiburan:         "6aa13e20753cb27abec5717f"
+    museum:          "6aa13e2b753cb27abec687c5"
+    wisata_alam:     "6aa13e35753cb27abec79421"
+    wisata_budaya:   "6aa13e3e753cb27abec8ac60"
+    halte:           "6aa13efe753cb27abecd8a17"
+
+  jaksel:
+    makanan_minuman: "6aa13d28753cb27abebd2574"
+    alfamart:        "6aa13d5e753cb27abebde1ba"
+    indomaret:       "6aa13d77753cb27abebe798b"
+    coffee_shop:     "6aa13d8b753cb27abebefdc5"
+    atm_bank:        "6aa13da1753cb27abebfa018"
+    kantor:          "6aa13dbc753cb27abec08c38"
+    kantor_swasta:   "6aa13dcc753cb27abec1add7"
+    apartemen:       "6aa13df0753cb27abec27f3d"
+    apotek:          "6aa13dfd753cb27abec36e0d"
+    ibadah:          "6aa13e0f753cb27abec47a21"
+    hiburan:         "6aa13e21753cb27abec59c60"
+    museum:          "6aa13e2c753cb27abec6bcd2"
+    wisata_alam:     "6aa13e36753cb27abec7b116"
+    wisata_budaya:   "6aa13e40753cb27abec8d8fa"
+    halte:           "6aa13f00753cb27abecdac56"
+
+  jaktim:
+    makanan_minuman: "6aa13d2a753cb27abebd38d9"
+    alfamart:        "6aa13d63753cb27abebdf8a6"
+    indomaret:       "6aa13d79753cb27abebe957c"
+    coffee_shop:     "6aa13d8c753cb27abebf1bf8"
+    atm_bank:        "6aa13da1753cb27abebfaa98"
+    kantor:          "6aa13dbc753cb27abec0a0ea"
+    kantor_swasta:   "6aa13dd0753cb27abec1e4fb"
+    apartemen:       "6aa13df0753cb27abec28181"
+    apotek:          "6aa13dfe753cb27abec3862f"
+    ibadah:          "6aa13e10753cb27abec4847f"
+    hiburan:         "6aa13e22753cb27abec5b866"
+    museum:          "6aa13e2d753cb27abec6d7ec"
+    wisata_alam:     "6aa13e37753cb27abec7e711"
+    wisata_budaya:   "6aa13e40753cb27abec8f676"
+    halte:           "6aa13f00753cb27abecdca9c"
+
+  jakut:
+    makanan_minuman: "6aa13d2b753cb27abebd4995"
+    alfamart:        "6aa13d64753cb27abebe1079"
+    indomaret:       "6aa13d7b753cb27abebeb1e5"
+    coffee_shop:     "6aa13d8f753cb27abebf637e"
+    atm_bank:        "6aa13da2753cb27abebfce28"
+    kantor:          "6aa13dbd753cb27abec0b533"
+    kantor_swasta:   "6aa13dd4753cb27abec20ee0"
+    apartemen:       "6aa13df0753cb27abec2a34f"
+    apotek:          "6aa13dfe753cb27abec3a2cb"
+    ibadah:          "6aa13e16753cb27abec5394a"
+    hiburan:         "6aa13e23753cb27abec5e03c"
+    museum:          "6aa13e2d753cb27abec6f3e8"
+    wisata_alam:     "6aa13e37753cb27abec7f6ae"
+    wisata_budaya:   "6aa13e41753cb27abec91436"
+    halte:           "6aa13f01753cb27abecdda9e"
