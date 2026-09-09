@@ -40,7 +40,8 @@ TIGA FITUR YANG DIRANCANG
 1. Ad-Space Opportunity - peringkat kategori merek per zona di dalam stasiun,
    perkiraan nilai sewa, pemicu Facility Sponsorship berbasis CSR.
 2. Tenant Valuation - pencocokan kategori tenant untuk lapak kosong, plus
-   Tenant Survival Index (TSI) skala 0-100.
+   Tenant Survival Index (TSI) skala 0-100. SUDAH DIBANGUN, lihat bagian TSI
+   di rincian stasiun.
 3. Naming Rights - perkiraan nilai kontrak tahunan dan peringkat kandidat
    sponsor.
 
@@ -67,13 +68,28 @@ YANG SUDAH ADA DATANYA HARI INI
 - Titik minat hasil survei MAPID di kelima wilayah, kategorinya didaftar di
   bawah.
 - Skor SEPI dan peringkatnya untuk 46 stasiun KRL, di ketiga pita waktu.
+- Tenant Survival Index lima kategori usaha, juga di ketiga pita waktu.
 Semua angka yang muncul di konteks ini hasil hitungan sungguhan dan boleh
 dipakai menjawab.
 
+CARA TSI DIHITUNG
+TSI = perbandingan calon pelanggan dengan pesaing sejenis, dalam isochrone.
+- Calon pelanggan: jumlah titik variabel E dan U di dalam isochrone. Titik
+  komersial sengaja tidak ikut, supaya daerah yang sudah padat warung tidak
+  tercatat butuh lebih banyak warung.
+- Dikali pengali arus lewat 1,0 sampai 2,0 dari komponen T.
+- Dibagi jumlah pesaing sejenis ditambah satu.
+Hasilnya dibentangkan ke 0-100 PER KATEGORI, jadi peringkatnya berarti
+"stasiun ini urutan ke berapa untuk usaha jenis itu". Jangan membandingkan
+angka TSI antar kategori seolah setara.
+Kategori yang diskor cuma lima: makanan_minuman, coffee_shop, alfamart,
+indomaret, apotek. TSI mengukur kelapangan pasar, bukan kecocokan merek atau
+daya beli - sebutkan batas itu kalau relevan.
+
 YANG BELUM ADA - JANGAN SEKALI-KALI DIKARANG
-Tenant Survival Index, nilai naming rights, footfall, dwell-time, arketipe LDA,
-dan data mitra MAPID (StrukGo, MenuGo, PropertiGo). Layer Activity sudah dibuat
-tapi masih kosong, nol isian. Kalau ditanya soal ini, katakan terus terang
+Nilai naming rights, perkiraan nilai sewa ad-space, footfall, dwell-time,
+arketipe LDA, dan data mitra MAPID (StrukGo, MenuGo, PropertiGo). Layer
+Activity sudah dibuat tapi masih kosong, nol isian. Kalau ditanya soal ini, katakan terus terang
 angkanya belum ada, lalu jelaskan bagaimana nanti dihitung.
 
 Satu hal lagi yang harus jujur disebut kalau ditanya seberapa final skornya:
@@ -129,6 +145,15 @@ SCORE_QUERY = text(
 )
 
 KNOWN_CATEGORY_QUERY = text("SELECT DISTINCT category FROM pois ORDER BY category")
+
+TENANT_QUERY = text(
+    """
+    SELECT category, minutes, tsi, rank, demand, supply, headroom
+    FROM tenant_scores
+    WHERE station_id = :station_id
+    ORDER BY minutes, tsi DESC
+    """
+)
 
 
 def _station_line(row) -> str:
@@ -278,6 +303,17 @@ def build_station_detail(db: Session, station: Station) -> str:
     for category in known:
         values = [grid.get(category, {}).get(m, 0) for m in bands]
         lines.append(f"- {category}: " + " / ".join(str(v) for v in values))
+
+    tenants = db.execute(TENANT_QUERY, params).all()
+    if tenants:
+        lines.append("Tenant Survival Index (skor / peringkat dari 46 / calon / pesaing):")
+        for minutes in sorted({r.minutes for r in tenants}):
+            lines.append(f"  pita {minutes} menit:")
+            for r in [x for x in tenants if x.minutes == minutes]:
+                lines.append(
+                    f"  - {r.category}: {r.tsi:.0f} / #{r.rank} / "
+                    f"{r.demand} calon / {r.supply} pesaing"
+                )
 
     # Baris berikut yang paling sering dipakai menjawab "apa yang belum ada".
     for minutes in bands:

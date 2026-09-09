@@ -8,5 +8,6 @@ from app.models.isochrone import Isochrone
 from app.models.poi import Poi
 from app.models.score import StationScore
 from app.models.station import Station
+from app.models.tenant_score import TenantScore
 
-__all__ = ["Isochrone", "Poi", "StationScore", "Station"]
+__all__ = ["Isochrone", "Poi", "StationScore", "Station", "TenantScore"]

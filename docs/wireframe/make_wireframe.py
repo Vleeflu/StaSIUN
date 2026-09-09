@@ -142,12 +142,12 @@ def planned_block(x, y, w, h):
     caps(x, y - 10, "Modul yang belum dibangun")
     rect(x, y, w, h, fill="#fbfbfc", stroke=SOFT, sw=1.4, dash=DASH)
     items = [
-        ("Ad-Space Opportunity", "peringkat kategori merek per zona"),
-        ("Tenant Valuation", "matchmaking + Tenant Survival Index"),
-        ("Naming Rights", "nilai kontrak + kandidat sponsor"),
-        ("Ekspor laporan", "unduhan PDF ringkasan stasiun"),
+        ("Ad-Space Opportunity", "belum ada pembanding harga sewa"),
+        ("Naming Rights", "belum ada data merek + nilai kontrak"),
         ("Footfall & dwell-time", "menunggu data operasional KAI"),
         ("Arketipe stasiun (LDA)", "menunggu korpus Activity terisi"),
+        ("Ekspor laporan", "unduhan PDF ringkasan stasiun"),
+        ("Sentimen & NER", "menunggu korpus ulasan penumpang"),
     ]
     colw = (w - 28) / 3
     for i, (a, b) in enumerate(items):
@@ -499,7 +499,7 @@ def sheet_station():
     notes_column(
         360, 152, 532,
         [
-            (7, "Tab modul", "Ikhtisar sudah berisi data asli dari basis data. Ad-Space, Tenant, dan Naming masih berupa kerangka kosong dengan keterangan bahwa modulnya belum dibangun."),
+            (7, "Tab modul", "Ikhtisar dan Tenant sudah berisi data asli. Tenant menampilkan Tenant Survival Index lima kategori usaha: perbandingan calon pelanggan yang bisa berjalan kaki ke sini dengan pesaing sejenis yang sudah ada. Ad-Space dan Naming masih kosong, masing-masing dengan keterangan data apa yang kurang."),
             (8, "Blok skor SEPI", "Skor dan peringkatnya berasal dari mesin skoring yang sudah berjalan: TOPSIS di atas bobot gabungan Entropy dan AHP, dihitung di dalam poligon isochrone. Panjang bar dibandingkan dengan komponen tertinggi di stasiun itu sendiri, dan angka mentahnya tetap ditulis di sebelahnya lengkap dengan satuannya."),
             (0, "Bobot AHP", "Perbandingan berpasangannya masih angka sementara dan harus diganti hasil kesepakatan tim. Consistency ratio diperiksa tiap kali dihitung; kalau mencapai 0,10 skoringnya berhenti."),
             (0, "Profil stasiun", "Satu-satunya blok bergaris utuh di panel ini: kode KAI, lin dilayani, status dilayani atau dilintasi, kecamatan, alamat, dan koordinat. Semuanya diambil langsung dari basis data."),

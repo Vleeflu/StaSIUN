@@ -8,6 +8,8 @@ from app.core.database import get_db
 from app.models.isochrone import Isochrone
 from app.models.score import StationScore
 from app.models.station import Station
+from app.models.tenant_score import TenantScore
+from app.services.scoring.tenant import CATEGORY_LABEL
 
 router = APIRouter(tags=["stations"])
 
@@ -136,6 +138,53 @@ def station_isochrones(station_id: int, db: Session = Depends(get_db)):
                 "id": r.minutes,
                 "geometry": json.loads(r.geom),
                 "properties": {"minutes": r.minutes, "profile": r.profile},
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/stations/{station_id}/tenants")
+def station_tenants(
+    station_id: int,
+    db: Session = Depends(get_db),
+    minutes: int = Query(default=10, ge=5, le=15),
+):
+    """Tenant Survival Index tiap kategori usaha untuk satu stasiun.
+
+    Diurutkan dari yang paling lapang. Angka mentahnya ikut dikirim karena
+    skor 0-100 tanpa pembilang penyebutnya tidak bisa dipakai mengambil
+    keputusan sewa.
+    """
+    rows = db.execute(
+        select(TenantScore)
+        .where(
+            TenantScore.station_id == station_id,
+            TenantScore.minutes == minutes,
+        )
+        .order_by(TenantScore.tsi.desc())
+    ).scalars().all()
+
+    total = db.execute(
+        select(func.count(func.distinct(TenantScore.station_id))).where(
+            TenantScore.minutes == minutes
+        )
+    ).scalar_one()
+
+    return {
+        "station_id": station_id,
+        "minutes": minutes,
+        "station_count": total,
+        "categories": [
+            {
+                "category": r.category,
+                "label": CATEGORY_LABEL.get(r.category, r.category),
+                "tsi": r.tsi,
+                "rank": r.rank,
+                "demand": r.demand,
+                "connectivity": r.connectivity,
+                "supply": r.supply,
+                "headroom": r.headroom,
             }
             for r in rows
         ],

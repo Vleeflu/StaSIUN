@@ -95,26 +95,27 @@
 <circle cx="370" cy="186" r="10" fill="#ec3013"/>
 <text x="370" y="189.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">7</text>
 <text x="388" y="184" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Tab modul</text>
-<text x="388" y="199" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Ikhtisar sudah berisi data asli dari basis data. Ad-Space, Tenant, dan Naming masih berupa kerangka kosong</text>
-<text x="388" y="211" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">dengan keterangan bahwa modulnya belum dibangun.</text>
-<circle cx="370" cy="258" r="10" fill="#ec3013"/>
-<text x="370" y="261.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">8</text>
-<text x="388" y="256" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Blok skor SEPI</text>
-<text x="388" y="271" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Skor dan peringkatnya berasal dari mesin skoring yang sudah berjalan: TOPSIS di atas bobot gabungan Entropy</text>
-<text x="388" y="283" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">dan AHP, dihitung di dalam poligon isochrone. Panjang bar dibandingkan dengan komponen tertinggi di stasiun</text>
-<text x="388" y="295" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">itu sendiri, dan angka mentahnya tetap ditulis di sebelahnya lengkap dengan satuannya.</text>
-<rect x="366" y="338" width="8" height="8" fill="#9aa0a6"/>
-<text x="388" y="340" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Bobot AHP</text>
-<text x="388" y="355" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Perbandingan berpasangannya masih angka sementara dan harus diganti hasil kesepakatan tim. Consistency</text>
-<text x="388" y="367" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">ratio diperiksa tiap kali dihitung; kalau mencapai 0,10 skoringnya berhenti.</text>
-<rect x="366" y="410" width="8" height="8" fill="#9aa0a6"/>
-<text x="388" y="412" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Profil stasiun</text>
-<text x="388" y="427" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Satu-satunya blok bergaris utuh di panel ini: kode KAI, lin dilayani, status dilayani atau dilintasi,</text>
-<text x="388" y="439" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">kecamatan, alamat, dan koordinat. Semuanya diambil langsung dari basis data.</text>
-<rect x="366" y="482" width="8" height="8" fill="#9aa0a6"/>
-<text x="388" y="484" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Menunggu data</text>
-<text x="388" y="499" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Footfall, dwell-time, dan arketipe LDA sengaja ditampilkan kosong supaya kebutuhan datanya terbaca sejak</text>
-<text x="388" y="511" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">awal, bukan disembunyikan.</text>
+<text x="388" y="199" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Ikhtisar dan Tenant sudah berisi data asli. Tenant menampilkan Tenant Survival Index lima kategori usaha:</text>
+<text x="388" y="211" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">perbandingan calon pelanggan yang bisa berjalan kaki ke sini dengan pesaing sejenis yang sudah ada.</text>
+<text x="388" y="223" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Ad-Space dan Naming masih kosong, masing-masing dengan keterangan data apa yang kurang.</text>
+<circle cx="370" cy="270" r="10" fill="#ec3013"/>
+<text x="370" y="273.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">8</text>
+<text x="388" y="268" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Blok skor SEPI</text>
+<text x="388" y="283" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Skor dan peringkatnya berasal dari mesin skoring yang sudah berjalan: TOPSIS di atas bobot gabungan Entropy</text>
+<text x="388" y="295" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">dan AHP, dihitung di dalam poligon isochrone. Panjang bar dibandingkan dengan komponen tertinggi di stasiun</text>
+<text x="388" y="307" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">itu sendiri, dan angka mentahnya tetap ditulis di sebelahnya lengkap dengan satuannya.</text>
+<rect x="366" y="350" width="8" height="8" fill="#9aa0a6"/>
+<text x="388" y="352" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Bobot AHP</text>
+<text x="388" y="367" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Perbandingan berpasangannya masih angka sementara dan harus diganti hasil kesepakatan tim. Consistency</text>
+<text x="388" y="379" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">ratio diperiksa tiap kali dihitung; kalau mencapai 0,10 skoringnya berhenti.</text>
+<rect x="366" y="422" width="8" height="8" fill="#9aa0a6"/>
+<text x="388" y="424" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Profil stasiun</text>
+<text x="388" y="439" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Satu-satunya blok bergaris utuh di panel ini: kode KAI, lin dilayani, status dilayani atau dilintasi,</text>
+<text x="388" y="451" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">kecamatan, alamat, dan koordinat. Semuanya diambil langsung dari basis data.</text>
+<rect x="366" y="494" width="8" height="8" fill="#9aa0a6"/>
+<text x="388" y="496" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Menunggu data</text>
+<text x="388" y="511" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Footfall, dwell-time, dan arketipe LDA sengaja ditampilkan kosong supaya kebutuhan datanya terbaca sejak</text>
+<text x="388" y="523" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">awal, bukan disembunyikan.</text>
 <line x1="48" y1="766" x2="892" y2="766" stroke="#c9ced6" stroke-width="1"/>
 <text x="48" y="784" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9.5" fill="#9aa0a6" font-weight="400" text-anchor="start">Garis utuh berarti sudah berjalan; garis putus-putus berarti masih rencana.</text>
 <text x="892" y="784" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9.5" fill="#9aa0a6" font-weight="400" text-anchor="end">StaSIUN · MAPID WebGIS Competition 2026</text>
