@@ -48,16 +48,18 @@
 <circle cx="380" cy="186" r="10" fill="#ec3013"/>
 <text x="380" y="189.5" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" fill="#ffffff" font-weight="700" text-anchor="middle">9</text>
 <text x="398" y="184" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Asisten berbasis data</text>
-<text x="398" y="199" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Model bahasa dibekali seluruh daftar stasiun dari basis data — nama, kode KAI, lin, status — beserta</text>
-<text x="398" y="211" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">penjelasan metode SEPI. Konteksnya disusun ulang setiap pertanyaan supaya selalu ikut data terbaru.</text>
-<rect x="376" y="258" width="8" height="8" fill="#9aa0a6"/>
-<text x="398" y="260" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Chip konteks</text>
-<text x="398" y="275" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Stasiun yang sedang dibuka otomatis menjadi konteks, sehingga pertanyaan seperti “lin apa saja di sini”</text>
-<text x="398" y="287" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">punya rujukan. Bisa dilepas lewat tanda silang untuk bertanya hal umum.</text>
-<rect x="376" y="334" width="8" height="8" fill="#9aa0a6"/>
-<text x="398" y="336" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Pagar kejujuran</text>
-<text x="398" y="351" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Asisten dilarang mengarang angka. Ditanya hal yang datanya memang belum ada — footfall, arketipe LDA —</text>
-<text x="398" y="363" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">dia menyatakannya belum ada lalu menjelaskan bagaimana nanti dihitung.</text>
+<text x="398" y="199" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Model bahasa dibekali isi basis data: daftar stasiun, skor SEPI ketiga pita waktu, dan hitungan titik</text>
+<text x="398" y="211" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">minat di dalam tiap isochrone. Nama stasiun yang disebut di pertanyaan dikenali, lalu rincian sekitarnya</text>
+<text x="398" y="223" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">ikut disertakan — jadi pertanyaan seperti gerai apa yang belum ada bisa dijawab dari angka, bukan</text>
+<text x="398" y="235" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">dikarang. Konteksnya disusun ulang setiap pertanyaan.</text>
+<rect x="376" y="282" width="8" height="8" fill="#9aa0a6"/>
+<text x="398" y="284" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Chip konteks</text>
+<text x="398" y="299" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Stasiun yang sedang dibuka otomatis menjadi konteks, sehingga pertanyaan seperti “lin apa saja di sini”</text>
+<text x="398" y="311" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">punya rujukan. Bisa dilepas lewat tanda silang untuk bertanya hal umum.</text>
+<rect x="376" y="358" width="8" height="8" fill="#9aa0a6"/>
+<text x="398" y="360" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" fill="#1f2328" font-weight="700" text-anchor="start">Pagar kejujuran</text>
+<text x="398" y="375" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">Asisten dilarang mengarang angka. Ditanya hal yang datanya memang belum ada — footfall, arketipe LDA —</text>
+<text x="398" y="387" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9" fill="#6b7280" font-weight="400" text-anchor="start">dia menyatakannya belum ada lalu menjelaskan bagaimana nanti dihitung.</text>
 <line x1="48" y1="536" x2="892" y2="536" stroke="#c9ced6" stroke-width="1"/>
 <text x="48" y="554" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9.5" fill="#9aa0a6" font-weight="400" text-anchor="start">Percakapan tersimpan selama sesi; panelnya disembunyikan, bukan dilepas, saat ditutup.</text>
 <text x="892" y="554" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="9.5" fill="#9aa0a6" font-weight="400" text-anchor="end">StaSIUN · MAPID WebGIS Competition 2026</text>

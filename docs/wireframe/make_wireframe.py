@@ -527,7 +527,7 @@ def sheet_assistant():
     notes_column(
         370, 152, 522,
         [
-            (9, "Asisten berbasis data", "Model bahasa dibekali seluruh daftar stasiun dari basis data — nama, kode KAI, lin, status — beserta penjelasan metode SEPI. Konteksnya disusun ulang setiap pertanyaan supaya selalu ikut data terbaru."),
+            (9, "Asisten berbasis data", "Model bahasa dibekali isi basis data: daftar stasiun, skor SEPI ketiga pita waktu, dan hitungan titik minat di dalam tiap isochrone. Nama stasiun yang disebut di pertanyaan dikenali, lalu rincian sekitarnya ikut disertakan — jadi pertanyaan seperti gerai apa yang belum ada bisa dijawab dari angka, bukan dikarang. Konteksnya disusun ulang setiap pertanyaan."),
             (0, "Chip konteks", "Stasiun yang sedang dibuka otomatis menjadi konteks, sehingga pertanyaan seperti “lin apa saja di sini” punya rujukan. Bisa dilepas lewat tanda silang untuk bertanya hal umum."),
             (0, "Pagar kejujuran", "Asisten dilarang mengarang angka. Ditanya hal yang datanya memang belum ada — footfall, arketipe LDA — dia menyatakannya belum ada lalu menjelaskan bagaimana nanti dihitung."),
         ],
