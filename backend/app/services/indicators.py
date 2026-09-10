@@ -414,3 +414,163 @@ def hitung_transportasi(
         )
         for r in baris
     ]
+
+
+# ---------------------------------------------------------------------------
+# Variabel E (Ekonomi) dan C (Komersial) — kerangka untuk data Activity
+# ---------------------------------------------------------------------------
+#
+# PRD Tabel 6 menetapkan keduanya bersumber dari survey Activity DI DALAM
+# stasiun, bukan dari titik minat di luarnya:
+#
+#   C Komersial  media iklan terpasang, keterisian lapak, indeks sentimen
+#                fasilitas
+#   E Ekonomi    rentang harga tingkat klaster tenant, komposisi kategori
+#                usaha, keterisian ruang komersial
+#
+# Per 11 Sep tabel Activity masih kosong: cara menarik data Activity dari API
+# GEO MAPID belum diketahui dan sedang ditanyakan ke mentor MAPID. Fungsi di
+# bawah SENGAJA tidak melempar galat kalau tabelnya kosong — berbeda dari
+# `hitung_urban`, yang melempar karena isochrone kosong memang berarti ada
+# langkah yang terlewat. Di sini nol baris adalah keadaan yang DIHARAPKAN.
+#
+# Yang mengembalikan daftar kosong akan membuat matrix.py menahan E dan C tetap
+# NaN, dan `hitung_sepi` menormalisasi ulang bobot atas variabel yang ada. Jadi
+# begitu data Activity masuk, kedua variabel menyala tanpa satu baris pun di
+# mesin skor perlu diubah.
+#
+# Bentuk datanya mengikuti Panduan Lapangan Survey StaSIUN: lima jenis Activity
+# (A Spot Iklan, B Area Lapak, C Pemetaan Tenant, D Keluhan Fasilitas,
+# E Konektivitas Antarmoda), yang sudah dipetakan ke tabel ad_spots,
+# tenant_clusters, tenants, facility_issues, dan crowd_ratings.
+
+
+@dataclass
+class IndikatorKomersial:
+    """Bahan mentah variabel C untuk satu stasiun. Semua boleh None."""
+
+    station_id: int
+    station_name: str
+    media_iklan: int | None        # jumlah media iklan terpasang (Activity A)
+    ad_spot_terisi: int | None     # berapa di antaranya sudah terjual
+    keterisian_lapak: float | None  # unit_filled / unit_total (Activity B), 0-1
+    sentimen_fasilitas: float | None  # rata-rata sentimen keluhan (Activity D)
+    jumlah_keluhan: int | None
+
+
+@dataclass
+class IndikatorEkonomi:
+    """Bahan mentah variabel E untuk satu stasiun. Semua boleh None."""
+
+    station_id: int
+    station_name: str
+    komposisi_usaha: float | None   # entropi kategori tenant ternormalisasi 0-1
+    jumlah_kategori: int | None
+    keterisian_komersial: float | None  # tenant aktif / seluruh tenant, 0-1
+    harga_median_idr: float | None  # dari price_references bertaut stasiun
+
+
+SQL_KOMERSIAL = """
+SELECT s.id   AS station_id,
+       s.name AS station_name,
+       (SELECT COALESCE(SUM(a.media_count), 0) FROM ad_spots a
+         WHERE a.station_id = s.id)                                AS media_iklan,
+       (SELECT COALESCE(SUM(a.media_count), 0) FROM ad_spots a
+         WHERE a.station_id = s.id AND a.status <> 'kosong')       AS ad_spot_terisi,
+       (SELECT SUM(c.unit_total) FROM tenant_clusters c
+         WHERE c.station_id = s.id)                                AS unit_total,
+       (SELECT SUM(c.unit_filled) FROM tenant_clusters c
+         WHERE c.station_id = s.id)                                AS unit_filled,
+       (SELECT AVG(f.sentiment_score) FROM facility_issues f
+         WHERE f.station_id = s.id AND f.sentiment_score IS NOT NULL)
+                                                                   AS sentimen,
+       (SELECT COUNT(*) FROM facility_issues f
+         WHERE f.station_id = s.id)                                AS jumlah_keluhan
+  FROM stations s
+ WHERE EXISTS (SELECT 1 FROM ad_spots        a WHERE a.station_id = s.id)
+    OR EXISTS (SELECT 1 FROM tenant_clusters c WHERE c.station_id = s.id)
+    OR EXISTS (SELECT 1 FROM facility_issues f WHERE f.station_id = s.id)
+ ORDER BY s.name
+"""
+
+SQL_EKONOMI = """
+WITH per_kategori AS (
+    SELECT t.station_id, t.category, COUNT(*)::float AS n
+      FROM tenants t
+     GROUP BY t.station_id, t.category
+),
+keberagaman AS (
+    -- Entropi Shannon atas komposisi kategori usaha, dinormalisasi ln(k) supaya
+    -- sebanding antar stasiun. Cara dan alasannya sama dengan variabel U.
+    SELECT station_id,
+           COUNT(*)                       AS jumlah_kategori,
+           -SUM((n / total) * LN(n / total)) AS h
+      FROM (SELECT station_id, category, n,
+                   SUM(n) OVER (PARTITION BY station_id) AS total
+              FROM per_kategori) x
+     GROUP BY station_id
+)
+SELECT s.id   AS station_id,
+       s.name AS station_name,
+       k.jumlah_kategori,
+       CASE WHEN k.jumlah_kategori > 1 THEN k.h / LN(k.jumlah_kategori) ELSE 0 END
+                                                       AS komposisi_usaha,
+       (SELECT COUNT(*) FILTER (WHERE t.status = 'aktif')::float
+             / NULLIF(COUNT(*), 0)
+          FROM tenants t WHERE t.station_id = s.id)     AS keterisian_komersial,
+       (SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY p.price_idr)
+          FROM price_references p WHERE p.station_id = s.id) AS harga_median
+  FROM stations s
+  LEFT JOIN keberagaman k ON k.station_id = s.id
+ WHERE EXISTS (SELECT 1 FROM tenants          t WHERE t.station_id = s.id)
+    OR EXISTS (SELECT 1 FROM price_references p WHERE p.station_id = s.id)
+ ORDER BY s.name
+"""
+
+
+def hitung_komersial(session: Session) -> list[IndikatorKomersial]:
+    """Bahan variabel C dari hasil survey Activity.
+
+    Mengembalikan daftar KOSONG selama tabel Activity belum terisi. Itu bukan
+    kegagalan: lihat catatan panjang di atas.
+    """
+    hasil = []
+    for r in session.execute(text(SQL_KOMERSIAL)).all():
+        total, terisi = r.unit_total, r.unit_filled
+        hasil.append(
+            IndikatorKomersial(
+                station_id=r.station_id,
+                station_name=r.station_name,
+                media_iklan=r.media_iklan,
+                ad_spot_terisi=r.ad_spot_terisi,
+                keterisian_lapak=(terisi / total) if total else None,
+                sentimen_fasilitas=float(r.sentimen) if r.sentimen is not None else None,
+                jumlah_keluhan=r.jumlah_keluhan,
+            )
+        )
+    return hasil
+
+
+def hitung_ekonomi(session: Session) -> list[IndikatorEkonomi]:
+    """Bahan variabel E dari hasil survey Activity. Kosong sampai N1 tertutup."""
+    hasil = []
+    for r in session.execute(text(SQL_EKONOMI)).all():
+        hasil.append(
+            IndikatorEkonomi(
+                station_id=r.station_id,
+                station_name=r.station_name,
+                komposisi_usaha=(
+                    float(r.komposisi_usaha) if r.komposisi_usaha is not None else None
+                ),
+                jumlah_kategori=r.jumlah_kategori,
+                keterisian_komersial=(
+                    float(r.keterisian_komersial)
+                    if r.keterisian_komersial is not None
+                    else None
+                ),
+                harga_median_idr=(
+                    float(r.harga_median) if r.harga_median is not None else None
+                ),
+            )
+        )
+    return hasil

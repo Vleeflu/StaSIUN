@@ -1,4 +1,4 @@
-from sqlalchemy import Float, ForeignKey, Index, Integer
+from sqlalchemy import Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -20,8 +20,32 @@ class StationScore(Base):
     )
     minutes: Mapped[int] = mapped_column(Integer)
 
+    # SEPI = 100 x jumlah berbobot variabel yang TERSEDIA, bobotnya
+    # dinormalisasi ulang atas variabel itu saja (lihat scoring/sepi.py).
+    # Sifatnya POINTWISE: nilai satu stasiun tidak bergantung pada stasiun mana
+    # pun yang lain, jadi menambah stasiun ke lingkup tidak mengubahnya. Karena
+    # itu hanya angka INI yang boleh diklasifikasikan ke tiga rentang PRD.
     sepi: Mapped[float] = mapped_column(Float)
+    kelas: Mapped[str] = mapped_column(String)
+    keputusan: Mapped[str] = mapped_column(String)
+
+    # Peringkat menurut `sepi`, bukan menurut TOPSIS - supaya urutan yang
+    # ditampilkan konsisten dengan angka yang ditampilkan.
     rank: Mapped[int] = mapped_column(Integer)
+
+    # Kedekatan TOPSIS 0-100. Disimpan TERPISAH dan sengaja tidak dipakai
+    # untuk klasifikasi: nilainya ditentukan oleh himpunan alternatif yang
+    # kebetulan ikut dinilai, sehingga menambah satu stasiun bisa menukar
+    # urutan dua stasiun lain yang datanya tidak berubah (rank reversal, lihat
+    # scoring/topsis.py). Berguna sebagai pembanding relatif, bukan sebagai
+    # skor yang berdiri sendiri.
+    topsis: Mapped[float] = mapped_column(Float)
+
+    # Berapa dari lima variabel yang benar-benar terukur, dan keyakinan yang
+    # mengikutinya. Skor dari tiga variabel TIDAK sebanding dengan skor lima
+    # variabel, dan itu harus terbaca di panel, bukan disembunyikan.
+    variabel_terpakai: Mapped[int] = mapped_column(Integer)
+    confidence: Mapped[float] = mapped_column(Float)
 
     raw_t: Mapped[float] = mapped_column(Float)
     # NULL, bukan NaN. "Belum diukur" bukan sebuah angka, dan NaN bukan JSON

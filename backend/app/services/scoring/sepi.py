@@ -40,17 +40,25 @@ NAMA_VARIABEL = {
 
 # PRD hal. 13, lengkap dengan kalimat keputusan bisnisnya. Ambang batas ini
 # ditetapkan PRD, bukan pilihan tim.
+#
+# Batas atas ditulis sebagai batas EKSKLUSIF (40 dan 70, bukan 39 dan 69).
+# PRD menulis rentangnya sebagai 0-39 / 40-69 / 70-100, yang benar untuk
+# bilangan bulat tetapi meninggalkan dua celah pada skor kontinu: 39 < x < 40
+# dan 69 < x < 70 tidak masuk kelas mana pun. Skor SEPI adalah jumlah berbobot,
+# jadi 39,59 memang mungkin - dan pernah benar-benar terjadi. Interval setengah
+# terbuka [0,40) [40,70) [70,100] menutup seluruh garis bilangan tanpa
+# menggeser maksud PRD: 39 tetap Low, 40 tetap Moderate.
 KELAS = (
     (
         0,
-        39,
+        40,
         "Low Potential",
         "Hindari investasi tenant menetap. Cocok untuk vending machine atau "
         "iklan luar ruang informatif berbiaya rendah.",
     ),
     (
         40,
-        69,
+        70,
         "Moderate Potential",
         "Layak untuk ekspansi UMKM tipe grab-and-go dengan harga sewa standar pasar.",
     ),
@@ -78,9 +86,14 @@ class SkorSepi:
 
 
 def klasifikasi(nilai: float) -> tuple[str, str]:
-    """Petakan skor 0-100 ke label dan kalimat keputusan bisnisnya."""
+    """Petakan skor 0-100 ke label dan kalimat keputusan bisnisnya.
+
+    Batas bawah inklusif, batas atas eksklusif - kecuali kelas terakhir, yang
+    atasnya inklusif supaya skor 100 tepat masih punya kelas.
+    """
     for bawah, atas, label, keputusan in KELAS:
-        if bawah <= nilai <= atas:
+        terakhir = atas == 100
+        if bawah <= nilai <= atas if terakhir else bawah <= nilai < atas:
             return label, keputusan
     # Hanya tercapai kalau nilainya di luar 0-100, yang berarti ada bug di hulu.
     raise ValueError(f"skor SEPI di luar rentang 0-100: {nilai}")

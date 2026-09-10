@@ -29,7 +29,12 @@ import math
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.services.indicators import hitung_transportasi, hitung_urban
+from app.services.indicators import (
+    hitung_ekonomi,
+    hitung_komersial,
+    hitung_transportasi,
+    hitung_urban,
+)
 
 # Urutan kolom. Dipakai juga oleh berkas AHP, jadi keduanya harus sama.
 CRITERIA = ["T", "E", "A", "U", "C"]
@@ -52,6 +57,42 @@ SQL_AKSESIBILITAS = text(
      WHERE s.types && CAST(:networks AS varchar[])
     """
 )
+
+
+def _scale_opsional(nilai: list[float | None]) -> list[float | None]:
+    """Skala 0-1 HANYA atas stasiun yang punya nilainya; sisanya tetap None.
+
+    Bedanya dengan `_scale` menentukan, dan pernah salah sekali: `_scale` atas
+    daftar yang sebagian None (diubah jadi 0,0 dulu) membuat stasiun yang BELUM
+    disurvey mendapat nilai 0 - yaitu "terburuk di antara yang ada". Entropi
+    kemudian membaca sebaran timpang itu sebagai discriminating power yang
+    tinggi, bobot variabelnya melonjak, dan satu-dua stasiun yang kebetulan
+    sudah disurvey terlempar ke puncak peringkat hanya karena datanya ada.
+
+    Terjadi sungguhan saat menguji dengan 3 stasiun bersurvey: bobot entropi C
+    melonjak ke 0,881 dan Sudirman naik ke "Premium Transit Hub". None yang
+    dipertahankan membuat stasiun itu tidak menyumbang apa pun ke kolom
+    tersebut, yang memang keadaan sebenarnya.
+    """
+    ada = [v for v in nilai if v is not None]
+    if not ada:
+        return [None] * len(nilai)
+    tertinggi = max(ada)
+    if tertinggi == 0:
+        return [0.0 if v is not None else None for v in nilai]
+    return [(v / tertinggi) if v is not None else None for v in nilai]
+
+
+def _rata_tersedia(nilai: list[float | None]) -> float:
+    """Rata-rata indikator yang benar-benar ada; NaN kalau tidak ada satu pun.
+
+    Dipakai untuk E dan C, yang indikatornya menyusul satu per satu seiring
+    survey Activity masuk. Satu indikator terisi sudah cukup untuk membuat
+    variabelnya hidup - lebih jujur daripada menunggu ketiganya lengkap, karena
+    `hitung_sepi` memang dirancang menerima variabel yang datanya belum penuh.
+    """
+    ada = [v for v in nilai if v is not None]
+    return sum(ada) / len(ada) if ada else math.nan
 
 
 def _scale(values: list[float]) -> list[float]:
@@ -93,6 +134,13 @@ def build_matrix(
     urban = {u.station_id: u for u in hitung_urban(db, menit=minutes, sumber=sumber)}
     transportasi = {t.station_id: t for t in hitung_transportasi(db)}
 
+    # E dan C datang dari survey Activity. Keduanya mengembalikan daftar kosong
+    # selama tabelnya belum terisi, dan itu keadaan yang diharapkan sekarang -
+    # bukan kegagalan. Kolomnya tetap NaN, dan hitung_sepi menormalisasi ulang
+    # bobot atas variabel yang ada.
+    ekonomi = {e.station_id: e for e in hitung_ekonomi(db)}
+    komersial = {c.station_id: c for c in hitung_komersial(db)}
+
     # Hanya stasiun yang lengkap ketiganya. Stasiun tanpa isochrone tidak bisa
     # dinilai variabel A maupun U-nya, dan menyertakannya dengan nol akan
     # menghukumnya karena poligonnya belum dibangkitkan (lihat blocker N13).
@@ -115,6 +163,8 @@ def build_matrix(
                 "kepadatan_per_km2": u.kepadatan_per_km2,
                 "keberagaman": u.keberagaman,
                 "pembangkit_perjalanan": u.pembangkit_perjalanan,
+                "ekonomi": ekonomi.get(sid),
+                "komersial": komersial.get(sid),
             }
         )
 
@@ -133,6 +183,20 @@ def build_matrix(
 
     # U memakai ketiga indikator PRD sekaligus: cacah, keberagaman fungsi lahan,
     # dan pembangkit perjalanan berskala besar.
+    # Indikator Activity diskalakan hanya kalau ADA yang terisi. `_scale` atas
+    # daftar yang seluruhnya None tidak punya arti, dan memaksakannya akan
+    # mengarang angka 0 untuk sesuatu yang belum diukur.
+    harga_mentah = [d["ekonomi"].harga_median_idr if d["ekonomi"] else None for d in details]
+    iklan_mentah = [float(d["komersial"].media_iklan) if d["komersial"] and d["komersial"].media_iklan is not None else None for d in details]
+    sentimen_mentah = [d["komersial"].sentimen_fasilitas if d["komersial"] else None for d in details]
+    harga = _scale_opsional(harga_mentah)
+    iklan = _scale_opsional(iklan_mentah)
+    # Sentimen sudah berada di rentang -1..1; digeser ke 0..1 supaya searah
+    # dengan indikator lain (makin besar makin baik). Keluhan yang sentimennya
+    # negatif menurunkan C, dan itu memang maksudnya. Stasiun tanpa keluhan
+    # tercatat tetap None - "belum ada laporan" bukan "sentimennya netral".
+    sentimen = [((v + 1.0) / 2.0 if v is not None else None) for v in sentimen_mentah]
+
     cacah = _scale([float(d["poi_u"]) for d in details])
     ragam = _scale([d["keberagaman"] for d in details])
     pembangkit = _scale([float(d["pembangkit_perjalanan"]) for d in details])
@@ -142,9 +206,27 @@ def build_matrix(
         d["raw_t"] = (lin[i] + rel[i] + jalan[i]) / 3.0
         d["raw_a"] = (luas[i] + pi[i]) / 2.0
         d["raw_u"] = (cacah[i] + ragam[i] + pembangkit[i]) / 3.0
-        d["raw_e"] = math.nan
-        d["raw_c"] = math.nan
-        d["menunggu_survey"] = list(MENUNGGU_SURVEY)
+        d["raw_e"] = _rata_tersedia(
+            [
+                d["ekonomi"].komposisi_usaha if d["ekonomi"] else None,
+                d["ekonomi"].keterisian_komersial if d["ekonomi"] else None,
+                harga[i],
+            ]
+        )
+        d["raw_c"] = _rata_tersedia(
+            [
+                iklan[i],
+                d["komersial"].keterisian_lapak if d["komersial"] else None,
+                sentimen[i],
+            ]
+        )
+        d["menunggu_survey"] = [
+            v for v, nilai in (("E", d["raw_e"]), ("C", d["raw_c"])) if nilai != nilai
+        ]
+        # Objek indikator tidak ikut dibawa keluar: isinya sudah terserap ke
+        # raw_e/raw_c, dan menyertakannya membuat `details` tidak bisa di-JSON-kan.
+        d.pop("ekonomi", None)
+        d.pop("komersial", None)
 
         matrix.append([d["raw_t"], d["raw_e"], d["raw_a"], d["raw_u"], d["raw_c"]])
 

@@ -97,7 +97,23 @@ def station_score(
         "station_id": row.station_id,
         "minutes": row.minutes,
         "sepi": row.sepi,
+        "kelas": row.kelas,
+        "keputusan": row.keputusan,
         "rank": row.rank,
+        # Kedekatan TOPSIS dikirim TERPISAH dan diberi peringatan, supaya panel
+        # tidak tergoda memakainya sebagai skor. Nilainya bergantung pada
+        # himpunan stasiun yang ikut dinilai (rank reversal), jadi ia hanya sah
+        # sebagai pembanding relatif di dalam himpunan yang sama.
+        "topsis": row.topsis,
+        "topsis_catatan": (
+            "Pembanding relatif dalam himpunan yang dinilai. Jangan dipakai "
+            "untuk klasifikasi; pakai `sepi`."
+        ),
+        # Metadata keyakinan (F5-4). WAJIB ikut ditampilkan: skor dari 3
+        # variabel tidak sebanding dengan skor 5 variabel.
+        "confidence": row.confidence,
+        "variabel_terpakai": row.variabel_terpakai,
+        "variabel_total": 5,
         "components": {
             "T": row.raw_t,
             "E": row.raw_e,

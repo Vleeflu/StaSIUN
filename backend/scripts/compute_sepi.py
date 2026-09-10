@@ -23,6 +23,7 @@ from app.services.scoring import (
     AHPTidakKonsisten,
     bobot_ahp,
     bobot_entropy,
+    hitung_sepi,
     build_matrix,
     gabung_bobot,
     topsis,
@@ -110,8 +111,27 @@ def main() -> int:
         return 1
 
     weights = gabung_bobot(w_entropy, w_ahp, lambda_entropy)
+
+    # DUA angka, dua kegunaan, dan keduanya TIDAK boleh dipertukarkan.
+    #
+    #   skor_sepi  jumlah berbobot 0-100, dihitung per stasiun tanpa melihat
+    #              stasiun lain (pointwise). Hanya angka INI yang boleh masuk
+    #              tiga rentang klasifikasi PRD, justru karena stabil: menambah
+    #              stasiun ke lingkup tidak mengubah nilai stasiun yang sudah
+    #              ada.
+    #   topsis     kedekatan relatif ke sudut ideal. Berguna untuk membandingkan
+    #              dalam satu himpunan, tapi nilainya DITENTUKAN oleh himpunan
+    #              itu - menambah satu stasiun bisa menukar urutan dua stasiun
+    #              lain yang datanya tidak berubah sama sekali (rank reversal).
+    #
+    # Sebelum 11 Sep kolom `sepi` diisi kedekatan TOPSIS x 100. Angkanya
+    # terlihat wajar dan berperingkat rapi, tapi tidak bisa dipertahankan kalau
+    # ditanya "kenapa stasiun ini 72?" - jawabannya bergantung pada siapa saja
+    # yang kebetulan ikut dinilai.
+    skor_sepi = hitung_sepi(
+        [d["id"] for d in details], [d["name"] for d in details], x, weights
+    )
     hasil = topsis(x, weights)
-    scores = hasil.kedekatan
 
     print(f"pita {args.minutes} menit, {len(details)} stasiun")
     print(f"consistency ratio AHP {ratio:.3f} (batas {AMBANG_CR})")
@@ -124,19 +144,51 @@ def main() -> int:
     ):
         print(f"{label:10}" + "".join(f"{v:10.3f}" for v in values))
 
-    ranked = sorted(zip(details, scores), key=lambda pair: -pair[1])
+    # Diurutkan menurut SEPI, bukan menurut TOPSIS, supaya urutan yang tampil
+    # konsisten dengan angka yang tampil di sebelahnya.
+    ranked = sorted(zip(details, skor_sepi, hasil.kedekatan), key=lambda t: -t[1].nilai)
 
-    print(f"\n{'#':>3}  {'STASIUN':24}{'SEPI':>7}{'T':>7}{'E':>6}{'A':>7}{'U':>6}{'C':>6}")
-    for position, (detail, score) in enumerate(ranked, start=1):
+    print(
+        "\n" + f"{'#':>3}  {'STASIUN':24}{'SEPI':>7}{'KELAS':>20}{'yakin':>7}"
+        f"{'TOPSIS':>8}{'T':>7}{'E':>6}{'A':>7}{'U':>6}{'C':>6}"
+    )
+    for position, (detail, sepi, dekat) in enumerate(ranked, start=1):
         if position > 10 and position <= len(ranked) - 5:
             if position == 11:
                 print("     ...")
             continue
         print(
-            f"{position:3}  {detail['name'][:24]:24}{score * 100:7.1f}"
+            f"{position:3}  {detail['name'][:24]:24}{sepi.nilai:7.1f}"
+            f"{sepi.kelas:>20}{sepi.confidence:7.2f}{dekat * 100:8.1f}"
             f"{detail['raw_t']:7.2f}{_angka(detail['raw_e']):>6}"
             f"{detail['raw_a']:7.2f}{detail['raw_u']:6.2f}{_angka(detail['raw_c']):>6}"
         )
+
+    # Peringatan yang WAJIB muncul kalau kelengkapan variabel tidak seragam.
+    # `sepi.py` sudah menyatakannya: skor dari 3 variabel tidak sebanding dengan
+    # skor 5 variabel. Selama sebagian stasiun sudah disurvey dan sebagian belum,
+    # satu daftar peringkat mencampur dua hal yang tidak setara - stasiun yang
+    # sudah disurvey bisa naik sebagian karena variabelnya lebih banyak, bukan
+    # karena kondisinya lebih baik.
+    ragam = sorted({x.variabel_terpakai for x in skor_sepi})
+    if len(ragam) > 1:
+        rinci = ", ".join(
+            f"{sum(1 for x in skor_sepi if x.variabel_terpakai == v)} stasiun {v} variabel"
+            for v in ragam
+        )
+        print(
+            f"\n!! KELENGKAPAN TIDAK SERAGAM: {rinci}."
+            "\n   Peringkat lintas-kelengkapan TIDAK sah dibandingkan begitu saja."
+            "\n   Bandingkan hanya di antara stasiun dengan confidence yang sama,"
+            "\n   atau tunggu survey Activity lengkap."
+        )
+
+    n_var = min(x.variabel_terpakai for x in skor_sepi)
+    print(
+        f"\nSEPI disusun dari {n_var} dari 5 variabel, jadi confidence "
+        f"{min(x.confidence for x in skor_sepi):.2f}. Skor {n_var} variabel TIDAK sebanding dengan "
+        f"skor 5 variabel, dan itu wajib ikut disebut di panel maupun laporan."
+    )
 
     if args.dry_run:
         print("\n(dry run, tidak disimpan)")
@@ -146,7 +198,12 @@ def main() -> int:
         {
             "station_id": detail["id"],
             "minutes": args.minutes,
-            "sepi": round(score * 100, 2),
+            "sepi": round(sepi.nilai, 2),
+            "kelas": sepi.kelas,
+            "keputusan": sepi.keputusan,
+            "topsis": round(dekat * 100, 2),
+            "variabel_terpakai": sepi.variabel_terpakai,
+            "confidence": round(sepi.confidence, 4),
             "rank": position,
             "raw_t": detail["raw_t"],
             "raw_e": _atau_none(detail["raw_e"]),
@@ -162,7 +219,7 @@ def main() -> int:
             "other_mode_count": detail["moda_rel"],
             "area_km2": detail["area_km2"],
         }
-        for position, (detail, score) in enumerate(ranked, start=1)
+        for position, (detail, sepi, dekat) in enumerate(ranked, start=1)
     ]
 
     save_scores(rows, args.minutes)
