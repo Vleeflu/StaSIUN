@@ -12,9 +12,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 @router.post("", response_model=ChatResponse)
 async def chat(req: ChatRequest, db: Session = Depends(get_db)):
-    # Konteks disusun ulang tiap permintaan supaya isinya selalu ikut database
-    # terbaru. Querynya cuma puluhan baris, jadi murah.
-    context = build_chat_context(db, req.station_id)
+    context = build_chat_context(db, req.station_id, req.message)
 
     try:
         reply = await llm_service.chat(req.message, req.history, context=context)

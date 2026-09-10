@@ -38,6 +38,7 @@ Struktur PRD — SEPI untuk klasifikasi, TOPSIS untuk peringkat — karena itu
 memang benar secara matematis, bukan kebetulan.
 """
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -70,8 +71,17 @@ def topsis(matriks: np.ndarray, bobot: np.ndarray) -> HasilTopsis:
 
     v = x * w
 
-    ideal = np.nanmax(v, axis=0)
-    terburuk = np.nanmin(v, axis=0)
+    # Kolom yang seluruhnya NaN adalah variabel yang belum diukur sama sekali
+    # (E dan C menunggu survey Activity). nanmax/nanmin memperingatkan "All-NaN
+    # slice" untuk kolom seperti itu, padahal di sini keadaan tersebut memang
+    # diharapkan dan sudah ditangani: selisihnya dinolkan beberapa baris di
+    # bawah, jadi kolomnya tidak menyumbang jarak ke stasiun mana pun.
+    # Peringatannya dibungkam DI SINI saja, bukan secara global, supaya All-NaN
+    # yang tak terduga di tempat lain tetap terdengar.
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", "All-NaN slice encountered", RuntimeWarning)
+        ideal = np.nanmax(v, axis=0)
+        terburuk = np.nanmin(v, axis=0)
 
     selisih_ideal = np.where(np.isnan(v), 0.0, v - ideal)
     selisih_terburuk = np.where(np.isnan(v), 0.0, v - terburuk)

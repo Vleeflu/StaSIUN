@@ -7,6 +7,10 @@ Alembic — gagalnya diam-diam, tanpa pesan error.
 Karena itu setiap model baru cukup didaftarkan di sini sekali, dan pemakainya
 (alembic/env.py dan docker-entrypoint.sh) tinggal `import app.models` tanpa
 perlu tahu ada berapa berkas.
+
+Model `Poi` tinggal di `reference.py`, bukan di `poi.py` tersendiri. Branch main
+sempat punya keduanya; dua kelas yang memetakan ke tabel `poi` yang sama membuat
+SQLAlchemy gagal saat pemetaan, jadi yang duplikat dibuang.
 """
 
 from app.models.activity import (
@@ -17,6 +21,7 @@ from app.models.activity import (
 )
 from app.models.isochrone import Isochrone
 from app.models.reference import AreaProfile, PassengerVolume, Poi, PriceReference
+from app.models.score import StationScore
 from app.models.station import Station
 from app.models.station_objects import (
     AdSpot,
@@ -25,6 +30,7 @@ from app.models.station_objects import (
     Tenant,
     TenantCluster,
 )
+from app.models.tenant_score import TenantScore
 
 __all__ = [
     "ActivityExtraction",
@@ -39,7 +45,9 @@ __all__ = [
     "Poi",
     "PriceReference",
     "Station",
+    "StationScore",
     "StationZone",
     "Tenant",
     "TenantCluster",
+    "TenantScore",
 ]

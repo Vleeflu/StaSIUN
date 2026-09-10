@@ -23,6 +23,7 @@ PostGIS hidup, dan matematikanya bisa diperiksa terpisah dari cara datanya
 diambil.
 """
 
+from app.services.scoring.matrix import CRITERIA, build_matrix
 from app.services.scoring.normalize import (
     Arah,
     gabung_indikator,
@@ -53,6 +54,7 @@ from app.services.scoring.weights import (
 
 __all__ = [
     "AHPTidakKonsisten",
+    "CRITERIA",
     "AMBANG_CR",
     "Arah",
     "HasilTopsis",
@@ -60,6 +62,7 @@ __all__ = [
     "NAMA_VARIABEL",
     "SkorSepi",
     "VARIABEL",
+    "build_matrix",
     "bobot_ahp",
     "bobot_entropy",
     "gabung_bobot",

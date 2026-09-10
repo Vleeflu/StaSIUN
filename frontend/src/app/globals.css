@@ -11,6 +11,14 @@
   --color-hair: #dedbd9;
   --color-accent: #ec3013;
   --color-accent-soft: #fdeae6;
+
+  /* Tiga lapisan peta dulu sama-sama merah, jadi skor, pilihan, dan jangkauan
+     saling tertukar. Sekarang tiap peran punya ronanya sendiri, dan ketiganya
+     dijaga berjarak dari warna lin KRL yang tampil di peta:
+       lin B 349°  T 30°  R 85°  C 197°  A 222°  TP 324°
+     Kuning 48° dan magenta 303° masing-masing 18° dan 21° dari tetangganya. */
+  --color-select: #f2c101;
+  --color-reach: #a4249e;
 }
 
 @theme inline {
@@ -158,4 +166,24 @@
 .maplibregl-map .maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib-inner {
   padding-right: 8px;
   line-height: 29px;
+}
+
+/* Popup nama titik minat. Kotak putih bergaris tegas, sama seperti panel lain,
+   bukan gelembung membulat bawaan MapLibre. */
+.maplibregl-map .poi-popup .maplibregl-popup-content {
+  padding: 6px 9px;
+  border: 1px solid var(--color-ink);
+  border-radius: 0;
+  box-shadow: 3px 3px 0 rgb(32 30 29 / 0.06);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.maplibregl-map .poi-popup .maplibregl-popup-content span {
+  color: var(--color-muted);
+}
+
+.maplibregl-map .poi-popup .maplibregl-popup-tip {
+  display: none;
 }

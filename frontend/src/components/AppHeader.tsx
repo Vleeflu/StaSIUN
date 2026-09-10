@@ -23,8 +23,6 @@ export default function AppHeader({ stationCount, loading }: Props) {
           {loading ? "Memuat data…" : `${stationCount} stasiun KAI · DKI Jakarta`}
         </span>
 
-        {/* Ekspor laporan belum ada di backend, jadi tombolnya sengaja mati
-            supaya tidak menjanjikan sesuatu yang belum bisa dilakukan. */}
         <button
           type="button"
           disabled

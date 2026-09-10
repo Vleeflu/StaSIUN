@@ -73,26 +73,58 @@
 # Setelah diisi:  python -m scripts.check_ahp
 
 penilai:
-  - nama: ""          # nama orang, atau "Tim StaSIUN"
-    peran: ""         # mis. "pemilik kedai di Stasiun Manggarai"
-                      #      "tim, berbasis literatur"
-    tanggal: ""       # YYYY-MM-DD
-    catatan: ""       # opsional: lokasi wawancara, atau sumber literaturnya
+  # ---------------------------------------------------------------------------
+  # SUMBER: riset literatur (blocker N9, jalur ke-2 dari tiga jalur sah).
+  # Dijalankan 9 Sep 2026 memakai riset_prompt_N9_ahp_literatur.md.
+  #
+  # Riset itu MENOLAK mengarang matriks. Ia mengembalikan bobot apa adanya dari
+  # tiap studi dan menyerahkan pemetaan ke variabel T/E/A/U/C kepada kita.
+  # Angka di bawah adalah rasio bobot LANGSUNG dari studi bersangkutan, bukan
+  # sintesis - tiap baris menyebut asalnya.
+  #
+  # JANGKAR UTAMA: Irwan, N.P. (2023), "Penentuan Potensi Pengembangan Kawasan
+  # Berorientasi Transit di Sekitar Titik Transit MRT Jakarta", Jurnal
+  # Transportasi ITB 23(1): 53-70. AHP, Expert Choice 11, 5 ahli, IR 0,05.
+  # Satu-satunya studi berbobot terverifikasi pada stasiun rel Jakarta.
+  #   fasilitas pedestrian            21,4%  -> A
+  #   jumlah jenis penggunaan lahan   20,4%  -> U
+  #   jumlah moda transportasi        18,8%  -> T
+  # Pemetaan T dikuatkan definisi penulisnya sendiri: "jumlah rute moda
+  # transportasi massal lainnya, yang terhubung dalam bangunan stasiun maupun
+  # dengan stasiun penghubung" - itu persis variabel T kita.
+  #
+  # JANGKAR KEDUA untuk E: Sangsrichan dkk. (2025), Scientific Journal of
+  # Silesian University of Technology, Series Transport Vol. 128 (SFAHP).
+  #   density 20,1% | diversity 18,1% | transit 15,1%
+  #   destination accessibility 11,7% | economic development 10,8%  -> E
+  # Dipakai HANYA untuk pasangan yang melibatkan E, karena Irwan tidak memuat
+  # dimensi ekonomi sama sekali. Konteksnya stasiun regional Thailand, bukan
+  # Jakarta - ini batasan yang harus ditulis di laporan.
+  #
+  # C: KEEMPAT pasangannya TIDAK DITEMUKAN di literatur. Riset menyimpulkan
+  # kondisi komersial di DALAM stasiun belum pernah masuk indeks kawasan
+  # berbobot mana pun. Diisi 1 (tidak ada preferensi), BUKAN karena setara,
+  # melainkan karena tidak ada dasar untuk menyatakan sebaliknya. Ini celah
+  # riset primer, dan harus disebut apa adanya di laporan maupun video.
+  # ---------------------------------------------------------------------------
+  - nama: "Riset literatur (Irwan 2023 + Sangsrichan dkk. 2025)"
+    peran: "sintesis literatur akademik, bukan penilaian ahli langsung"
+    tanggal: "2026-09-09"
+    catatan: >-
+      Jalur ke-2 dari tiga jalur sah untuk N9. Rasio diambil langsung dari bobot
+      terbit; pasangan yang melibatkan C tidak punya bukti dan diisi netral.
+      Perlu diganti kalau penilaian pelaku usaha di stasiun (jalur ke-1)
+      terkumpul.
     perbandingan:
-      T_vs_E: null
-      T_vs_A: null
-      T_vs_U: null
-      T_vs_C: null
-      E_vs_A: null
-      E_vs_U: null
-      E_vs_C: null
-      A_vs_U: null
-      A_vs_C: null
-      U_vs_C: null
+      T_vs_E: 1.398    # Irwan tak punya E; SFAHP: transit 15,1 / econ dev 10,8
+      T_vs_A: 0.879    # Irwan: moda 18,8 / pedestrian 21,4 -> A sedikit unggul
+      T_vs_U: 0.922    # Irwan: moda 18,8 / guna lahan 20,4 -> U sedikit unggul
+      T_vs_C: 1        # TIDAK DITEMUKAN
+      E_vs_A: 0.923    # SFAHP: econ dev 10,8 / destination accessibility 11,7
+      E_vs_U: 0.597    # SFAHP: econ dev 10,8 / diversity 18,1
+      E_vs_C: 1        # TIDAK DITEMUKAN
+      A_vs_U: 1.049    # Irwan: pedestrian 21,4 / guna lahan 20,4
+      A_vs_C: 1        # TIDAK DITEMUKAN
+      U_vs_C: 1        # TIDAK DITEMUKAN
 
-  # Salin blok di atas untuk penilai kedua dan ketiga. Hapus kalau tidak ada.
-
-# Penggabungan entropy dan AHP: w = lambda*w_entropy + (1-lambda)*w_ahp.
-# PRD tidak menetapkan nilainya. 0,5 = percaya data dan ahli sama besar.
-# Turunkan kalau bobot entropi terbukti timpang (lihat ADJUSTMENT 7.13).
 lambda_entropy: 0.5

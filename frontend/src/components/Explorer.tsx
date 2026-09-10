@@ -7,16 +7,19 @@ import Assistant from "@/components/Assistant";
 import ControlPanel from "@/components/ControlPanel";
 import Map, { type FlyTarget } from "@/components/Map";
 import StationPanel from "@/components/StationPanel";
+import { useStationIsochrones } from "@/hooks/useStationIsochrones";
+import { useStationPois } from "@/hooks/useStationPois";
+import { bandMinutes, reachPoiMinutes, type ReachBand } from "@/lib/reach";
 import { useStations } from "@/hooks/useStations";
 import { KRL_LINES } from "@/lib/lines";
 import { parseLines } from "@/types/station";
 import type { StationCollection, StationFeature } from "@/types/station";
 
-// Buat sekarang peta cuma menggambar stasiun KAI/KRL. Titik MRT, LRT, dan
-// Whoosh tetap tersimpan di GeoJSON dan database, tetapi belum ditampilkan.
 const VISIBLE_NETWORKS = ["KAI Commuter", "KAI"];
 
 const SELECTED_ZOOM = 15;
+
+
 
 export default function Explorer() {
   const { data, loading, error } = useStations();
@@ -25,11 +28,12 @@ export default function Explorer() {
     () => new Set(KRL_LINES)
   );
   const [showLabels, setShowLabels] = useState(false);
+  const [showSepi, setShowSepi] = useState(false);
+  const [showIsochrone, setShowIsochrone] = useState(false);
+  const [reachBand, setReachBand] = useState<ReachBand>("all");
   const [selected, setSelected] = useState<StationFeature | null>(null);
   const [flyTo, setFlyTo] = useState<FlyTarget | null>(null);
 
-  // Disaring sekali di sini supaya peta dan kotak pencarian melihat daftar
-  // yang sama persis.
   const kaiData = useMemo<StationCollection | null>(() => {
     if (!data) return null;
 
@@ -41,9 +45,6 @@ export default function Explorer() {
     };
   }, [data]);
 
-  // Penyaringan lin dikerjakan di JavaScript, bukan lewat ekspresi filter
-  // MapLibre. Datanya cuma puluhan titik, dan kode lin seperti T gampang
-  // ketabrak TP kalau dicocokkan sebagai potongan teks.
   const shownData = useMemo<StationCollection | null>(() => {
     if (!kaiData) return null;
     if (activeLines.size === KRL_LINES.length) return kaiData;
@@ -58,11 +59,14 @@ export default function Explorer() {
     };
   }, [kaiData, activeLines]);
 
+  const selectedId = typeof selected?.id === "number" ? selected.id : null;
+  const isochrones = useStationIsochrones(selectedId, showIsochrone);
+  const poiMinutes = reachPoiMinutes(reachBand);
+  const pois = useStationPois(selectedId, poiMinutes, showIsochrone);
+
   const stations = shownData?.features ?? [];
   const kaiCount = kaiData?.features.length ?? 0;
 
-  // Dipakai bareng oleh klik di peta dan pilihan dari kotak pencarian, supaya
-  // dua jalan itu berperilaku sama persis.
   const handleSelect = useCallback((station: StationFeature) => {
     const [lon, lat] = station.geometry.coordinates;
 
@@ -91,6 +95,10 @@ export default function Explorer() {
           <Map
             data={shownData}
             showLabels={showLabels}
+            showSepi={showSepi}
+            isochrones={isochrones}
+            reachMinutes={bandMinutes(reachBand)}
+            pois={pois}
             selected={selected}
             flyTo={flyTo}
             onSelect={handleSelect}
@@ -106,6 +114,14 @@ export default function Explorer() {
               onToggleLine={handleToggleLine}
               showLabels={showLabels}
               onToggleLabels={setShowLabels}
+              showSepi={showSepi}
+              onToggleSepi={setShowSepi}
+              showIsochrone={showIsochrone}
+              onToggleIsochrone={setShowIsochrone}
+              reachBand={reachBand}
+              onReachBand={setReachBand}
+              poiMinutes={poiMinutes}
+              hasSelection={selectedId !== null}
             />
           </div>
 

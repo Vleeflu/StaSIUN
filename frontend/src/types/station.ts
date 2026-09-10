@@ -12,17 +12,57 @@ export type StationProps = {
   line_key: string;
   kecamatan: string | null;
   address: string | null;
+  sepi: number | null;
+  sepi_rank: number | null;
+};
+
+export type StationScore = {
+  station_id: number;
+  minutes: number;
+  sepi: number;
+  rank: number;
+  components: {
+    T: number;
+    E: number;
+    A: number;
+    U: number;
+    C: number;
+  };
+  detail: {
+    line_count: number;
+    halte_count: number;
+    other_mode_count: number;
+    area_km2: number;
+  };
+};
+
+/** Satu kategori usaha beserta Tenant Survival Index-nya di satu stasiun. */
+export type TenantCategory = {
+  category: string;
+  label: string;
+  tsi: number;
+  rank: number;
+  /** Titik ekonomi dan urban di dalam isochrone: calon pelanggan. */
+  demand: number;
+  /** Pengali arus lewat, 1,0 sampai 2,0, dari komponen T. */
+  connectivity: number;
+  /** Pesaing sejenis yang sudah ada. */
+  supply: number;
+  /** Calon pelanggan per pesaing, pesaingnya sudah ditambah satu. */
+  headroom: number;
+};
+
+export type TenantReport = {
+  station_id: number;
+  minutes: number;
+  station_count: number;
+  categories: TenantCategory[];
 };
 
 export type StationFeature = Feature<Point, StationProps>;
 
 export type StationCollection = FeatureCollection<Point, StationProps>;
 
-/**
- * `lines` datangnya array kalau feature-nya dari state React, tapi string JSON
- * kalau dibaca dari event klik MapLibre — worker-nya menyerialisasi properti
- * non-primitif. Fungsi ini merapikan keduanya jadi array.
- */
 export function parseLines(value: unknown): string[] {
   if (Array.isArray(value)) return value as string[];
   if (typeof value === "string") {
