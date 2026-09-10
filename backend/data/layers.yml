@@ -1,17 +1,195 @@
-# Katalog layer MAPID.
+# Katalog layer GEO MAPID.
+#
+# layer_id berasal dari rekan tim (branch main, 10 Sep). Yang DIKOREKSI di sini
+# hanya pemetaan kategori titik minat ke variabel SEPI — lihat catatan di
+# bagian poi_categories dan ADJUSTMENT.md bagian 8.
+
+# Layer turunan OpenStreetMap. Cuma layer ini yang membawa osm_id, dan osm_id
+# itu kunci sambungan ke poligon isochrone. Nama TIDAK bisa dipakai sebagai
+# kunci: "Halim" dan "Cawang" masing-masing dipakai dua stasiun dari moda
+# berbeda.
 stations:
   - key: jakpus
     label: Stasiun Jakarta Pusat
-    layer_id: "6a8967844da1860f13031857"
+    layer_id: "6a8c4f80ba6cb8dfce8ed2cf"
   - key: jakbar
     label: Stasiun Jakarta Barat
-    layer_id: "6a8a8284dc867ee11d52e02e"
+    layer_id: "6a9fb9addcb8de4208df0416"
   - key: jaksel
     label: Stasiun Jakarta Selatan
-    layer_id: "6a8a828d4da1860f1361ff2c"
+    layer_id: "6a9fbc0cdcb8de4208e06644"
   - key: jaktim
     label: Stasiun Jakarta Timur
-    layer_id: "6a8a828fdc867ee11d52ed94"
+    layer_id: "6a9fad6adcb8de4208da29f3"
   - key: jakut
     label: Stasiun Jakarta Utara
-    layer_id: "6a8a82904da1860f13622c67"
+    layer_id: "6a9faffedcb8de4208daffe5"
+
+# Poligon jangkauan berjalan kaki, 3 durasi x 5 kota administrasi.
+#
+# PERINGATAN dari rekan tim, dipertahankan apa adanya karena ini pengetahuan
+# lapangan yang tidak bisa ditebak dari luar: proyek GEO MAPID menyimpan
+# beberapa layer isochrone BERNAMA SAMA PERSIS, dan sebagian di antaranya
+# salah — ada yang kosong, ada yang dihitung memakai profil mobil. Dari luar
+# tidak ada bedanya. Karena itu setiap layer WAJIB divalidasi sebelum diimpor
+# (profil harus "foot", time_limit harus menit x 60).
+isochrones:
+  - { key: jakpus, minutes: 5,  layer_id: "6a9fac02753cb27abe00ed93" }
+  - { key: jakpus, minutes: 10, layer_id: "6a9fac46753cb27abe010c56" }
+  - { key: jakpus, minutes: 15, layer_id: "6a9fac76dcb8de4208d9d0ea" }
+  - { key: jakbar, minutes: 5,  layer_id: "6a9fba41753cb27abe07e2ee" }
+  - { key: jakbar, minutes: 10, layer_id: "6a9fba82753cb27abe08017f" }
+  - { key: jakbar, minutes: 15, layer_id: "6a9fbaa3753cb27abe080c9d" }
+  - { key: jaksel, minutes: 5,  layer_id: "6a9fbca2753cb27abe08c9ba" }
+  - { key: jaksel, minutes: 10, layer_id: "6a9fbcdb753cb27abe08ceab" }
+  - { key: jaksel, minutes: 15, layer_id: "6a9fbd08753cb27abe08d69c" }
+  - { key: jaktim, minutes: 5,  layer_id: "6a9fae9b753cb27abe021d1b" }
+  - { key: jaktim, minutes: 10, layer_id: "6a9faf65753cb27abe02aa72" }
+  - { key: jaktim, minutes: 15, layer_id: "6a9faf95753cb27abe02af43" }
+  - { key: jakut,  minutes: 5,  layer_id: "6a9fb113dcb8de4208dbceac" }
+  - { key: jakut,  minutes: 10, layer_id: "6a9fb14a753cb27abe038172" }
+  - { key: jakut,  minutes: 15, layer_id: "6a9fb179753cb27abe03a590" }
+
+# ============================================================================
+# KATEGORI TITIK MINAT — DUA KOREKSI TERHADAP VERSI ASLI
+# ============================================================================
+#
+# KOREKSI 1 — variabel yang disuapi.
+# Versi asli memetakan makanan_minuman/coffee_shop/alfamart/indomaret ke
+# variabel C, dan atm_bank/kantor ke variabel E. Itu bertentangan dengan PRD
+# Tabel 6, yang menetapkan:
+#
+#   C Komersial : "Jumlah media iklan yang terpasang beserta status tiap titik,
+#                  jumlah unit lapak terisi dan kosong, serta indeks sentimen
+#                  fasilitas"   -- sumber: Activity (survey), output NLP
+#   E Ekonomi   : "Rentang harga pada tingkat klaster tenant, komposisi
+#                  kategori usaha, tingkat keterisian ruang komersial"
+#                              -- sumber: Activity (daftar tenant hasil survey)
+#
+# Keduanya bersumber dari kondisi DI DALAM stasiun, hasil survey Activity.
+# Titik minat di LUAR stasiun tidak boleh mengisinya. Yang benar menurut PRD:
+#
+#   U Urban     : "Kepadatan titik minat, indeks keberagaman fungsi lahan,
+#                  jumlah pembangkit perjalanan berskala besar"
+#                              -- sumber: OpenStreetMap, data profil kawasan
+#   T Transport : "...jumlah moda terhubung..."  -- sumber mencakup OpenStreetMap
+#
+# Jadi seluruh kategori mengisi U, KECUALI halte yang mengisi T.
+#
+# Titik minat di luar stasiun TETAP dipakai untuk hal lain: komponen supply
+# pada GapScore (PRD hal. 13 mewajibkannya mencakup "titik minat di luar
+# stasiun maupun tenant yang telah beroperasi di dalam stasiun"). Itu jalur
+# terpisah dari SEPI, dan memakai kolom `category`, bukan `fungsi`.
+#
+# KOREKSI 2 — kategori merek dipisahkan dari fungsi lahan.
+# "alfamart" dan "indomaret" adalah MEREK, bukan fungsi lahan. Kalau keduanya
+# masuk entropi Shannon sebagai dua kategori berbeda, dua minimarket berbeda
+# merek terhitung sebagai dua fungsi lahan berbeda — dan keberagaman kawasan
+# jadi menggelembung palsu.
+#
+# Karena itu ada DUA kolom:
+#   category  nama layer asalnya. Dipakai untuk supply GapScore dan penelusuran
+#   fungsi    fungsi lahan sesungguhnya. Dipakai untuk entropi Shannon
+#
+poi_categories:
+  - { category: makanan_minuman, fungsi: makanan_minuman,  variable: U, hint: "MAKANAN DAN MINUMAN" }
+  - { category: coffee_shop,     fungsi: makanan_minuman,  variable: U, hint: "BRAND COFFEE SHOP" }
+  - { category: alfamart,        fungsi: ritel,            variable: U, hint: "ALFAMART" }
+  - { category: indomaret,       fungsi: ritel,            variable: U, hint: "INDOMARET" }
+  - { category: atm_bank,        fungsi: keuangan,         variable: U, hint: "ATM DAN BANK" }
+  - { category: kantor,          fungsi: perkantoran,      variable: U, hint: "KANTOR" }
+  - { category: kantor_swasta,   fungsi: perkantoran,      variable: U, hint: "KANTOR SWASTA" }
+  - { category: apartemen,       fungsi: hunian,           variable: U, hint: "APARTEMEN" }
+  - { category: apotek,          fungsi: kesehatan,        variable: U, hint: "APOTEK" }
+  - { category: ibadah,          fungsi: ibadah,           variable: U, hint: "IBADAH" }
+  - { category: hiburan,         fungsi: hiburan_rekreasi, variable: U, hint: "HIBURAN DAN KESENIAN" }
+  - { category: museum,          fungsi: hiburan_rekreasi, variable: U, hint: "MUSEUM" }
+  - { category: wisata_alam,     fungsi: hiburan_rekreasi, variable: U, hint: "WISATA ALAM" }
+  - { category: wisata_budaya,   fungsi: hiburan_rekreasi, variable: U, hint: "WISATA BUDAYA DAN SEJARAH" }
+  - { category: halte,           fungsi: transportasi,     variable: T, hint: "HALTE" }
+
+pois:
+  jakpus:
+    makanan_minuman: "6aa13d23753cb27abebcefd9"
+    alfamart:        "6aa13d5b753cb27abebdcb11"
+    indomaret:       "6aa13d74753cb27abebe5f23"
+    coffee_shop:     "6aa13d8a753cb27abebee25b"
+    atm_bank:        "6aa13da0753cb27abebf903e"
+    kantor:          "6aa13dbb753cb27abec07d00"
+    kantor_swasta:   "6aa13dc9753cb27abec184ce"
+    apartemen:       "6aa13def753cb27abec25c7d"
+    apotek:          "6aa13dfc753cb27abec353d3"
+    ibadah:          "6aa13e0e753cb27abec45bc9"
+    hiburan:         "6aa13e21753cb27abec58247"
+    museum:          "6aa13e2c753cb27abec6a1cd"
+    wisata_alam:     "6aa13e36753cb27abec7af41"
+    wisata_budaya:   "6aa13e3f753cb27abec8bc61"
+    halte:           "6aa13eff753cb27abecd99fe"
+
+  jakbar:
+    makanan_minuman: "6aa13d20753cb27abebcdf12"
+    alfamart:        "6aa13d59753cb27abebdb4ed"
+    indomaret:       "6aa13d71753cb27abebe4368"
+    coffee_shop:     "6aa13d89753cb27abebecef7"
+    atm_bank:        "6aa13d9f753cb27abebf887d"
+    kantor:          "6aa13dba753cb27abec07548"
+    kantor_swasta:   "6aa13dc6753cb27abec15c3a"
+    apartemen:       "6aa13dee753cb27abec246e8"
+    apotek:          "6aa13dfc753cb27abec34d09"
+    ibadah:          "6aa13e0c753cb27abec4517c"
+    hiburan:         "6aa13e20753cb27abec5717f"
+    museum:          "6aa13e2b753cb27abec687c5"
+    wisata_alam:     "6aa13e35753cb27abec79421"
+    wisata_budaya:   "6aa13e3e753cb27abec8ac60"
+    halte:           "6aa13efe753cb27abecd8a17"
+
+  jaksel:
+    makanan_minuman: "6aa13d28753cb27abebd2574"
+    alfamart:        "6aa13d5e753cb27abebde1ba"
+    indomaret:       "6aa13d77753cb27abebe798b"
+    coffee_shop:     "6aa13d8b753cb27abebefdc5"
+    atm_bank:        "6aa13da1753cb27abebfa018"
+    kantor:          "6aa13dbc753cb27abec08c38"
+    kantor_swasta:   "6aa13dcc753cb27abec1add7"
+    apartemen:       "6aa13df0753cb27abec27f3d"
+    apotek:          "6aa13dfd753cb27abec36e0d"
+    ibadah:          "6aa13e0f753cb27abec47a21"
+    hiburan:         "6aa13e21753cb27abec59c60"
+    museum:          "6aa13e2c753cb27abec6bcd2"
+    wisata_alam:     "6aa13e36753cb27abec7b116"
+    wisata_budaya:   "6aa13e40753cb27abec8d8fa"
+    halte:           "6aa13f00753cb27abecdac56"
+
+  jaktim:
+    makanan_minuman: "6aa13d2a753cb27abebd38d9"
+    alfamart:        "6aa13d63753cb27abebdf8a6"
+    indomaret:       "6aa13d79753cb27abebe957c"
+    coffee_shop:     "6aa13d8c753cb27abebf1bf8"
+    atm_bank:        "6aa13da1753cb27abebfaa98"
+    kantor:          "6aa13dbc753cb27abec0a0ea"
+    kantor_swasta:   "6aa13dd0753cb27abec1e4fb"
+    apartemen:       "6aa13df0753cb27abec28181"
+    apotek:          "6aa13dfe753cb27abec3862f"
+    ibadah:          "6aa13e10753cb27abec4847f"
+    hiburan:         "6aa13e22753cb27abec5b866"
+    museum:          "6aa13e2d753cb27abec6d7ec"
+    wisata_alam:     "6aa13e37753cb27abec7e711"
+    wisata_budaya:   "6aa13e40753cb27abec8f676"
+    halte:           "6aa13f00753cb27abecdca9c"
+
+  jakut:
+    makanan_minuman: "6aa13d2b753cb27abebd4995"
+    alfamart:        "6aa13d64753cb27abebe1079"
+    indomaret:       "6aa13d7b753cb27abebeb1e5"
+    coffee_shop:     "6aa13d8f753cb27abebf637e"
+    atm_bank:        "6aa13da2753cb27abebfce28"
+    kantor:          "6aa13dbd753cb27abec0b533"
+    kantor_swasta:   "6aa13dd4753cb27abec20ee0"
+    apartemen:       "6aa13df0753cb27abec2a34f"
+    apotek:          "6aa13dfe753cb27abec3a2cb"
+    ibadah:          "6aa13e16753cb27abec5394a"
+    hiburan:         "6aa13e23753cb27abec5e03c"
+    museum:          "6aa13e2d753cb27abec6f3e8"
+    wisata_alam:     "6aa13e37753cb27abec7f6ae"
+    wisata_budaya:   "6aa13e41753cb27abec91436"
+    halte:           "6aa13f01753cb27abecdda9e"

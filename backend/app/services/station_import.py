@@ -80,6 +80,11 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
     if not name:
         return None
 
+    # Kunci sambungan ke poligon isochrone. Prefiks n/w/r dibuang supaya
+    # cocok dengan bentuk yang dipakai layer isochrone GEO MAPID.
+    osm_id = props.get("osm_id") or props.get("full_id")
+    osm_id = str(osm_id).lstrip("nwr") if osm_id else None
+
     key = normalize(name)
     if key in EXCLUDED:
         return None
@@ -96,6 +101,7 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
     lon, lat = geometry["coordinates"][:2]
 
     return {
+        "osm_id": osm_id,
         "name": name,
         "code": props.get("railway:ref"),
         "types": [network],
@@ -109,12 +115,43 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
 
 
 def save_stations(rows: list[dict]) -> None:
-    """Ganti seluruh isi tabel stations. Dipanggil hanya kalau rows tidak kosong."""
+    """Selaraskan tabel stations lewat upsert ber-`osm_id`, bukan hapus-lalu-isi.
+
+    Versi sebelumnya memanggil `session.query(Station).delete()`. Itu terlihat
+    aman karena seed selalu mengisi ulang barisnya, padahal `isochrones` dan
+    `passenger_volume` menunjuk `stations.id` dengan ON DELETE CASCADE - jadi
+    menghapus seluruh stasiun ikut memusnahkan 225 poligon isochrone yang baru
+    diimpor. Dan karena SEED_ON_START=1, itu terjadi pada SETIAP restart
+    backend, tanpa satu pun pesan galat.
+
+    Upsert menjaga `stations.id` tetap sama, jadi tidak ada cascade yang
+    terpicu. Stasiun yang benar-benar hilang dari sumber tetap dibuang, tapi
+    dilaporkan dulu - kalau penghapusan itu tidak disengaja, cascade-nya masih
+    bisa menelan isochrone, dan kejadian itu harus terlihat.
+    """
     session = SessionLocal()
     try:
-        session.query(Station).delete()
+        lama = {s.osm_id: s for s in session.query(Station).all()}
+        baru_ids = {row["osm_id"] for row in rows}
+
         for row in rows:
-            session.add(Station(**row))
+            stasiun = lama.get(row["osm_id"])
+            if stasiun is None:
+                session.add(Station(**row))
+            else:
+                for kolom, nilai in row.items():
+                    setattr(stasiun, kolom, nilai)
+
+        hilang = [s for osm_id, s in lama.items() if osm_id not in baru_ids]
+        if hilang:
+            print(
+                f"  ! {len(hilang)} stasiun tidak ada lagi di sumber dan dihapus "
+                f"(isochrone-nya ikut terhapus): "
+                f"{', '.join(sorted(s.name for s in hilang))}"
+            )
+            for stasiun in hilang:
+                session.delete(stasiun)
+
         session.commit()
     finally:
         session.close()

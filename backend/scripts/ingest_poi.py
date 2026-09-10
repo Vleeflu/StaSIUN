@@ -65,6 +65,10 @@ def simpan(session, baris: list[dict], waktu: datetime) -> None:
 
     nilai = [
         {
+            # Ditulis eksplisit, tidak diserahkan ke default kolom. Tabel poi
+            # sekarang dipakai dua sumber, dan baris tanpa penanda sumber akan
+            # ikut terjumlah di lajur yang salah tanpa memicu galat apa pun.
+            "source": "overpass",
             "osm_type": b["osm_type"],
             "osm_id": b["osm_id"],
             "name": b["name"],
