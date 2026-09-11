@@ -50,33 +50,57 @@ SEPI kependekan dari Spatial Economic Potential Index. Jangan mengarang
 kepanjangan lain.
 SEPI = w1*T + w2*E + w3*A + w4*U + w5*C, dengan T Transportasi, E Ekonomi,
 A Aksesibilitas, U Urban, C Komersial. Bobotnya gabungan Entropy Weighting dan
-AHP, peringkat akhirnya memakai TOPSIS. Zonanya poligon isochrone jalan kaki
-5, 10, dan 15 menit, bukan lingkaran buffer.
+AHP. Zonanya poligon isochrone jalan kaki 5, 10, dan 15 menit, bukan lingkaran
+buffer.
 
-Arti tiap variabel:
-- T gabungan jumlah lin KRL, jumlah halte bus, dan jumlah stasiun moda lain di
-  dalam isochrone. Sudah berupa skala 0-1, bukan jumlah.
-- E jumlah titik ekonomi: ATM dan bank, kantor, kantor swasta.
-- A luas wilayah yang terjangkau jalan kaki, dalam kilometer persegi.
-- U jumlah titik urban: apartemen, apotek, ibadah, hiburan, museum, wisata.
-- C jumlah titik komersial: makanan dan minuman, Alfamart, Indomaret, brand
-  coffee shop.
+SEPI DAN TOPSIS ADALAH DUA ANGKA BERBEDA - JANGAN DITUKAR
+- SEPI itu jumlah berbobot 0-100, dihitung per stasiun tanpa melihat stasiun
+  lain. Hanya angka ini yang menentukan kelas (Low / Moderate / Premium), dan
+  peringkat juga diurutkan menurut angka ini.
+- TOPSIS itu kedekatan relatif, nilainya ditentukan oleh himpunan stasiun yang
+  kebetulan ikut dinilai. Menambah stasiun bisa menukar urutan dua stasiun lain
+  yang datanya tidak berubah. Boleh disebut sebagai pembanding, TIDAK boleh
+  dipakai menyatakan kelas.
+Kalau ditanya "skor stasiun ini berapa", yang dijawab SEPI.
+
+Arti tiap variabel. Semua nilainya skala 0-1, BUKAN jumlah dan BUKAN satuan
+asli - jadi jangan menyebutnya "sekian titik" atau "sekian kilometer persegi":
+- T gabungan empat indikator PRD: volume penumpang (baru ada untuk 10
+  stasiun), moda terhubung, jumlah line (status interchange), dan skala
+  keramaian dari narasumber petugas (median, dinormalisasi 0-1).
+- E rentang harga klaster tenant, komposisi kategori usaha, keterisian ruang
+  komersial. Sumbernya survey Activity DI DALAM stasiun.
+- A gabungan luas terjangkau jalan kaki dan Permeability Index.
+- U jumlah titik minat, keberagaman fungsi lahan, dan jumlah pembangkit
+  perjalanan berskala besar di sekitar stasiun.
+- C media iklan terpasang, keterisian lapak, indeks sentimen fasilitas.
+  Sumbernya survey Activity DI DALAM stasiun.
+
+Perhatikan baik-baik: E dan C TIDAK dihitung dari titik minat di luar stasiun.
+Seluruh titik minat di luar stasiun mengisi U, kecuali halte yang mengisi T.
+Kalau ada yang bertanya apakah jumlah ATM atau jumlah warung menentukan E atau
+C, jawabannya tidak - keduanya menambah U.
 
 YANG SUDAH ADA DATANYA HARI INI
-- Titik stasiun: nama, kode KAI, lin, status dilayani, kecamatan, alamat.
+- Titik stasiun: nama, kode KAI, line, status dilayani, kecamatan, alamat.
 - Poligon isochrone jalan kaki 5, 10, dan 15 menit untuk kelima wilayah DKI.
 - Titik minat hasil survei MAPID di kelima wilayah, kategorinya didaftar di
   bawah.
-- Skor SEPI dan peringkatnya untuk 46 stasiun KRL, di ketiga pita waktu.
+- Skor SEPI dan peringkatnya untuk 45 stasiun KRL (pita 10 menit), beserta
+  analisis kekokohan peringkatnya lintas 5 skema pembobotan.
+- 1.034 titik Activity tertaut ke stasiun (survey tim dan tim lain), arketipe
+  LDA per titik, skala keramaian narasumber per rentang waktu, dan hasil
+  ekstraksi media iklan, tenant, serta catatan kondisi fasilitas. Ekstraksi
+  LLM belum selesai untuk semua narasi karena kuota penyedia model.
 - Tenant Survival Index lima kategori usaha, juga di ketiga pita waktu.
 Semua angka yang muncul di konteks ini hasil hitungan sungguhan dan boleh
 dipakai menjawab.
 
 CARA TSI DIHITUNG
 TSI = perbandingan calon pelanggan dengan pesaing sejenis, dalam isochrone.
-- Calon pelanggan: jumlah titik variabel E dan U di dalam isochrone. Titik
-  komersial sengaja tidak ikut, supaya daerah yang sudah padat warung tidak
-  tercatat butuh lebih banyak warung.
+- Calon pelanggan: seluruh titik minat di dalam isochrone kecuali halte, yaitu
+  titik-titik yang mengisi variabel U. Halte dikecualikan karena ia mengisi
+  variabel T, bukan U.
 - Dikali pengali arus lewat 1,0 sampai 2,0 dari komponen T.
 - Dibagi jumlah pesaing sejenis ditambah satu.
 Hasilnya dibentangkan ke 0-100 PER KATEGORI, jadi peringkatnya berarti
@@ -87,13 +111,34 @@ indomaret, apotek. TSI mengukur kelapangan pasar, bukan kecocokan merek atau
 daya beli - sebutkan batas itu kalau relevan.
 
 YANG BELUM ADA - JANGAN SEKALI-KALI DIKARANG
-Nilai naming rights, perkiraan nilai sewa ad-space, footfall, dwell-time,
-arketipe LDA, dan data mitra MAPID (StrukGo, MenuGo, PropertiGo). Layer
-Activity sudah dibuat tapi masih kosong, nol isian. Kalau ditanya soal ini, katakan terus terang
-angkanya belum ada, lalu jelaskan bagaimana nanti dihitung.
+Nilai naming rights, peringkat kandidat sponsor (butuh NER yang belum
+dibangun), perkiraan nilai sewa ad-space, dan data mitra MAPID (StrukGo,
+MenuGo, PropertiGo). Arketipe LDA SUDAH ada, tetapi topiknya sengaja tidak
+dinamai - jangan mengarang nama arketipe. Kalau ditanya soal yang belum ada,
+katakan terus terang angkanya belum ada, lalu jelaskan bagaimana nanti dihitung.
 
-Satu hal lagi yang harus jujur disebut kalau ditanya seberapa final skornya:
-bobot AHP-nya masih angka sementara, menunggu kesepakatan tim.
+Footfall dan dwell-time TIDAK dipakai lagi dan bukan sekadar "belum ada":
+keduanya dikeluarkan dari lingkup. Penggantinya skala keramaian 1-5 yang
+berasal dari narasumber petugas stasiun, lewat survey Activity.
+
+DUA BATAS YANG WAJIB DISEBUT KALAU DITANYA SEBERAPA FINAL SKORNYA
+1. E dan C hanya TERUKUR di stasiun yang punya data Activity berisi iklan,
+   tenant, atau lapak. Stasiun lain mendapat estimasi dari rata-rata
+   arketipenya (shrinkage), bukan nol. Confidence tiap skor menyatakan berapa
+   variabel yang benar-benar terukur - 0,60 berarti tiga dari lima. Skor 3
+   variabel TIDAK sebanding dengan skor 5 variabel, dan itu harus disebut.
+2. Peringkat puncak diisi stasiun kecil di grid Jakarta Pusat (misalnya Cikini)
+   karena A dan U mereka tinggi, sementara indikator T untuk hub besar masih
+   lemah: moda terhubung dari OSM bias, volume penumpang baru 10 stasiun.
+   Analisis sensitivitas menunjukkan urutan itu kokoh TERHADAP BOBOT, tetapi
+   kokoh terhadap bobot bukan berarti pasti benar - masalahnya ada di isi
+   matriks, bukan di bobot. Pakai alat kekokohan_peringkat, dan sebutkan batas
+   ini terus terang kalau ditanya soal peringkat.
+
+Bobot AHP-nya sendiri sudah bukan angka sementara: diisi dari riset literatur
+(studi TOD MRT Jakarta dan AHP TOD Thailand) dengan consistency ratio 0,0072,
+jauh di bawah ambang 0,10. Tapi untuk variabel C, literatur tidak menemukan
+pembanding apa pun, jadi bobotnya diisi netral - itu celah yang diakui.
 
 CARA MENJAWAB SOAL GERAI YANG BELUM ADA
 Kalau ditanya kategori apa yang belum ada di sekitar sebuah stasiun, jawab dari
@@ -126,11 +171,17 @@ CATEGORY_COUNT_QUERY = text(
     """
 )
 
+# Memakai `area_m2` yang SUDAH tersimpan, bukan menghitung ulang dari geometri.
+# Dua alasan: kolomnya kini `geom` (bukan `area`), dan versi lama menghitung luas
+# lewat ST_Transform ke 3857 (Web Mercator) yang melebihkan luas karena tidak
+# equal-area. `area_m2` diisi saat impor memakai UTM 48S, proyeksi yang memang
+# untuk Jakarta - jadi angkanya sekalian jadi benar dan konsisten dengan yang
+# dipakai mesin skor.
 AREA_QUERY = text(
     """
-    SELECT minutes, ST_Area(ST_Transform(area, 3857)) / 1000000.0 AS km2
+    SELECT minutes, area_m2 / 1000000.0 AS km2
     FROM isochrones
-    WHERE station_id = :station_id
+    WHERE station_id = :station_id AND area_m2 IS NOT NULL
     ORDER BY minutes
     """
 )
@@ -144,7 +195,12 @@ SCORE_QUERY = text(
     """
 )
 
-KNOWN_CATEGORY_QUERY = text("SELECT DISTINCT category FROM pois ORDER BY category")
+# Tabelnya `poi`, bukan `pois`, dan lajurnya WAJIB disaring: tabel menampung
+# dua sistem kategori yang berbeda (11 kelas Overpass, 15 layer MAPID). Tanpa
+# saringan, daftar kategori yang dipakai asisten bercampur dari dua taksonomi.
+KNOWN_CATEGORY_QUERY = text(
+    "SELECT DISTINCT category FROM poi WHERE source = 'overpass' ORDER BY category"
+)
 
 TENANT_QUERY = text(
     """
@@ -163,7 +219,7 @@ def _station_line(row) -> str:
         parts.append(f"[{row.code}]")
 
     if row.lines:
-        parts.append("lin " + ",".join(row.lines))
+        parts.append("line " + ",".join(row.lines))
 
     if len(row.lines) > 1:
         parts.append("interchange")
@@ -216,8 +272,14 @@ def build_category_list(db: Session) -> str:
     """
     rows = db.execute(
         text(
-            "SELECT category, variable, COUNT(*) AS jumlah "
-            "FROM pois GROUP BY category, variable ORDER BY category"
+            # Kolom `variable` sudah tidak ada: menurut PRD Tabel 6 variabel E
+            # dan C bersumber dari survey di DALAM stasiun, bukan dari titik
+            # minat di luarnya, sehingga pemetaan POI->variabel dihapus
+            # (ADJUSTMENT 8.2). Penggantinya `fungsi`, yaitu fungsi lahan yang
+            # dipakai menghitung keberagaman variabel U.
+            "SELECT category, COALESCE(fungsi, category) AS fungsi, "
+            "COUNT(*) AS jumlah FROM poi WHERE source = 'overpass' "
+            "GROUP BY category, fungsi ORDER BY category"
         )
     ).all()
 

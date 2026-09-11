@@ -13,8 +13,8 @@ from app.core.database import SessionLocal
 from app.core.geo import SRID_RENDER
 from app.models.station import Station
 
-# Jaringan yang memakai penomoran lin KRL. Dipakai buat menentukan apakah
-# roster lin boleh ditempelkan, bukan lagi buat menyaring stasiun.
+# Jaringan yang memakai penomoran line KRL. Dipakai buat menentukan apakah
+# roster line boleh ditempelkan, bukan lagi buat menyaring stasiun.
 KAI_NETWORKS = {"KAI COMMUTER", "KAI", "COMMUTER", "KERETA API"}
 
 # Emplasemen barang, tidak melayani penumpang.
@@ -23,7 +23,7 @@ EXCLUDED = {"JAKARTAGUDANG"}
 # Dilewati KRL tanpa berhenti.
 UNSERVED = {"GAMBIR"}
 
-# Roster resmi tiap lin, mengikuti peta rute KAI Commuter Jabodetabek & Merak.
+# Roster resmi tiap line, mengikuti peta rute KAI Commuter Jabodetabek & Merak.
 LINE_ROSTER = {
     "B": """Jakarta Kota;Jayakarta;Mangga Besar;Sawah Besar;Juanda;Gambir;Gondangdia;Cikini;
         Manggarai;Tebet;Cawang;Duren Kalibata;Pasar Minggu Baru;Pasar Minggu;Tanjung Barat;
@@ -93,8 +93,8 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
     # disimpan apa adanya di kolom types supaya bisa dibedakan saat analisis.
     network = props.get("network") or props.get("TIPE_3") or "Lainnya"
 
-    # Roster lin cuma berlaku buat jaringan KAI. Tanpa penjagaan ini, stasiun
-    # senama dari moda lain ikut kebagian lin KRL — Cawang LRT sempat kena,
+    # Roster line cuma berlaku buat jaringan KAI. Tanpa penjagaan ini, stasiun
+    # senama dari moda lain ikut kebagian line KRL — Cawang LRT sempat kena,
     # padahal letaknya 1,4 km dari Cawang KRL.
     is_kai = network.upper() in KAI_NETWORKS
 
@@ -122,7 +122,7 @@ def save_stations(rows: list[dict]) -> None:
     `passenger_volume` menunjuk `stations.id` dengan ON DELETE CASCADE - jadi
     menghapus seluruh stasiun ikut memusnahkan 225 poligon isochrone yang baru
     diimpor. Dan karena SEED_ON_START=1, itu terjadi pada SETIAP restart
-    backend, tanpa satu pun pesan galat.
+    backend, tanpa satu pun pesan error.
 
     Upsert menjaga `stations.id` tetap sama, jadi tidak ada cascade yang
     terpicu. Stasiun yang benar-benar hilang dari sumber tetap dibuang, tapi
@@ -162,4 +162,4 @@ def report(rows: list[dict]) -> None:
     without_line = [r["name"] for r in rows if not r["lines"]]
     print(f"{len(rows)} stations stored ({served} served, {len(rows) - served} not served)")
     if without_line:
-        print(f"  tanpa lin: {', '.join(sorted(without_line))}")
+        print(f"  tanpa line: {', '.join(sorted(without_line))}")

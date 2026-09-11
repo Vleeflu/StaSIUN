@@ -28,7 +28,7 @@ export function poiLabel(category: string): string {
  *
  * Bedanya ditandai lewat isian bulatan, bukan rona baru. Peta sudah memikul
  * tiga peran warna — merah skor, kuning pilihan, magenta jangkauan — plus enam
- * warna lin KRL; empat rona tambahan akan membuat semuanya tidak terbaca.
+ * warna line KRL; empat rona tambahan akan membuat semuanya tidak terbaca.
  */
 /**
  * Kategori yang dihitung sebagai PASOKAN (pesaing), bukan calon pelanggan.

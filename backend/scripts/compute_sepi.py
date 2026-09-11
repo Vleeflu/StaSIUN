@@ -28,6 +28,8 @@ from app.services.scoring import (
     gabung_bobot,
     topsis,
 )
+from app.services.scoring.matrix import BATAS_MODIFIER_TEKS
+from app.services.scoring.sensitivity import analisis as analisis_sensitivitas
 from app.services.scoring.weights import AMBANG_CR
 from scripts.check_ahp import gabung_geometrik, susun_matriks
 
@@ -91,13 +93,23 @@ def main() -> int:
     finally:
         session.close()
 
+    # `x` berisi nilai SETELAH shrinkage (F3-7). Skor DAN bobot entropi sama-sama
+    # dihitung dari `x`, supaya bobot menggambarkan daya beda nilai yang benar-benar
+    # dipakai memeringkat. Kelengkapan (confidence) tetap dibaca dari `terukur`.
+    #
+    # Sempat dihitung dari hasil ukur saja, dan hasilnya tidak koheren: variabel C
+    # hanya terukur di 3 stasiun dengan sebaran lebar, jadi bobot entropinya
+    # terbesar (0,337) - padahal setelah shrinkage nilai C identik 0,36 untuk
+    # SEMUA stasiun (k tak hingga). Variabel yang tidak bisa membedakan apa pun
+    # memikul bobot terbesar, dan seluruh skor termampat ke tengah. ADJUSTMENT 9.28.
     x = np.asarray(matrix, dtype=float)
+    terukur = np.asarray([d["terukur"] for d in details], dtype=bool)
+    penalti = [d["penalti_sentimen"] for d in details]
 
-    # Kolom yang seluruhnya NaN belum diukur sama sekali (E dan C menunggu
-    # survey Activity, blocker N1). Entropi tidak terdefinisi di kolom kosong,
-    # jadi kolomnya diberi bobot entropi 0 dan sisanya dinormalkan ulang.
-    # Diberi 0 BUKAN berarti tidak penting - bobot AHP-nya tetap utuh; artinya
-    # "data ini tidak menyumbang informasi sebaran", yang memang benar.
+    # Kolom yang seluruhnya NaN belum diukur sama sekali. Entropi tidak
+    # terdefinisi di kolom kosong, jadi kolomnya diberi bobot entropi 0 dan
+    # sisanya dinormalkan ulang. Diberi 0 BUKAN berarti tidak penting - bobot
+    # AHP-nya tetap utuh; artinya "data ini tidak menyumbang informasi sebaran".
     ada_isi = ~np.all(np.isnan(x), axis=0)
     w_entropy = np.zeros(x.shape[1])
     if ada_isi.any():
@@ -129,9 +141,33 @@ def main() -> int:
     # ditanya "kenapa stasiun ini 72?" - jawabannya bergantung pada siapa saja
     # yang kebetulan ikut dinilai.
     skor_sepi = hitung_sepi(
-        [d["id"] for d in details], [d["name"] for d in details], x, weights
+        [d["id"] for d in details],
+        [d["name"] for d in details],
+        x,
+        weights,
+        terukur=terukur,
+        penalti=penalti,
+        batas_modifier=BATAS_MODIFIER_TEKS,
     )
     hasil = topsis(x, weights)
+
+    # Analisis sensitivitas (B22, ADJUSTMENT 9.30). Matriks, shrinkage, dan
+    # penalti tidak diubah - yang diuji HANYA pilihan pembobotan.
+    x_ukur = np.asarray(
+        [[d["ukur_t"], d["ukur_e"], d["ukur_a"], d["ukur_u"], d["ukur_c"]] for d in details],
+        dtype=float,
+    )
+    sens = analisis_sensitivitas(
+        [d["id"] for d in details],
+        [d["name"] for d in details],
+        x,
+        x_ukur,
+        terukur,
+        penalti,
+        w_ahp,
+        lambda_entropy,
+        BATAS_MODIFIER_TEKS,
+    )
 
     print(f"pita {args.minutes} menit, {len(details)} stasiun")
     print(f"consistency ratio AHP {ratio:.3f} (batas {AMBANG_CR})")
@@ -143,6 +179,24 @@ def main() -> int:
         ("gabungan", weights),
     ):
         print(f"{label:10}" + "".join(f"{v:10.3f}" for v in values))
+
+    ket = details[0].get("_keterangan_susut", {}) if details else {}
+    if ket:
+        print("\nshrinkage ke rata-rata arketipe (F3-7):")
+        for nama, info in ket.items():
+            if not info.get("terukur"):
+                print(f"  {nama:10s} tidak ada pengamatan sama sekali")
+                continue
+            k_teks = "tak hingga" if info.get("k_tak_hingga") else f"{info.get('k')}"
+            print(
+                f"  {nama:10s} k = {k_teks:>10}  | {info['terukur']} stasiun terukur, "
+                f"{info['kelompok']} arketipe"
+            )
+        if any(i.get("k_tak_hingga") for i in ket.values()):
+            print(
+                "  k tak hingga = data tidak menunjukkan perbedaan antar-stasiun di atas\n"
+                "  derau sampling; stasiun pada ukuran itu jatuh ke rata-rata arketipe."
+            )
 
     # Diurutkan menurut SEPI, bukan menurut TOPSIS, supaya urutan yang tampil
     # konsisten dengan angka yang tampil di sebelahnya.
@@ -160,9 +214,34 @@ def main() -> int:
         print(
             f"{position:3}  {detail['name'][:24]:24}{sepi.nilai:7.1f}"
             f"{sepi.kelas:>20}{sepi.confidence:7.2f}{dekat * 100:8.1f}"
-            f"{detail['raw_t']:7.2f}{_angka(detail['raw_e']):>6}"
-            f"{detail['raw_a']:7.2f}{detail['raw_u']:6.2f}{_angka(detail['raw_c']):>6}"
+            f"{detail['ukur_t']:7.2f}{_angka(detail['ukur_e']):>6}"
+            f"{detail['ukur_a']:7.2f}{detail['ukur_u']:6.2f}{_angka(detail['ukur_c']):>6}"
         )
+
+    print("\nANALISIS SENSITIVITAS - bobot tiap skema")
+    print(f"{'':18}" + "".join(f"{c:>8}" for c in CRITERIA))
+    for sk in sens.skema:
+        print(f"{sk.nama:18}" + "".join(f"{v:8.3f}" for v in sk.bobot))
+    ringkas = sorted(sens.per_stasiun.items(), key=lambda kv: kv[1]["peringkat_resmi"])
+    nama_id = {d["id"]: d["name"] for d in details}
+    kolom = [sk.nama for sk in sens.skema]
+    print(
+        f"\n{'#':>3}  {'STASIUN':22}"
+        + "".join(f"{k[:9]:>10}" for k in kolom)
+        + f"{'rentang':>9}{'MC 5-95%':>10}{'P(10 besar)':>12}"
+    )
+    for sid, r in ringkas[:20]:
+        print(
+            f"{r['peringkat_resmi']:3}  {nama_id[sid][:22]:22}"
+            + "".join(f"{r['peringkat_per_skema'][k]:10}" for k in kolom)
+            + f"{str(r['peringkat_min']) + '-' + str(r['peringkat_maks']):>9}"
+            + f"{str(r['mc_p05']) + '-' + str(r['mc_p95']):>10}"
+            + f"{r['peluang_n_besar']:12.2f}"
+        )
+    print(
+        f"\nKOKOH (masuk {ringkas[0][1]['n_besar']} besar di SEMUA {len(kolom)} skema): "
+        + (", ".join(nama_id[sid] for sid in sens.kokoh) or "tidak ada")
+    )
 
     # Peringatan yang WAJIB muncul kalau kelengkapan variabel tidak seragam.
     # `sepi.py` sudah menyatakannya: skor dari 3 variabel tidak sebanding dengan
@@ -205,11 +284,15 @@ def main() -> int:
             "variabel_terpakai": sepi.variabel_terpakai,
             "confidence": round(sepi.confidence, 4),
             "rank": position,
-            "raw_t": detail["raw_t"],
-            "raw_e": _atau_none(detail["raw_e"]),
-            "raw_a": detail["raw_a"],
-            "raw_u": detail["raw_u"],
-            "raw_c": _atau_none(detail["raw_c"]),
+            # Yang disimpan dan ditampilkan adalah HASIL UKUR, bukan nilai hasil
+            # shrinkage. Panel harus tetap bisa bilang "belum diukur" untuk
+            # stasiun yang memang belum disurvey; skornya saja yang memakai
+            # estimasi, dan confidence-nya menyatakan itu.
+            "raw_t": detail["ukur_t"],
+            "raw_e": _atau_none(detail["ukur_e"]),
+            "raw_a": detail["ukur_a"],
+            "raw_u": detail["ukur_u"],
+            "raw_c": _atau_none(detail["ukur_c"]),
             "line_count": detail["line_count"],
             # moda_jalan menggantikan halte_count, moda_rel menggantikan
             # other_mode_count: keduanya kini datang dari hitung_transportasi,
@@ -218,6 +301,7 @@ def main() -> int:
             "halte_count": detail["moda_jalan"],
             "other_mode_count": detail["moda_rel"],
             "area_km2": detail["area_km2"],
+            "sensitivity": sens.per_stasiun[detail["id"]],
         }
         for position, (detail, sepi, dekat) in enumerate(ranked, start=1)
     ]

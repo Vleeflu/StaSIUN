@@ -133,7 +133,7 @@ export default function StationSearch({
                   >
                     {codes.length > 0
                       ? lineLabel(codes)
-                      : (f.properties.network ?? "Tanpa lin")}
+                      : (f.properties.network ?? "Tanpa line")}
                   </span>
                 </button>
               </li>

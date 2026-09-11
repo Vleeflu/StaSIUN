@@ -3,19 +3,28 @@
 import { useState } from "react";
 
 import ChatPanel from "@/components/ChatPanel";
-import type { StationFeature } from "@/types/station";
+import type { AksiAsisten, StationFeature } from "@/types/station";
 
 type Props = {
   station: StationFeature | null;
+  onAction: (aksi: AksiAsisten) => void;
 };
 
 /**
- * Asisten mengambang di pojok kanan bawah peta.
+ * Asisten sebagai panel yang menyatu, bukan tombol mengambang di pojok.
  *
- * Panelnya tetap terpasang walau sedang tertutup — cuma disembunyikan — supaya
+ * Versi sebelumnya berupa tombol kecil di sudut kanan bawah peta. Penempatan
+ * itu membuatnya terbaca sebagai pelengkap yang bisa diabaikan, padahal ia satu
+ * satunya tempat pengguna bisa bertanya bebas — dan sekarang juga satu-satunya
+ * yang bisa menghitung ulang atas permintaan.
+ *
+ * Sekarang ia menempel di tepi kanan peta setinggi penuh, sejajar dengan panel
+ * stasiun, dengan pemicu yang menyebut namanya alih-alih hanya ikon.
+ *
+ * Panelnya tetap terpasang walau tertutup — cuma disembunyikan — supaya
  * percakapan tidak hilang tiap kali dibuka tutup.
  */
-export default function Assistant({ station }: Props) {
+export default function Assistant({ station, onAction }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -23,21 +32,25 @@ export default function Assistant({ station }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Buka asisten"
-        className={`panel-float absolute bottom-3 right-3 z-10 h-11 w-11 items-center justify-center border border-ink bg-ink text-white hover:bg-ink-soft ${
+        aria-label="Buka asisten analisis"
+        className={`panel-float absolute right-3 top-3 z-10 items-center gap-2 border border-ink bg-ink px-3 py-2 text-white hover:bg-ink-soft ${
           open ? "hidden" : "flex"
         }`}
       >
-        <ChatMark />
+        <AnalysisMark />
+        <span className="label-caps">Tanya &amp; hitung</span>
       </button>
 
       <div
-        className={`panel-float absolute bottom-3 right-3 z-10 h-[460px] max-h-[calc(100%-1.5rem)] w-[360px] max-w-[calc(100%-1.5rem)] flex-col border border-ink bg-panel ${
+        className={`panel-float absolute bottom-3 right-3 top-3 z-10 w-[380px] max-w-[calc(100%-1.5rem)] flex-col border border-ink bg-panel ${
           open ? "flex" : "hidden"
         }`}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-hair px-3 py-2">
-          <p className="label-caps text-ink-soft">Asisten StaSIUN</p>
+          <p className="label-caps flex items-center gap-2 text-ink-soft">
+            <AnalysisMark />
+            Asisten analisis
+          </p>
           <button
             type="button"
             onClick={() => setOpen(false)}
@@ -48,18 +61,25 @@ export default function Assistant({ station }: Props) {
           </button>
         </div>
 
-        <ChatPanel station={station} />
+        <ChatPanel station={station} onAction={onAction} />
       </div>
     </>
   );
 }
 
-function ChatMark() {
+/**
+ * Ikon: batang peringkat menaik dengan penanda lokasi.
+ *
+ * Balon chat sebelumnya menjanjikan hal yang keliru — asisten ini bukan teman
+ * ngobrol, ia menghitung peringkat di atas data spasial. Ikonnya sekarang
+ * menyebut dua hal itu sekaligus.
+ */
+function AnalysisMark() {
   return (
     <svg
       viewBox="0 0 24 24"
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -67,8 +87,10 @@ function ChatMark() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M4 4h16v12H9l-5 4V4z" />
-      <path d="M8 9h8M8 12h5" />
+      <path d="M4 20V13M9.5 20V9" />
+      <path d="M15 20v-4" />
+      <circle cx="18.5" cy="6.5" r="2.5" />
+      <path d="M18.5 11.5c1.8-2.2 3-3.6 3-5a3 3 0 1 0-6 0c0 1.4 1.2 2.8 3 5z" />
     </svg>
   );
 }

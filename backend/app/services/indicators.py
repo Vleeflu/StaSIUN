@@ -131,7 +131,7 @@ WITH tercakup AS (
     -- dua stasiun memang benar-benar terlayani keduanya.
     --
     -- ST_Contains menaruh poligon di argumen pertama. Urutan itu bukan selera:
-    -- PostGIS menyaring dulu dengan kotak pembatas lewat indeks GiST pada
+    -- PostGIS menyaring dulu dengan bounding box lewat indeks GiST pada
     -- poi.location, baru menguji geometri sungguhan pada sisa yang lolos.
     SELECT s.id AS station_id, s.name AS station_name,
            iso.area_m2,
@@ -313,7 +313,7 @@ class IndikatorTransportasi:
 
     station_id: int
     station_name: str
-    jumlah_lin: int
+    jumlah_line: int
     interchange: bool
     moda_rel: int    # MRT / LRT / kereta cepat dalam radius pertukaran
     moda_jalan: int  # halte bus, TransJakarta, taksi, parkir motor
@@ -355,7 +355,7 @@ MODA_LAIN = """(
 SQL_TRANSPORTASI = f"""
 SELECT s.id   AS station_id,
        s.name AS station_name,
-       coalesce(array_length(s.lines, 1), 0) AS jumlah_lin,
+       coalesce(array_length(s.lines, 1), 0) AS jumlah_line,
        (coalesce(array_length(s.lines, 1), 0) > 1) AS interchange,
        (
          -- Moda REL lain di dekat sini: MRT, LRT, kereta cepat.
@@ -407,7 +407,7 @@ def hitung_transportasi(
         IndikatorTransportasi(
             station_id=r.station_id,
             station_name=r.station_name,
-            jumlah_lin=r.jumlah_lin,
+            jumlah_line=r.jumlah_line,
             interchange=r.interchange,
             moda_rel=r.moda_rel,
             moda_jalan=r.moda_jalan,
@@ -430,7 +430,7 @@ def hitung_transportasi(
 #
 # Per 11 Sep tabel Activity masih kosong: cara menarik data Activity dari API
 # GEO MAPID belum diketahui dan sedang ditanyakan ke mentor MAPID. Fungsi di
-# bawah SENGAJA tidak melempar galat kalau tabelnya kosong — berbeda dari
+# bawah SENGAJA tidak melempar error kalau tabelnya kosong — berbeda dari
 # `hitung_urban`, yang melempar karena isochrone kosong memang berarti ada
 # langkah yang terlewat. Di sini nol baris adalah keadaan yang DIHARAPKAN.
 #
@@ -470,12 +470,18 @@ class IndikatorEkonomi:
     harga_median_idr: float | None  # dari price_references bertaut stasiun
 
 
+# `media_iklan` SENGAJA tanpa COALESCE(..., 0). Stasiun yang hanya tercatat
+# punya keluhan fasilitas, tanpa satu pun baris ad_spots, iklannya TIDAK
+# DIAMATI — bukan tidak ada. Versi sebelumnya mengisinya 0, dan Jakarta Kota
+# (0 baris ad_spots, 2 keluhan) karena itu tercatat "nol media iklan" lalu
+# jatuh dari peringkat 1 ke 16 (ADJUSTMENT 9.28). SUM atas nol baris memberi
+# NULL, dan NULL itu yang benar.
 SQL_KOMERSIAL = """
 SELECT s.id   AS station_id,
        s.name AS station_name,
-       (SELECT COALESCE(SUM(a.media_count), 0) FROM ad_spots a
+       (SELECT SUM(a.media_count) FROM ad_spots a
          WHERE a.station_id = s.id)                                AS media_iklan,
-       (SELECT COALESCE(SUM(a.media_count), 0) FROM ad_spots a
+       (SELECT SUM(a.media_count) FROM ad_spots a
          WHERE a.station_id = s.id AND a.status <> 'kosong')       AS ad_spot_terisi,
        (SELECT SUM(c.unit_total) FROM tenant_clusters c
          WHERE c.station_id = s.id)                                AS unit_total,
@@ -574,3 +580,115 @@ def hitung_ekonomi(session: Session) -> list[IndikatorEkonomi]:
             )
         )
     return hasil
+
+
+# ---------------------------------------------------------------------------
+# Skala keramaian narasumber — indikator keempat variabel T
+# ---------------------------------------------------------------------------
+#
+# PRD Tabel 6 mendaftarkan empat indikator untuk T: volume penumpang, jumlah
+# moda terhubung, status interchange, dan **penilaian keramaian per rentang
+# waktu**. Yang terakhir bersumber dari "survey (skala narasumber)".
+#
+# Sampai 11 Sep indikator ini tidak pernah terpakai karena datanya belum ada.
+# Sekarang ada, lewat `crowd_ratings` yang diisi Parser pola narasumber.
+#
+# Nilai gabungan per stasiun lintas rentang waktu memakai MEDIAN, bukan
+# puncaknya. Puncak hampir selalu 5 di stasiun mana pun yang punya jam sibuk,
+# sehingga ia tidak memisahkan apa-apa — diuji 11 Sep, kelima stasiun berdata
+# puncaknya 5 semua.
+#
+# KENAPA MEDIAN, DAN KENAPA (median - 1) / 4 — PRD HAL. 10
+# Skala 1-5 adalah data ORDINAL: urutannya bermakna, jaraknya tidak. Tingkat 4
+# tidak berarti "dua kali" tingkat 2. PRD hal. 10 menetapkan dua hal:
+#   1. "nilai gabungan dihitung menggunakan median, yang merupakan operasi yang
+#      sah untuk data ordinal" - rata-rata mengasumsikan jarak antar-tingkat
+#      sama, median tidak.
+#   2. "Skala ordinal ini dinormalisasi ke rentang 0 sampai 1".
+# Sampai 12 Sep kode memakai avg() lalu membagi nilai tertinggi DI DATA. Dua
+# kesalahan: rata-rata melanggar butir 1, dan membagi nilai tertinggi membuat
+# tingkat 1 ("hampir kosong") bernilai 0,2 - sistem tidak tahu skalanya mulai
+# dari 1. Normalisasi sekarang memakai batas TEORETIS skala tiap penilaian,
+# bukan batas data: (rating - scale_min) / (scale_max - scale_min). Pada skala
+# 1-5: 1 -> 0, 3 -> 0,5, 5 -> 1. Pada skala 1-10: 10 -> 1. Median diambil SETELAH
+# normalisasi, supaya penilaian dari skala berbeda bisa digabung (ADJUSTMENT 9.32).
+#
+# `percentile_disc`, bukan `percentile_cont`: median diskret selalu salah satu
+# tingkat yang benar-benar diberikan narasumber. `percentile_cont` akan
+# menginterpolasi [3, 5] menjadi 4, dan interpolasi itu kembali mengasumsikan
+# jarak antar-tingkat sama.
+def normalkan_skala(tingkat: float, skala_min: int = 1, skala_maks: int = 5) -> float:
+    """Skala ordinal ke 0-1 memakai batas teoretis skalanya (PRD hal. 10)."""
+    return (tingkat - skala_min) / (skala_maks - skala_min)
+
+
+def setara_lima(normal: float) -> float:
+    """0-1 kembali ke padanan skala 1-5, HANYA untuk ditampilkan."""
+    return 1 + 4 * normal
+
+
+@dataclass
+class IndikatorKeramaian:
+    station_id: int
+    station_name: str
+    skala_normal: float        # 0-1, median diskret nilai ternormalisasi - masuk perhitungan
+    skala_median: float        # padanan 1-5 dari skala_normal, HANYA untuk ditampilkan
+    skala_rata: float          # padanan 1-5 dari rata-rata, HANYA untuk pelaporan
+    jumlah_penilaian: int
+    rentang_terisi: int        # berapa dari pagi/siang/sore terwakili
+
+
+SQL_KERAMAIAN = """
+SELECT s.id   AS station_id,
+       s.name AS station_name,
+       percentile_disc(0.5) WITHIN GROUP (
+           ORDER BY (cr.rating - cr.scale_min)::float / (cr.scale_max - cr.scale_min)
+       )::float                       AS skala_normal,
+       avg((cr.rating - cr.scale_min)::float / (cr.scale_max - cr.scale_min))::float
+                                      AS rata_normal,
+       count(*)::int                  AS jumlah_penilaian,
+       count(DISTINCT cr.time_window)::int AS rentang_terisi
+  FROM crowd_ratings cr
+  JOIN stations s ON s.id = cr.station_id
+ GROUP BY s.id, s.name
+ ORDER BY s.name
+"""
+
+
+def hitung_keramaian(session: Session) -> list[IndikatorKeramaian]:
+    """Skala keramaian narasumber per stasiun.
+
+    Mengembalikan daftar KOSONG kalau belum ada satu pun penilaian. Sama seperti
+    `hitung_ekonomi` dan `hitung_komersial`: ketiadaan data di sini adalah
+    keadaan yang mungkin, bukan kegagalan yang harus melempar.
+    """
+    return [
+        IndikatorKeramaian(
+            station_id=r.station_id,
+            station_name=r.station_name,
+            skala_normal=float(r.skala_normal),
+            skala_median=setara_lima(float(r.skala_normal)),
+            skala_rata=setara_lima(float(r.rata_normal)),
+            jumlah_penilaian=r.jumlah_penilaian,
+            rentang_terisi=r.rentang_terisi,
+        )
+        for r in session.execute(text(SQL_KERAMAIAN)).all()
+    ]
+
+
+SQL_VOLUME = """
+SELECT DISTINCT ON (pv.station_id)
+       pv.station_id, pv.passengers_per_day::float AS per_hari
+  FROM passenger_volume pv
+ ORDER BY pv.station_id, pv.accessed_at DESC
+"""
+
+
+def hitung_volume_penumpang(session: Session) -> dict[int, float]:
+    """Volume penumpang harian per stasiun, terbaru per stasiun.
+
+    Indikator pertama variabel T menurut PRD Tabel 6. Cakupannya baru 10 dari
+    45 stasiun; yang tidak punya TIDAK diberi nol, melainkan tidak muncul di
+    hasil — supaya pemakainya bisa membedakan "sepi" dari "belum diukur".
+    """
+    return {r.station_id: float(r.per_hari) for r in session.execute(text(SQL_VOLUME)).all()}

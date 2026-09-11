@@ -6,11 +6,12 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.isochrone import Isochrone
-from app.models.reference import Poi
+from app.models.reference import PassengerVolume, Poi
 from app.models.score import StationScore
 from app.models.station import Station
 from app.models.tenant_score import TenantScore
 from app.services.scoring.tenant import CATEGORY_LABEL
+from app.services.station_areas import area_stasiun
 
 router = APIRouter(tags=["stations"])
 
@@ -93,6 +94,17 @@ def station_score(
             detail=f"Skor pita {minutes} menit belum dihitung untuk stasiun ini",
         )
 
+    total = db.execute(
+        select(func.count()).select_from(StationScore).where(StationScore.minutes == minutes)
+    ).scalar_one()
+
+    volume = db.execute(
+        select(PassengerVolume)
+        .where(PassengerVolume.station_id == station_id)
+        .order_by(PassengerVolume.accessed_at.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
     return {
         "station_id": row.station_id,
         "minutes": row.minutes,
@@ -100,6 +112,10 @@ def station_score(
         "kelas": row.kelas,
         "keputusan": row.keputusan,
         "rank": row.rank,
+        "rank_total": total,
+        # Kekokohan peringkat terhadap pilihan pembobotan (ADJUSTMENT 9.30).
+        # Peringkat tunggal tanpa ini menyiratkan kepastian yang tidak ada.
+        "sensitivity": row.sensitivity,
         # Kedekatan TOPSIS dikirim TERPISAH dan diberi peringatan, supaya panel
         # tidak tergoda memakainya sebagai skor. Nilainya bergantung pada
         # himpunan stasiun yang ikut dinilai (rank reversal), jadi ia hanya sah
@@ -127,6 +143,29 @@ def station_score(
             "other_mode_count": row.other_mode_count,
             "area_km2": row.area_km2,
         },
+        # Volume penumpang adalah angka paling nyata yang kita punya, tetapi
+        # baru tersedia untuk 10 dari 46 stasiun (22%). Karena di bawah ambang
+        # 70%, ia BELUM dipakai sebagai indikator variabel T - jadi dikirim
+        # sebagai konteks yang ditampilkan apa adanya, bukan sebagai komponen
+        # skor. Membedakan keduanya penting supaya pembaca tidak menyangka
+        # peringkatnya sudah memperhitungkan keramaian sebenarnya.
+        "passenger_volume": (
+            None
+            if volume is None
+            else {
+                "per_day": volume.passengers_per_day,
+                "period": volume.period,
+                "source": volume.source,
+                # Diperbarui 12 Sep: volume SUDAH jadi salah satu indikator T
+                # untuk stasiun yang punya datanya (matrix.py), dan sengaja
+                # tidak di-shrink. Catatan lama ("bukan komponen skor") keliru.
+                "catatan": (
+                    "Ikut menghitung indikator T untuk stasiun ini. Cakupannya baru "
+                    "10 stasiun; yang lain tidak diberi nol, melainkan dihitung dari "
+                    "indikator T lainnya."
+                ),
+            }
+        ),
     }
 
 
@@ -260,5 +299,46 @@ def station_pois(
                 },
             }
             for index, r in enumerate(rows)
+        ],
+    }
+
+
+@router.get("/stations/{station_id}/areas")
+def station_areas(station_id: int, db: Session = Depends(get_db)):
+    """Area pengamatan Activity di satu stasiun: iklan, tenant, keramaian, fasilitas.
+
+    Bahan katalog Ad-Space dan Tenant per area. Area dibentuk dari pengelompokan
+    titik Activity yang berdekatan - lihat services/station_areas.py.
+    """
+    if db.get(Station, station_id) is None:
+        raise HTTPException(status_code=404, detail="Stasiun tidak ditemukan")
+    return area_stasiun(db, station_id)
+
+
+@router.get("/sepi/kekokohan")
+def sepi_kekokohan(
+    db: Session = Depends(get_db),
+    minutes: int = Query(default=10, ge=5, le=15),
+):
+    """Peringkat resmi seluruh stasiun beserta rentang peringkatnya lintas skema."""
+    rows = db.execute(
+        select(Station.id, Station.name, StationScore.sepi, StationScore.kelas,
+               StationScore.rank, StationScore.sensitivity)
+        .join(StationScore, StationScore.station_id == Station.id)
+        .where(StationScore.minutes == minutes)
+        .order_by(StationScore.rank)
+    ).all()
+    return {
+        "minutes": minutes,
+        "stasiun": [
+            {
+                "station_id": r.id,
+                "nama": r.name,
+                "sepi": r.sepi,
+                "kelas": r.kelas,
+                "rank": r.rank,
+                "sensitivity": r.sensitivity,
+            }
+            for r in rows
         ],
     }

@@ -227,7 +227,7 @@ export default function Map({
 
     // Gerai komersial berisi penuh (pesaing), sisanya berongga (calon
     // pelanggan). Dibedakan lewat isian, bukan rona baru: peta sudah memikul
-    // tiga peran warna plus enam warna lin.
+    // tiga peran warna plus enam warna line.
     map.addLayer({
       id: "poi-demand",
       type: "circle",

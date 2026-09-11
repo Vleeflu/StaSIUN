@@ -77,7 +77,25 @@ def bobot_entropy(matriks: np.ndarray) -> np.ndarray:
         # -inf dan seluruh perhitungan berubah jadi NaN.
         p = p[p > 0]
         e = -np.sum(p * np.log(p)) / np.log(ada.size)
-        d[j] = 1.0 - e
+
+        # PENSKALAAN CAKUPAN — tanpa ini bobot entropi antar-kolom tidak
+        # sebanding, dan akibatnya parah.
+        #
+        # Entropi di atas dinormalkan dengan ln(jumlah pengamatan KOLOM ITU),
+        # bukan ln(jumlah stasiun). Kolom berisi 2 pengamatan karena itu diukur
+        # pada skala yang sama sekali berbeda dari kolom berisi 45, dan hampir
+        # selalu tampak lebih "membedakan".
+        #
+        # Terjadi sungguhan 12 Sep: variabel C baru terisi di 2 dari 45 stasiun,
+        # dan bobot entropinya melonjak ke 0,776 sementara bobot T runtuh dari
+        # 0,380 ke 0,148. Satu variabel yang hampir kosong mengambil alih
+        # seluruh skor.
+        #
+        # Alasan penskalaannya lugas: kriteria yang hanya teramati di 2 dari 45
+        # stasiun TIDAK BISA memisahkan 43 sisanya. Daya bedanya terhadap
+        # himpunan penuh paling banter sebesar cakupannya.
+        cakupan = ada.size / m
+        d[j] = (1.0 - e) * cakupan
 
     total = d.sum()
     if total <= 0:

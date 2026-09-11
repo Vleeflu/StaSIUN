@@ -4,16 +4,17 @@ import { useCallback, useMemo, useState } from "react";
 
 import AppHeader from "@/components/AppHeader";
 import Assistant from "@/components/Assistant";
+import CompareCard from "@/components/CompareCard";
 import ControlPanel from "@/components/ControlPanel";
 import Map, { type FlyTarget } from "@/components/Map";
-import StationPanel from "@/components/StationPanel";
+import StationPanel, { type Tab } from "@/components/StationPanel";
 import { useStationIsochrones } from "@/hooks/useStationIsochrones";
 import { useStationPois } from "@/hooks/useStationPois";
 import { bandMinutes, reachPoiMinutes, type ReachBand } from "@/lib/reach";
 import { useStations } from "@/hooks/useStations";
 import { KRL_LINES } from "@/lib/lines";
 import { parseLines } from "@/types/station";
-import type { StationCollection, StationFeature } from "@/types/station";
+import type { AksiAsisten, StationCollection, StationFeature } from "@/types/station";
 
 const VISIBLE_NETWORKS = ["KAI Commuter", "KAI"];
 
@@ -33,6 +34,12 @@ export default function Explorer() {
   const [reachBand, setReachBand] = useState<ReachBand>("all");
   const [selected, setSelected] = useState<StationFeature | null>(null);
   const [flyTo, setFlyTo] = useState<FlyTarget | null>(null);
+  const [panelTab, setPanelTab] = useState<Tab>("Ikhtisar");
+  const [compareIds, setCompareIds] = useState<number[] | null>(null);
+  const [simulasiPreset, setSimulasiPreset] = useState<{
+    bobot: Record<string, number>;
+    nonce: number;
+  } | null>(null);
 
   const kaiData = useMemo<StationCollection | null>(() => {
     if (!data) return null;
@@ -73,6 +80,56 @@ export default function Explorer() {
     setSelected(station);
     setFlyTo({ lon, lat, minZoom: SELECTED_ZOOM, nonce: Date.now() });
   }, []);
+
+  // Dicari di seluruh stasiun KAI, bukan hanya yang lolos filter line. Tombol
+  // asisten tidak boleh mati hanya karena line stasiunnya sedang disembunyikan.
+  const stationById = useMemo(() => {
+    const peta: Record<number, StationFeature> = {};
+    for (const f of kaiData?.features ?? []) {
+      if (typeof f.id === "number") peta[f.id] = f;
+    }
+    return peta;
+  }, [kaiData]);
+
+  const namaStasiun = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(stationById).map(([id, f]) => [id, f.properties.name])
+      ) as Record<number, string>,
+    [stationById]
+  );
+
+  const openStation = useCallback(
+    (stationId: number, tab: Tab = "Ikhtisar") => {
+      const station = stationById[stationId];
+      if (!station) return;
+      handleSelect(station);
+      setPanelTab(tab);
+    },
+    [stationById, handleSelect]
+  );
+
+  /**
+   * Penerima tombol dari jawaban asisten. Tiap jenis aksi dipetakan ke
+   * perubahan state yang sama dengan yang dilakukan pengguna lewat klik -
+   * asisten tidak punya jalur pintas ke tampilan.
+   */
+  const handleAction = useCallback(
+    (aksi: AksiAsisten) => {
+      if (aksi.jenis === "buka_stasiun" && aksi.station_id != null) {
+        const tab = (["Ikhtisar", "Ad-Space", "Tenant", "Naming"] as const).find(
+          (t) => t === aksi.tab
+        );
+        openStation(aksi.station_id, tab ?? "Ikhtisar");
+      } else if (aksi.jenis === "bandingkan" && aksi.station_ids?.length) {
+        setCompareIds(aksi.station_ids);
+      } else if (aksi.jenis === "simulasi" && aksi.station_id != null && aksi.bobot) {
+        openStation(aksi.station_id, "Ikhtisar");
+        setSimulasiPreset({ bobot: aksi.bobot, nonce: Date.now() });
+      }
+    },
+    [openStation]
+  );
 
   const handleToggleLine = useCallback((code: string) => {
     setActiveLines((prev) => {
@@ -125,11 +182,29 @@ export default function Explorer() {
             />
           </div>
 
-          <Assistant station={selected} />
+          {compareIds && (
+            <CompareCard
+              stationIds={compareIds}
+              names={namaStasiun}
+              onOpen={(id) => openStation(id)}
+              onClose={() => setCompareIds(null)}
+            />
+          )}
+
+          <Assistant station={selected} onAction={handleAction} />
         </div>
 
         {selected && (
-          <StationPanel station={selected} onClose={() => setSelected(null)} />
+          <StationPanel
+            station={selected}
+            tab={panelTab}
+            onTabChange={setPanelTab}
+            simulasiPreset={simulasiPreset}
+            onClose={() => {
+              setSelected(null);
+              setPanelTab("Ikhtisar");
+            }}
+          />
         )}
       </div>
     </div>

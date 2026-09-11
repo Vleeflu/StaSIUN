@@ -1,4 +1,5 @@
 from sqlalchemy import Float, ForeignKey, Index, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -63,6 +64,12 @@ class StationScore(Base):
     halte_count: Mapped[int] = mapped_column(Integer)
     other_mode_count: Mapped[int] = mapped_column(Integer)
     area_km2: Mapped[float] = mapped_column(Float)
+
+    # Ringkasan analisis sensitivitas (scoring/sensitivity.py): peringkat
+    # stasiun ini di tiap skema pembobotan, rentang peringkat, dan peluang
+    # masuk N besar saat bobot diacak. Peringkat yang melompat antar-skema
+    # ditandai rapuh - lihat ADJUSTMENT 9.30.
+    sensitivity: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
         Index("ix_station_scores_minutes_rank", "minutes", "rank"),

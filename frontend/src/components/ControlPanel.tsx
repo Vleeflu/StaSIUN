@@ -60,7 +60,7 @@ export default function ControlPanel({
         />
       </Section>
 
-      <Section title="Filter lin">
+      <Section title="Filter line">
         <div className="flex flex-wrap gap-1.5">
           {KRL_LINES.map((code) => {
             const active = activeLines.has(code);
@@ -134,15 +134,15 @@ export default function ControlPanel({
               belum dihitung.
             </p>
             <ul className="mt-2.5 flex flex-col gap-2 border-t border-hair pt-2.5 text-xs text-ink-soft">
-              <LegendRow color="#c90025">Stasiun satu lin</LegendRow>
-              <LegendRow pie>Interchange (multi-lin)</LegendRow>
+              <LegendRow color="#c90025">Stasiun satu line</LegendRow>
+              <LegendRow pie>Interchange (multi-line)</LegendRow>
               <LegendRow ring>Stasiun terpilih</LegendRow>
             </ul>
           </div>
         ) : (
           <ul className="flex flex-col gap-2 text-xs text-ink-soft">
-            <LegendRow color="#c90025">Stasiun satu lin</LegendRow>
-            <LegendRow pie>Interchange (multi-lin)</LegendRow>
+            <LegendRow color="#c90025">Stasiun satu line</LegendRow>
+            <LegendRow pie>Interchange (multi-line)</LegendRow>
             <LegendRow color="#c90025" faded>
               Dilintasi tanpa berhenti
             </LegendRow>

@@ -66,6 +66,12 @@ BASE_QUERY = text(
     -- ini permintaan terhitung dua kali dari dua pemetaan berbeda.
     LEFT JOIN poi p ON p.source = :sumber AND ST_Contains(i.geom, p.location)
     WHERE s.types && CAST(:networks AS varchar[])
+      AND s.served
+   -- `s.served` WAJIB. Stasiun yang dilintasi KRL TANPA berhenti tidak punya
+   -- arus penumpang commuter sama sekali, jadi menskornya sebagai peluang
+   -- komersial itu keliru - dan ia ikut mencemari normalisasi max-scaling serta
+   -- bobot entropi seluruh stasiun lain. Gambir sempat terskor di peringkat 32
+   -- karena saringan ini belum ada.
     GROUP BY s.id, s.name
     ORDER BY s.name
     """

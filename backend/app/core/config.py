@@ -14,6 +14,15 @@ class Settings(BaseSettings):
     MAPID_PROJECT_ID: str | None = None
     MAPID_BASEMAP_KEY: str | None = None
 
+    # Kunci TERPISAH untuk endpoint Activity (Community MAPS). Dokumen MAPID
+    # menyebutnya API_KEY_MISSION, dan ia BUKAN MAPID_API_KEY: diuji 11 Sep,
+    # MAPID_API_KEY ditolak dengan balasan yang sama persis dengan kunci
+    # asal-asalan. Server membalas 500 untuk kunci salah, bukan 401, jadi
+    # kegagalan autentikasi tidak bisa dibedakan dari error lain lewat status.
+    MAPID_MISSION_KEY: str | None = None
+    MAPID_ACTIVITY_URL: str = "https://server.mapid.io/web/competition/activities"
+
+
     # Panel AI Insight. Namanya sengaja netral penyedia: kode memakai SDK
     # OpenAI yang bisa diarahkan ke layanan mana pun yang menyediakan endpoint
     # OpenAI-compatible, jadi berpindah penyedia cukup mengubah tiga nilai ini

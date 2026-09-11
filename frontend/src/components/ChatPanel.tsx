@@ -3,15 +3,37 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { apiPost } from "@/lib/api";
-import type { StationFeature } from "@/types/station";
+import type { AksiAsisten, StationFeature } from "@/types/station";
 
-type ChatMessage = { role: "user" | "assistant"; content: string };
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  /** Tombol yang disusun backend dari alat yang benar-benar dipanggil. */
+  actions?: AksiAsisten[];
+};
 
-const SUGGESTIONS = [
-  "Stasiun mana yang skor SEPI-nya paling tinggi?",
-  "Gerai apa yang belum ada di sekitar Gondangdia?",
-  "Apa itu SEPI dan bagaimana dihitungnya?",
-];
+/**
+ * Pemantik pertanyaan, disesuaikan dengan stasiun yang sedang dibuka.
+ *
+ * Kotak masukan kosong tidak memberi tahu apa pun soal apa yang bisa dikerjakan
+ * asisten. Ketiga pemantik ini dipilih supaya masing-masing memanggil alat yang
+ * berbeda — peringkat tenant, simulasi bobot, dan perbandingan — sehingga
+ * sekali lihat pengguna tahu asisten ini menghitung, bukan sekadar menjawab.
+ */
+function suggestionsFor(name: string | null): string[] {
+  if (!name) {
+    return [
+      "Stasiun mana yang punya minimal 3 line KRL?",
+      "Hitung ulang SEPI kalau transportasi dibobot 50 persen",
+      "Stasiun mana yang peringkatnya paling kokoh?",
+    ];
+  }
+  return [
+    `Kategori usaha apa yang paling lapang di ${name}?`,
+    `Bagaimana skor ${name} kalau transportasi dibobot 50 persen?`,
+    `Seberapa kokoh peringkat ${name}?`,
+  ];
+}
 
 /**
  * Model kadang tetap menyelipkan markdown dan LaTeX walau sudah dilarang di
@@ -28,9 +50,10 @@ function toPlainText(text: string): string {
 
 type Props = {
   station: StationFeature | null;
+  onAction: (aksi: AksiAsisten) => void;
 };
 
-export default function ChatPanel({ station }: Props) {
+export default function ChatPanel({ station, onAction }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -54,24 +77,25 @@ export default function ChatPanel({ station }: Props) {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
 
-    const history = messages;
-    setMessages([...history, { role: "user", content: trimmed }]);
+    // Tombol aksi tidak ikut dikirim sebagai riwayat - model cukup membaca teksnya.
+    const history = messages.map(({ role, content }) => ({ role, content }));
+    setMessages([...messages, { role: "user", content: trimmed }]);
     setInput("");
     setSending(true);
     setError(null);
 
     try {
-      const res = await apiPost<{ reply: string }>("/chat", {
+      const res = await apiPost<{ reply: string; actions?: AksiAsisten[] }>("/chat", {
         message: trimmed,
         history,
-        // Backend memakai ini supaya pertanyaan seperti "lin apa saja di sini"
+        // Backend memakai ini supaya pertanyaan seperti "line apa saja di sini"
         // tahu stasiun mana yang sedang dibuka.
         station_id: typeof context?.id === "number" ? context.id : null,
       });
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: res.reply },
+        { role: "assistant", content: res.reply, actions: res.actions ?? [] },
       ]);
     } catch (err) {
       setError(
@@ -93,15 +117,16 @@ export default function ChatPanel({ station }: Props) {
         {messages.length === 0 && (
           <div className="flex flex-col gap-3">
             <p className="text-xs leading-relaxed text-ink-soft">
-              Asisten ini dibekali isi database: daftar stasiun, skor SEPI
-              ketiga pita waktu, dan hitungan titik minat di dalam tiap
-              isochrone. Sebut nama stasiun, dan rincian sekitarnya ikut
-              dibaca. Yang memang belum ada — footfall, TSI, nilai naming
-              rights — akan dibilang belum ada, bukan dikarang.
+              Tanya soal peringkat, bobot, atau tenant. Angkanya dihitung mesin
+              skor yang sama dengan panel, dan hasilnya bisa langsung dibuka di
+              peta.
+            </p>
+            <p className="text-[10px] leading-relaxed text-muted">
+              Data yang belum ada akan disebut belum ada.
             </p>
 
             <div className="flex flex-col gap-1.5">
-              {SUGGESTIONS.map((s) => (
+              {suggestionsFor(station?.properties.name ?? null).map((s) => (
                 <button
                   key={s}
                   type="button"
@@ -131,6 +156,20 @@ export default function ChatPanel({ station }: Props) {
                   <p className="whitespace-pre-wrap text-xs leading-relaxed">
                     {toPlainText(m.content)}
                   </p>
+                  {m.actions && m.actions.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {m.actions.map((a, j) => (
+                        <button
+                          key={`${a.jenis}-${j}`}
+                          type="button"
+                          onClick={() => onAction(a)}
+                          className="border border-ink px-2 py-1 text-[11px] text-ink hover:bg-ink hover:text-white"
+                        >
+                          {a.label} →
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </li>

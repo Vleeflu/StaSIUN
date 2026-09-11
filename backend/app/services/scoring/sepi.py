@@ -83,6 +83,10 @@ class SkorSepi:
     bobot_terpakai: dict[str, float]  # bobot setelah dinormalisasi ulang
     variabel_terpakai: int
     confidence: float  # 0-1
+    # SEPI sebelum modifier teks, dan besar penalti yang diterapkan. Disimpan
+    # supaya pengurangannya bisa ditunjukkan, bukan cuma hasil akhirnya.
+    nilai_dasar: float = 0.0
+    penalti_teks: float = 0.0
 
 
 def klasifikasi(nilai: float) -> tuple[str, str]:
@@ -119,11 +123,31 @@ def hitung_sepi(
     station_names: list[str],
     matriks: np.ndarray,
     bobot: np.ndarray,
+    terukur: np.ndarray | None = None,
+    penalti: list[float] | None = None,
+    batas_modifier: float = 0.15,
 ) -> list[SkorSepi]:
     """Susun skor SEPI dari matriks variabel yang sudah ternormalisasi.
 
     `matriks` berukuran (jumlah stasiun x 5), kolomnya mengikuti urutan
     VARIABEL. Nilai kosong ditulis NaN, bukan nol.
+
+    `terukur` (opsional, bentuk sama dengan matriks, bool) menyatakan variabel
+    mana yang benar-benar HASIL UKUR. Dipakai untuk `variabel_terpakai` dan
+    `confidence`. Wajib diberikan kalau `matriks` berisi nilai hasil shrinkage:
+    tanpanya setiap stasiun tampil 5 dari 5 dengan confidence 1,00, dan estimasi
+    menyamar jadi pengukuran. Kalau tidak diberikan, kelengkapan dibaca dari
+    NaN di `matriks` seperti sebelumnya.
+
+    `penalti` (opsional, 0..1 per stasiun) adalah modifier dari model berbasis
+    teks — saat ini polaritas sentimen keluhan fasilitas. PRD hal. 16 membatasi
+    kontribusinya "maksimal 15 persen terhadap skor akhir", jadi diterapkan
+    sebagai pengali:
+
+        SEPI_akhir = SEPI_dasar x (1 - batas_modifier x penalti)
+
+    Dengan penalti maksimal 1, pengurangan terbesar tepat 15 persen dari skor.
+    Klasifikasi memakai SEPI_akhir.
     """
     x = np.asarray(matriks, dtype=float)
     w = np.asarray(bobot, dtype=float)
@@ -146,13 +170,17 @@ def hitung_sepi(
         w_ada = w[ada]
         w_ternormalisasi = w_ada / w_ada.sum()
 
-        nilai = float(np.sum(baris[ada] * w_ternormalisasi) * 100.0)
+        dasar = float(np.sum(baris[ada] * w_ternormalisasi) * 100.0)
+        p = 0.0
+        if penalti is not None:
+            p = min(max(float(penalti[i]), 0.0), 1.0)
+        nilai = dasar * (1.0 - batas_modifier * p)
         # Kesalahan pembulatan floating point bisa menghasilkan 100.0000000001,
         # yang akan membuat klasifikasi() melempar error.
         nilai = min(max(nilai, 0.0), 100.0)
 
         label, keputusan = klasifikasi(nilai)
-        terpakai = int(ada.sum())
+        terpakai = int(np.asarray(terukur[i], dtype=bool).sum()) if terukur is not None else int(ada.sum())
 
         hasil.append(
             SkorSepi(
@@ -172,6 +200,8 @@ def hitung_sepi(
                 },
                 variabel_terpakai=terpakai,
                 confidence=confidence_dari_kelengkapan(terpakai),
+                nilai_dasar=min(max(dasar, 0.0), 100.0),
+                penalti_teks=p,
             )
         )
     return hasil

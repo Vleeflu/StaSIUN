@@ -47,40 +47,71 @@ function mix(from: string, to: string, ratio: number): string {
 type Component = {
   key: keyof StationScore["components"];
   label: string;
-  format: (value: number) => string;
+  /** Apa yang sebenarnya diukur, untuk ditampilkan saat nilainya kosong. */
+  sumber: string;
 };
 
+/**
+ * Kelima nilai komponen sudah TERNORMALISASI 0–1, bukan satuan aslinya.
+ *
+ * Versi sebelumnya memformat A sebagai `km²` dan U sebagai `titik`. Itu keliru
+ * sejak variabelnya jadi gabungan beberapa indikator: A = luas + Permeability
+ * Index, U = cacah + keberagaman + pembangkit perjalanan. Akibatnya nilai 0,87
+ * tampil sebagai "0.87 km²" dan 0,92 tampil sebagai "1 titik" — angka benar,
+ * satuan mengarang. Angka mentahnya tetap bisa dilihat di bagian "Isi jangkauan
+ * jalan kaki"; di sini yang ditampilkan proporsinya.
+ */
 export const SEPI_COMPONENTS: Component[] = [
-  {
-    key: "T",
-    label: "Transportasi",
-    format: (v) => `${Math.round(v * 100)}%`,
-  },
-  { key: "E", label: "Ekonomi", format: (v) => `${Math.round(v)} titik` },
-  { key: "A", label: "Aksesibilitas", format: (v) => `${v.toFixed(2)} km²` },
-  { key: "U", label: "Urban", format: (v) => `${Math.round(v)} titik` },
-  { key: "C", label: "Komersial", format: (v) => `${Math.round(v)} titik` },
+  { key: "T", label: "Transportasi", sumber: "volume, moda, line, keramaian" },
+  { key: "E", label: "Ekonomi", sumber: "survey Activity" },
+  { key: "A", label: "Aksesibilitas", sumber: "luas isochrone, permeability" },
+  { key: "U", label: "Urban", sumber: "titik minat, keberagaman" },
+  { key: "C", label: "Komersial", sumber: "survey Activity" },
 ];
 
+/** Tampilkan nilai komponen apa adanya: 0–1 dua desimal, atau tanda belum diukur. */
+export function formatKomponen(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "belum diukur";
+  return value.toFixed(2);
+}
+
+/**
+ * Panjang bar tiap komponen, relatif terhadap komponen tertinggi yang TERUKUR.
+ *
+ * Variabel yang belum diukur dikembalikan `null`, bukan 0. Bedanya menentukan:
+ * bar sepanjang nol berarti "nilainya rendah", sedangkan yang kita maksud
+ * adalah "belum ada datanya" — dua hal yang tidak boleh terlihat sama.
+ *
+ * Versi sebelumnya memanggil `Math.max` atas nilai yang kini bisa `null`,
+ * menghasilkan `NaN` dan membuat seluruh diagram lenyap tanpa pesan apa pun.
+ */
 export function componentShares(
   components: StationScore["components"]
-): Record<string, number> {
-  const scaled: Record<string, number> = {
-    T: components.T,
-    E: components.E,
-    A: components.A,
-    U: components.U,
-    C: components.C,
-  };
+): Record<string, number | null> {
+  const entries = Object.entries(components) as Array<
+    [string, number | null]
+  >;
 
-  const values = Object.values(scaled);
-  const highest = Math.max(...values);
+  const terukur = entries
+    .map(([, v]) => v)
+    .filter((v): v is number => v !== null && Number.isFinite(v));
 
-  if (highest <= 0) {
-    return Object.fromEntries(Object.keys(scaled).map((k) => [k, 0]));
-  }
+  const tertinggi = terukur.length ? Math.max(...terukur) : 0;
 
   return Object.fromEntries(
-    Object.entries(scaled).map(([key, value]) => [key, value / highest])
+    entries.map(([key, value]) => {
+      if (value === null || !Number.isFinite(value)) return [key, null];
+      return [key, tertinggi > 0 ? value / tertinggi : 0];
+    })
   );
+}
+
+/** Label dan nada untuk metadata keyakinan (F5-4). */
+export function confidenceLabel(
+  terpakai: number,
+  total: number
+): { teks: string; nada: "rendah" | "sedang" | "penuh" } {
+  if (terpakai >= total) return { teks: "Lengkap", nada: "penuh" };
+  if (terpakai >= total - 1) return { teks: "Hampir lengkap", nada: "sedang" };
+  return { teks: "Terbatas", nada: "rendah" };
 }

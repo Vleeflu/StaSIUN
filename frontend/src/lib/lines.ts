@@ -1,4 +1,4 @@
-// Warna dan nama tiap lin, mengikuti peta rute resmi KAI Commuter.
+// Warna dan nama tiap line, mengikuti peta rute resmi KAI Commuter.
 export const LINE_COLOR: Record<string, string> = {
   B: "#c90025",
   C: "#00a4e4",
@@ -66,7 +66,7 @@ export function shortLabel(code: string): string {
 export function badgeLabel(code: string): string {
   if (code === "A") return "KA Bandara";
   const short = LINE_SHORT[code];
-  return short ? `Lin ${short}` : (LINE_NAME[code] ?? code);
+  return short ? `Line ${short}` : (LINE_NAME[code] ?? code);
 }
 
 export function lineLabel(codes: string[]): string {

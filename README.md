@@ -153,7 +153,7 @@ python -m scripts.seed_stations
 ```
 
 Keduanya memakai modul yang sama, `app/services/station_import.py`, sehingga
-penempelan lin dan penandaan stasiun tak terlayani berlaku identik apa pun
+penempelan line dan penandaan stasiun tak terlayani berlaku identik apa pun
 sumbernya. Bedanya berkas lokal tidak punya isochrone maupun POI.
 
 
@@ -263,7 +263,7 @@ stasiun-app/
    ├─ app/                  # halaman App Router
    ├─ components/           # Map, StationSearch
    ├─ hooks/                # useStations
-   ├─ lib/                  # helper API & konstanta lin
+   ├─ lib/                  # helper API & konstanta line
    └─ types/                # tipe bersama
 ```
 
@@ -276,14 +276,14 @@ Whoosh sengaja tidak diikutkan.
 Penyaringan memakai tag `network` bernilai `KAI Commuter` **atau** `KAI`. Nilai
 kedua itu penting: Jakarta Kota, Jatinegara, dan Pasar Senen ditandai `KAI` di
 OpenStreetMap padahal ketiganya stasiun KRL utama, dan Jakarta Kota bahkan
-terminus dua lin. Menyaring dengan satu nilai saja akan membuang mereka.
+terminus dua line. Menyaring dengan satu nilai saja akan membuang mereka.
 Jakarta Gudang dikecualikan karena emplasemen barang tanpa layanan penumpang.
 
-Keanggotaan lin tidak berasal dari berkas sumber, melainkan dari roster resmi
+Keanggotaan line tidak berasal dari berkas sumber, melainkan dari roster resmi
 peta rute KAI Commuter yang ditanam di `app/services/station_import.py`. Enam
-lin dipakai beserta kodenya: `B` Bogor, `C` Lingkar Cikarang, `R` Rangkasbitung,
+line dipakai beserta kodenya: `B` Bogor, `C` Lingkar Cikarang, `R` Rangkasbitung,
 `T` Tangerang, `TP` Tanjung Priok, dan `A` KA Bandara. Stasiun yang dilewati
-lebih dari satu lin ditandai sebagai interchange dan digambar sebagai lingkaran
+lebih dari satu line ditandai sebagai interchange dan digambar sebagai lingkaran
 berjuring banyak warna di peta.
 
 Kolom `served` menandai stasiun yang hanya dilewati KRL tanpa berhenti. Saat ini

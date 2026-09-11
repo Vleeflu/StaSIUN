@@ -127,6 +127,13 @@ class ActivityPoint(TimestampMixin, Base):
         default=False, server_default=text("false")
     )
 
+    # Kapan narasi ini terakhir dibaca ekstraksi LLM (activity_extract.py).
+    # Tanpa penanda, narasi yang memang tidak memuat iklan/tenant/fasilitas
+    # dikirim ulang ke model setiap kali skrip dijalankan dan membakar kuota.
+    llm_ec_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Pass kondisi fasilitas (positif maupun negatif, PRD Tabel 7).
+    llm_fasilitas_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
 
 class ActivityExtraction(TimestampMixin, Base):
     """Keluaran lapis 1: arketipe, merek, dan sentimen per titik.
@@ -202,9 +209,13 @@ class CrowdRating(TimestampMixin, Base):
     # keempat yang menyelinap masuk dan merusak perbandingan antar-stasiun.
     time_window: Mapped[str]
 
-    # Skala ordinal 1-5. Dinormalisasi ke 0-1 sebelum masuk perhitungan,
-    # jadi jangan pernah diperlakukan sebagai nilai absolut.
+    # Skala ORDINAL. Dinormalisasi ke 0-1 sebelum masuk perhitungan,
+    # (rating - scale_min) / (scale_max - scale_min), jadi jangan pernah
+    # diperlakukan sebagai nilai absolut. Rentangnya ikut disimpan karena
+    # Activity universal tidak selalu memakai 1-5 (ADJUSTMENT 9.32).
     rating: Mapped[int]
+    scale_min: Mapped[int] = mapped_column(default=1, server_default=text("1"))
+    scale_max: Mapped[int] = mapped_column(default=5, server_default=text("5"))
 
     # Atribusi narasumber sebagai PERAN, bukan identitas — misalnya
     # "petugas kebersihan peron 2". PRD menaruh pengolahan data pribadi di luar
@@ -218,5 +229,11 @@ class CrowdRating(TimestampMixin, Base):
             "time_window IN ('pagi', 'siang', 'sore')",
             name="ck_crowd_rating_time_window",
         ),
-        CheckConstraint("rating BETWEEN 1 AND 5", name="ck_crowd_rating_range"),
+        CheckConstraint(
+            "rating BETWEEN scale_min AND scale_max", name="ck_crowd_rating_range"
+        ),
+        CheckConstraint(
+            "scale_min IN (0, 1) AND scale_max BETWEEN 3 AND 10",
+            name="ck_crowd_rating_scale",
+        ),
     )
