@@ -14,7 +14,7 @@ import json
 
 from openai import APIError, AsyncOpenAI, RateLimitError  # noqa: F401
 
-from app.services.llm_penyedia import Rantai, SemuaPenyediaHabis
+from app.services.llm_penyedia import PanggilanGagal, Rantai, SemuaPenyediaHabis
 
 from app.core.config import settings
 from app.schemas.chat import Message
@@ -108,15 +108,14 @@ class LLMService:
             raise RuntimeError(
                 "Kuota penyedia model sedang habis, coba lagi sebentar."
             ) from e
+        except PanggilanGagal as e:
+            # Penyedianya disebut dari objek galatnya sendiri, BUKAN dari
+            # settings. Versi sebelumnya membaca `settings.LLM_BASE_URL` -
+            # penyedia utama - sehingga galat dari Gemini dilaporkan sebagai
+            # galat Groq, dan penelusurannya menunjuk ke arah yang salah.
+            raise RuntimeError(f"Panggilan ke model gagal: {e}") from e
         except APIError as e:
-            # Nama model dan alamat penyedianya ikut disebut karena dua
-            # kesalahan paling sering di sini adalah id model yang keliru dan
-            # kunci yang tidak cocok dengan alamatnya. Tanpa keduanya, pesan
-            # errornya tidak menunjuk ke mana pun.
-            raise RuntimeError(
-                f"Panggilan ke model gagal (model={self._model}, "
-                f"base_url={settings.LLM_BASE_URL}): {e}"
-            ) from e
+            raise RuntimeError(f"Panggilan ke model gagal: {e}") from e
 
         reply = response.choices[0].message.content
 

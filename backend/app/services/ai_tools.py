@@ -273,8 +273,12 @@ def peringkat_tenant(
         "rumus_headroom": (
             "headroom = (calon_pelanggan x pengali_konektivitas) / (pesaing + 1). "
             "Pengali konektivitas 1,0-2,0 berasal dari komponen T, dan pesaing "
-            "ditambah satu untuk gerai yang mau dibuka sendiri. Pakai rumus INI "
-            "kalau ditanya, jangan menyederhanakannya."
+            "ditambah satu untuk gerai yang mau dibuka sendiri. Pesaing dihitung "
+            "paling jauh 10 menit jalan kaki, jadi pada pita 15 menit angkanya "
+            "lebih kecil daripada jumlah gerai sejenis yang terlihat di peta - dan "
+            "pesaing 0 berarti tidak ada gerai sejenis dalam jangkauan yang "
+            "dihitung, bukan tidak ada pesaing sama sekali. Pakai rumus INI kalau "
+            "ditanya, jangan menyederhanakannya."
         ),
         "peringkat": [dict(r) for r in baris],
     }
@@ -339,8 +343,12 @@ def tenant_untuk_stasiun(db: Session, nama: str, menit: int = 10) -> dict:
         "rumus_headroom": (
             "headroom = (calon_pelanggan x pengali_konektivitas) / (pesaing + 1). "
             "Pengali konektivitas 1,0-2,0 berasal dari komponen T, dan pesaing "
-            "ditambah satu untuk gerai yang mau dibuka sendiri. Pakai rumus INI "
-            "kalau ditanya, jangan menyederhanakannya."
+            "ditambah satu untuk gerai yang mau dibuka sendiri. Pesaing dihitung "
+            "paling jauh 10 menit jalan kaki, jadi pada pita 15 menit angkanya "
+            "lebih kecil daripada jumlah gerai sejenis yang terlihat di peta - dan "
+            "pesaing 0 berarti tidak ada gerai sejenis dalam jangkauan yang "
+            "dihitung, bukan tidak ada pesaing sama sekali. Pakai rumus INI kalau "
+            "ditanya, jangan menyederhanakannya."
         ),
         "kategori": [dict(r) for r in baris],
     }
@@ -653,8 +661,267 @@ TOOL_SCHEMAS.append(
     }
 )
 
+SQL_PAPARAN_PERINGKAT = """
+SELECT s.name,
+       (0.5 * sc.raw_t + 0.3 * sc.raw_e + 0.2 * sc.raw_u) * 100 AS cei,
+       sc.rank AS peringkat_sepi,
+       sc.sepi,
+       sc.confidence
+  FROM station_scores sc
+  JOIN stations s ON s.id = sc.station_id
+ WHERE sc.minutes = :menit
+   AND sc.raw_t IS NOT NULL AND sc.raw_e IS NOT NULL AND sc.raw_u IS NOT NULL
+ ORDER BY cei DESC
+ LIMIT :batas
+"""
+
+
+def peringkat_paparan(db: Session, menit: int = 10, batas: int = 10) -> dict:
+    """Peringkat stasiun menurut PAPARAN (CEI), bukan menurut SEPI.
+
+    Inilah alat yang benar untuk pertanyaan "stasiun mana yang paling bagus
+    untuk memasang iklan". SEPI menilai potensi ekonomi kawasan dan memberi
+    bobot besar pada aksesibilitas serta keberagaman kawasan - berguna untuk
+    menilai kelayakan usaha, keliru untuk menilai paparan iklan.
+
+    Bedanya nyata: Tanah Abang peringkat 23 menurut SEPI padahal nilai
+    transportasinya tertinggi, dan menjadi peringkat 2 menurut CEI.
+    """
+    if menit not in (5, 10, 15):
+        raise ToolError(f"cincin isochrone cuma 5, 10, atau 15 menit, bukan {menit}")
+
+    baris = db.execute(
+        text(SQL_PAPARAN_PERINGKAT),
+        {"menit": menit, "batas": min(batas, MAX_BARIS)},
+    ).mappings().all()
+
+    return {
+        "cincin_menit": menit,
+        "rumus": "CEI = 0,5 x Transportasi + 0,3 x Ekonomi + 0,2 x Urban (PRD hal. 13)",
+        "catatan": (
+            "Peringkat ini memakai Composite Exposure Index, bukan SEPI. Untuk "
+            "pertanyaan penempatan iklan dan hak penamaan, inilah ukuran yang "
+            "benar. Sebutkan juga confidence-nya."
+        ),
+        "peringkat": [
+            {
+                "peringkat": i,
+                "stasiun": r["name"],
+                "cei": round(float(r["cei"]), 1),
+                "peringkat_sepi": r["peringkat_sepi"],
+                "sepi": round(float(r["sepi"]), 1),
+                "confidence": round(float(r["confidence"]), 2),
+            }
+            for i, r in enumerate(baris, start=1)
+        ],
+    }
+
+
+SQL_CARI_POI = """
+WITH st AS (SELECT id FROM stations WHERE name = :stasiun)
+SELECT 'di dalam stasiun' AS lingkup,
+       t.name             AS nama,
+       t.category         AS kategori,
+       NULL::float        AS jarak_m
+  FROM tenants t, st
+ WHERE t.station_id = st.id AND t.name ILIKE :pola
+UNION ALL
+SELECT 'di sekitar stasiun',
+       p.name,
+       p.category,
+       ST_Distance(p.location::geography, s.location::geography)
+  FROM poi p, isochrones i, stations s, st
+ WHERE i.station_id = st.id AND i.minutes = :menit
+   AND s.id = st.id
+   AND ST_Contains(i.geom, p.location)
+   AND p.name ILIKE :pola
+ ORDER BY lingkup, jarak_m NULLS FIRST
+ LIMIT :batas
+"""
+
+
+def cari_poi(db: Session, stasiun: str, kata_kunci: str, menit: int = 10, batas: int = 12) -> dict:
+    """Cari tempat atau merek tertentu di satu stasiun dan sekitarnya.
+
+    Urutannya menirukan cara orang bertanya: DI DALAM stasiun dulu, baru
+    kawasan sekitarnya dalam jangkauan jalan kaki. Pertanyaan "ada ATM BCA di
+    Tanah Abang?" sebelumnya tidak terjawab sama sekali karena asisten tidak
+    punya alat untuk memeriksa nama tempat - ia hanya bisa melihat angka
+    agregat, sehingga menjawab ngawur atau mengelak.
+
+    Pencarian memakai kecocokan sebagian pada nama, jadi "BCA" menemukan "ATM
+    BCA" maupun "Bank BCA KCP Tanah Abang".
+    """
+    sid = db.execute(
+        text("SELECT id FROM stations WHERE name = :n"), {"n": stasiun}
+    ).scalar()
+    if sid is None:
+        raise ToolError(f"stasiun {stasiun!r} tidak ada. Pakai nama persis.")
+    if menit not in (5, 10, 15):
+        raise ToolError(f"cincin isochrone cuma 5, 10, atau 15 menit, bukan {menit}")
+
+    baris = db.execute(
+        text(SQL_CARI_POI),
+        {
+            "stasiun": stasiun,
+            "pola": f"%{kata_kunci}%",
+            "menit": menit,
+            "batas": min(batas, MAX_BARIS),
+        },
+    ).mappings().all()
+
+    di_dalam = [r for r in baris if r["lingkup"] == "di dalam stasiun"]
+    di_sekitar = [r for r in baris if r["lingkup"] != "di dalam stasiun"]
+
+    return {
+        "stasiun": stasiun,
+        "dicari": kata_kunci,
+        "cincin_menit": menit,
+        "jumlah_di_dalam_stasiun": len(di_dalam),
+        "jumlah_di_sekitar": len(di_sekitar),
+        "hasil": [
+            {
+                "nama": r["nama"],
+                "kategori": r["kategori"],
+                "lingkup": r["lingkup"],
+                "jarak_m": round(r["jarak_m"]) if r["jarak_m"] is not None else None,
+            }
+            for r in baris
+        ],
+        "catatan": (
+            "Kosong berarti tidak tercatat di data kami, BUKAN berarti tidak "
+            "ada di lapangan. Titik minat berasal dari OpenStreetMap dan survei "
+            "MAPID; gerai yang belum dipetakan tidak akan muncul."
+            if not baris
+            else "Yang di dalam stasiun berasal dari survei tenant; yang di "
+            "sekitar dari titik minat dalam jangkauan jalan kaki."
+        ),
+    }
+
+
+def profil_paparan_alat(db: Session, nama: str) -> dict:
+    """Profil paparan satu stasiun: siapa yang melintas dan format iklan yang cocok.
+
+    KENAPA ALAT INI ADA. Sebelum ini asisten hanya punya SEPI untuk menjawab
+    pertanyaan penempatan iklan, dan SEPI bukan ukuran kecocokan iklan - ia
+    potensi ekonomi kawasan. Akibatnya pertanyaan apa pun soal iklan dijawab
+    dengan stasiun berskor tertinggi: ditanya iklan perbankan, jawabannya
+    Pondok Jati; ditanya iklan apa pun yang lain, jawabannya Pondok Jati lagi.
+
+    Dengan alat ini asisten bisa memeriksa profil pengunjung dan pola singgah
+    sebelum merekomendasikan penempatan - dua hal yang justru menentukan
+    kecocokan sektor iklan, dan tidak terbaca sama sekali dari skor SEPI.
+    """
+    from app.services.profil_paparan import profil_paparan, sektor_iklan
+
+    sid = db.execute(
+        text("SELECT id FROM stations WHERE name = :n"), {"n": nama}
+    ).scalar()
+    if sid is None:
+        raise ToolError(f"stasiun {nama!r} tidak ada. Pakai nama persis.")
+
+    p = profil_paparan(db, sid)
+    sektor = sektor_iklan(p.audiens, p.waktu_singgah)
+    return {
+        "stasiun": p.station_name,
+        "profil_pengunjung": p.audiens,
+        "keramaian": p.keramaian,
+        "waktu_singgah": p.waktu_singgah,
+        "format_iklan": p.format_iklan,
+        "sektor_iklan_cocok": sektor,
+        "catatan": (
+            "Kecocokan sektor iklan ditentukan profil pengunjung dan pola "
+            "singgah, BUKAN oleh skor SEPI. SEPI mengukur potensi ekonomi "
+            "kawasan, bukan kecocokan iklan."
+        ),
+    }
+
+
+TOOL_SCHEMAS.append(
+    {
+        "type": "function",
+        "function": {
+            "name": "cari_poi",
+            "description": (
+                "Cari tempat, merek, atau jenis usaha tertentu di satu stasiun "
+                "dan kawasan sekitarnya. Pakai untuk pertanyaan seperti 'apakah "
+                "ada ATM BCA di Tanah Abang', 'ada Indomaret tidak di sini', "
+                "atau 'kedai kopi apa saja yang ada'. Memeriksa DI DALAM "
+                "stasiun lebih dulu, lalu kawasan dalam jangkauan jalan kaki."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "stasiun": {"type": "string", "description": "Nama stasiun persis"},
+                    "kata_kunci": {
+                        "type": "string",
+                        "description": "Nama atau merek yang dicari, misal 'BCA' atau 'Indomaret'",
+                    },
+                    "menit": {"type": "integer", "enum": [5, 10, 15]},
+                },
+                "required": ["stasiun", "kata_kunci"],
+            },
+        },
+    }
+)
+
+
+TOOL_SCHEMAS.append(
+    {
+        "type": "function",
+        "function": {
+            "name": "peringkat_paparan",
+            "description": (
+                "Peringkat stasiun menurut PAPARAN IKLAN (Composite Exposure "
+                "Index: 0,5 transportasi + 0,3 ekonomi + 0,2 urban). WAJIB "
+                "dipakai untuk pertanyaan 'stasiun mana yang paling bagus untuk "
+                "iklan' atau hak penamaan. JANGAN pakai peringkat SEPI untuk "
+                "itu - SEPI memberi bobot besar pada aksesibilitas dan "
+                "keberagaman kawasan, sehingga stasiun tersibuk justru bisa "
+                "tampil rendah."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "menit": {"type": "integer", "enum": [5, 10, 15]},
+                    "batas": {"type": "integer"},
+                },
+            },
+        },
+    }
+)
+
+
+TOOL_SCHEMAS.append(
+    {
+        "type": "function",
+        "function": {
+            "name": "profil_paparan",
+            "description": (
+                "Profil paparan satu stasiun: siapa yang melintas, pola keramaian "
+                "per rentang waktu, lama singgah, format iklan yang sesuai, dan "
+                "sektor usaha yang cocok beriklan. WAJIB dipakai untuk pertanyaan "
+                "penempatan iklan, target audiens, atau sektor apa yang cocok - "
+                "skor SEPI TIDAK menjawab itu, karena SEPI mengukur potensi "
+                "ekonomi kawasan, bukan kecocokan iklan."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "nama": {"type": "string", "description": "Nama stasiun persis"}
+                },
+                "required": ["nama"],
+            },
+        },
+    }
+)
+
+
 TOOLS = {
     "hitung_ulang_sepi": hitung_ulang_sepi,
+    "profil_paparan": profil_paparan_alat,
+    "cari_poi": cari_poi,
+    "peringkat_paparan": peringkat_paparan,
     "cari_stasiun": cari_stasiun,
     "peringkat_tenant": peringkat_tenant,
     "tenant_untuk_stasiun": tenant_untuk_stasiun,

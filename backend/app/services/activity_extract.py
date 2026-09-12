@@ -89,6 +89,24 @@ SKEMA_HARGA = """{
   "harga": [{"item": "str", "kategori": "str", "harga_idr": int, "satuan": "str", "jenis": "menu|omset", "kutipan": "str"}]
 }"""
 
+# Fasilitas yang BUKAN media iklan, walau model kerap mengiranya begitu.
+#
+# Dua contoh nyata yang lolos sebelum penjaga ini ada, keduanya di Sudirman:
+# toilet publik berbayar "Mister Loo" masuk sebagai satu media iklan karena
+# narasinya menyebut merek, dan papan nama warung "Tude Tetap Buka" masuk
+# sebagai "penanda". Keduanya menggelembungkan inventaris iklan dengan barang
+# yang tidak bisa dijual ke pengiklan mana pun.
+#
+# Daftarnya sempit dan disebut satu per satu, bukan pola umum: fasilitas yang
+# MEMBAWA iklan tetap sah dan sering dipakai - "iklan berbasis fasilitas
+# charging station dengan tempat duduk" adalah format nyata, begitu pula gapura
+# bermerek. Yang ditolak hanya fasilitas yang berdiri sendiri.
+BUKAN_MEDIA_IKLAN = re.compile(
+    r"^\s*(toilet|pos polisi|atm|vending|tempat sampah|bollard|penanda|"
+    r"papan nama|rambu|hydrant|musala|mushola|loker|kursi|bangku)",
+    re.IGNORECASE,
+)
+
 SKEMA = """{
   "iklan": [{"jenis": "str", "jumlah": int, "status": "terpakai|kosong", "kutipan": "str"}],
   "lapak": {"unit_total": int|null, "unit_terisi": int|null, "kutipan": "str"},
@@ -169,6 +187,7 @@ class HasilEkstraksi:
     harga: int = 0            # harga menu yang masuk ke price_references
     omset_dilewati: int = 0   # angka rupiah yang ternyata omset, bukan harga
     harga_luar_stasiun: int = 0  # harga dari lapak di luar batas area stasiun
+    bukan_media_iklan: int = 0   # fasilitas yang keliru terbaca sebagai media iklan
     kutipan_ditolak: int = 0
     gagal_parse: int = 0
     bentuk_salah: int = 0     # balasan JSON sah, tetapi isinya bukan objek
@@ -291,6 +310,10 @@ def _simpan(
             hasil.kutipan_ditolak += 1
             if len(hasil.contoh_ditolak) < 3:
                 hasil.contoh_ditolak.append(str(item.get("kutipan"))[:70])
+            continue
+        jenis_iklan = (item.get("jenis") or "").strip()
+        if BUKAN_MEDIA_IKLAN.match(jenis_iklan):
+            hasil.bukan_media_iklan += 1
             continue
         jumlah = item.get("jumlah")
         if not isinstance(jumlah, int) or jumlah < 0:

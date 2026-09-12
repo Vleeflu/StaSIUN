@@ -86,6 +86,11 @@ class SkorSepi:
     # SEPI sebelum modifier teks, dan besar penalti yang diterapkan. Disimpan
     # supaya pengurangannya bisa ditunjukkan, bukan cuma hasil akhirnya.
     nilai_dasar: float = 0.0
+    # Batas bawah skor: nilai kalau tiap variabel yang DIESTIMASI meleset satu
+    # simpangan baku ke bawah. Dipakai mengurutkan peringkat, supaya stasiun
+    # berdata tipis tidak menyalip stasiun terukur hanya karena kebetulan
+    # rata-rata arketipenya tinggi (ADJUSTMENT 9.59).
+    nilai_bawah: float = 0.0
     penalti_teks: float = 0.0
 
 
@@ -126,11 +131,18 @@ def hitung_sepi(
     terukur: np.ndarray | None = None,
     penalti: list[float] | None = None,
     batas_modifier: float = 0.15,
+    sebaran: np.ndarray | None = None,
 ) -> list[SkorSepi]:
     """Susun skor SEPI dari matriks variabel yang sudah ternormalisasi.
 
     `matriks` berukuran (jumlah stasiun x 5), kolomnya mengikuti urutan
     VARIABEL. Nilai kosong ditulis NaN, bukan nol.
+
+    `sebaran` berukuran sama dengan `matriks` dan berisi simpangan baku tiap
+    variabel: NOL untuk yang diukur langsung, dan sebaran kelompok arketipe
+    untuk yang diestimasi. Dari situ dihitung `nilai_bawah` - skor seandainya
+    setiap estimasi meleset satu simpangan ke bawah. Peringkat memakai angka
+    itu, bukan nilai titiknya.
 
     `terukur` (opsional, bentuk sama dengan matriks, bool) menyatakan variabel
     mana yang benar-benar HASIL UKUR. Dipakai untuk `variabel_terpakai` dan
@@ -171,10 +183,26 @@ def hitung_sepi(
         w_ternormalisasi = w_ada / w_ada.sum()
 
         dasar = float(np.sum(baris[ada] * w_ternormalisasi) * 100.0)
+
+        # Skor hati-hati: variabel yang diestimasi dikurangi satu simpangan
+        # baku kelompok arketipenya. Untuk variabel HASIL UKUR sebarannya nol,
+        # jadi stasiun yang datanya lengkap tidak terkena apa pun.
+        #
+        # Ini bukan penalti yang dikarang: sebarannya dihitung dari data
+        # kelompok pembanding, dan besarnya penalti mengikuti seberapa
+        # bervariasi variabel itu di kelompok tersebut. Kalau variabelnya
+        # memang seragam antar-stasiun, estimasinya nyaris tidak dihukum.
+        if sebaran is not None:
+            sb = np.asarray(sebaran[i], dtype=float)
+            bawah_baris = np.clip(baris - np.nan_to_num(sb), 0.0, 1.0)
+            dasar_bawah = float(np.sum(bawah_baris[ada] * w_ternormalisasi) * 100.0)
+        else:
+            dasar_bawah = dasar
         p = 0.0
         if penalti is not None:
             p = min(max(float(penalti[i]), 0.0), 1.0)
         nilai = dasar * (1.0 - batas_modifier * p)
+        nilai_bawah = min(max(dasar_bawah * (1.0 - batas_modifier * p), 0.0), 100.0)
         # Kesalahan pembulatan floating point bisa menghasilkan 100.0000000001,
         # yang akan membuat klasifikasi() melempar error.
         nilai = min(max(nilai, 0.0), 100.0)
@@ -201,6 +229,7 @@ def hitung_sepi(
                 variabel_terpakai=terpakai,
                 confidence=confidence_dari_kelengkapan(terpakai),
                 nilai_dasar=min(max(dasar, 0.0), 100.0),
+                nilai_bawah=nilai_bawah,
                 penalti_teks=p,
             )
         )

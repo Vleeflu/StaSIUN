@@ -69,6 +69,27 @@ export type StationScore = {
     U: number | null;
     C: number | null;
   };
+  /**
+   * Mana yang benar-benar DIUKUR, bukan diestimasi. `components` selalu terisi
+   * kelima-limanya karena skor memang dihitung dari kelimanya; penanda ini yang
+   * membedakan pengukuran dari estimasi shrinkage.
+   */
+  terukur: { T: boolean; E: boolean; A: boolean; U: boolean; C: boolean };
+  /** Posisi relatif 0-100: "lebih tinggi daripada sekian persen stasiun". */
+  persentil: number;
+  /** Fitur mana yang masuk akal dikejar di kelas ini. Null kalau kelas tak dikenal. */
+  triase: { fokus: string; hindari: string; alasan: string } | null;
+  /** Composite Exposure Index — ukuran paparan iklan, BUKAN SEPI. */
+  paparan: {
+    cei: number | null;
+    kelas: string | null;
+    bobot: Record<string, number>;
+    catatan: string;
+  };
+  catatan_peringkat: string;
+  /** Nilai hasil ukur E dan C, null kalau stasiunnya belum disurvey. */
+  nilai_ukur: { E: number | null; C: number | null };
+  catatan_estimasi: string;
   detail: {
     line_count: number;
     halte_count: number;
@@ -153,7 +174,13 @@ export type AreaStasiun = {
     alasan: string;
     sinyal_lama: number;
     sinyal_sebentar: number;
+    /** true kalau diambil dari pola stasiun karena titik ini tidak menyebutkannya. */
+    dari_pola_stasiun?: boolean;
   };
+  /** Format iklan yang sesuai dengan pola singgah di titik ini. */
+  format_iklan: { bentuk: string | null; alasan: string; catatan?: string | null };
+  /** Sektor usaha yang masuk akal beriklan di sini. Usulan, bukan pengukuran. */
+  sektor_iklan: { sektor: string[]; catatan: string | null; dasar: string };
   narasumber: string[];
   fasilitas: Array<{ jenis: string; ringkasan: string; sentimen: number | null }>;
 };
@@ -250,8 +277,18 @@ export type TenantCategory = {
   demand: number;
   /** Pengali arus lewat, 1,0 sampai 2,0, dari komponen T. */
   connectivity: number;
-  /** Pesaing sejenis yang sudah ada. */
+  /** Pesaing sejenis, total luar + dalam stasiun. */
   supply: number;
+  /** Pesaing terpetakan di luar stasiun, dalam pita pesaing. */
+  supply_luar: number;
+  /** Pesaing di dalam stasiun; pecahan kalau ditaksir dari stasiun sejenis. */
+  supply_dalam: number;
+  /** False berarti sisi dalam stasiun belum pernah diperiksa surveyor. */
+  dalam_terukur: boolean;
+  /** 0-1; turun saat sisi dalam stasiun masih taksiran. */
+  confidence: number;
+  /** Skor bila taksiran pesaing meleset merugikan. Peringkat memakai ini. */
+  tsi_bawah: number;
   /** Calon pelanggan per pesaing, pesaingnya sudah ditambah satu. */
   headroom: number;
 };
@@ -353,6 +390,23 @@ export type StatusNaming = {
   pembanding: { total: number; bersponsor: number; belum: number; sponsor: string[] };
   catatan: string;
   /** Selalu null sampai ada pembanding transaksi nyata - lihat alasannya. */
+  /** Potensi stasiun ini sebagai calon hak penamaan, berbasis paparan. */
+  potensi: {
+    cei: number | null;
+    kelas_paparan: string | null;
+    peringkat_paparan: number | null;
+    dari_stasiun_krl: number | null;
+    catatan: string;
+  } | null;
+  peluang_pasar: {
+    mrt_lrt_terjual: number;
+    mrt_lrt_total: number;
+    krl_terjual: number;
+    krl_total: number | null;
+    catatan: string;
+  } | null;
+  /** Merek yang benar-benar ada di sekitar stasiun, dari titik minat. */
+  kandidat_sponsor: { nama: string; jenis: string; jarak_m: number }[];
   nilai_kontrak: number | null;
   alasan_nilai_kosong: string;
   selisih_daftar: string[];

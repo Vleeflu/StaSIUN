@@ -29,9 +29,14 @@ LINE_ROSTER = {
         Manggarai;Tebet;Cawang;Duren Kalibata;Pasar Minggu Baru;Pasar Minggu;Tanjung Barat;
         Lenteng Agung;Universitas Pancasila;Universitas Indonesia;Pondok Cina;Depok Baru;Depok;
         Citayam;Bojong Gede;Cilebut;Sukaresmi;Bogor""",
+    # BNI City dilayani DUA line: KA Bandara dan Lingkar Cikarang. Sempat
+    # terdaftar di "A" saja, sehingga ia terbaca sebagai stasiun bandara murni -
+    # padahal KRL Cikarang berhenti di sana, dan itu mengubah jumlah line yang
+    # masuk ke variabel konektivitas.
     "C": """Pondok Jati;Kramat;Gang Sentiong;Pasar Senen;Kemayoran;Rajawali;Kampung Bandan;Angke;
-        Duri;Tanah Abang;Karet;Sudirman;Manggarai;Matraman;Jatinegara;Klender;Buaran;Klender Baru;
-        Cakung;Kranji;Bekasi;Bekasi Timur;Tambun;Cibitung;Metland Telaga Murni;Cikarang""",
+        Duri;Tanah Abang;Karet;BNI City;Sudirman;Manggarai;Matraman;Jatinegara;Klender;Buaran;
+        Klender Baru;Cakung;Kranji;Bekasi;Bekasi Timur;Tambun;Cibitung;Metland Telaga Murni;
+        Cikarang""",
     "R": """Tanah Abang;Palmerah;Kebayoran;Pondok Ranji;Jurang Mangu;Sudimara;Rawa Buntu;Serpong;
         Cisauk;Cicayur;Jatake;Parung Panjang;Parayasa;Cilejit;Daru;Tenjo;Tigaraksa;Cikoya;Maja;
         Citeras;Rangkasbitung""",

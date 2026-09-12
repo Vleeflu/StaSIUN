@@ -43,7 +43,12 @@ from statistics import median_low
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.services.profil_paparan import waktu_singgah_narasi
+from app.services.profil_paparan import (
+    format_iklan_dari_singgah,
+    profil_paparan,
+    sektor_iklan,
+    waktu_singgah_narasi,
+)
 
 # Titik lebih jauh dari ini dianggap "kawasan sekitar", bukan area stasiun.
 # Ad-Space dan Tenant yang dijual KAI ada di dalam dan menempel stasiun; titik
@@ -107,6 +112,12 @@ def _profil_keramaian(rating: list[dict]) -> dict:
 
 def area_stasiun(db: Session, station_id: int) -> dict:
     titik = db.execute(SQL_TITIK, {"sid": station_id}).mappings().all()
+
+    # Profil paparan tingkat stasiun dihitung SEKALI, lalu dipakai seluruh
+    # katalog. Kelompok pengunjung berlaku untuk kawasan, sedangkan yang
+    # berbeda antar-titik adalah pola singgahnya - dan justru perpaduan
+    # keduanya yang menentukan sektor apa yang masuk akal beriklan di sana.
+    paparan = profil_paparan(db, station_id)
     ids = [t["id"] for t in titik]
 
     iklan = _per_titik(
@@ -164,6 +175,15 @@ def area_stasiun(db: Session, station_id: int) -> dict:
                     foto.append(url)
 
         jarak = min(t["jarak_m"] for t in anggota)
+        singgah = waktu_singgah_narasi([t["narrative"] for t in anggota if t["narrative"]])
+        # Kalau narasi titik ini tidak menyebut perilaku singgah sama sekali,
+        # pakai pola tingkat stasiun - DENGAN penanda, supaya pembaca tahu
+        # angkanya bukan dari titik itu sendiri. Membiarkannya kosong berarti
+        # katalognya diam justru pada hal yang paling menentukan format iklan.
+        if singgah.get("label") == "tidak terbaca" and paparan.waktu_singgah.get(
+            "label"
+        ) not in (None, "tidak terbaca"):
+            singgah = {**paparan.waktu_singgah, "dari_pola_stasiun": True}
         areas.append(
             {
                 "id": f"{station_id}-{utama['id']}",
@@ -195,9 +215,9 @@ def area_stasiun(db: Session, station_id: int) -> dict:
                 # rekomendasi format iklan kehilangan gunanya justru di tingkat
                 # yang paling dipakai - orang memasang iklan di titik tertentu,
                 # bukan di "stasiun" sebagai satu gumpalan.
-                "waktu_singgah": waktu_singgah_narasi(
-                    [t["narrative"] for t in anggota if t["narrative"]]
-                ),
+                "waktu_singgah": singgah,
+                "format_iklan": format_iklan_dari_singgah(singgah, paparan.keramaian),
+                "sektor_iklan": sektor_iklan(paparan.audiens, singgah),
                 "narasumber": sorted(
                     {r["respondent_ref"] for r in semua_rating if r["respondent_ref"]}
                 ),

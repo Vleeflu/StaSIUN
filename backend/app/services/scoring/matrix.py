@@ -145,7 +145,7 @@ def _susut(
     ids: list[int],
     arketipe: dict[int, str],
     pengamatan: dict[int, list[float]],
-) -> tuple[list[float | None], dict]:
+) -> tuple[list[float | None], list[float], dict]:
     """Shrinkage ke rata-rata arketipe — mekanisme PRD hal. 15 untuk kelengkapan timpang.
 
     Menyelesaikan B21: sebelum ini, stasiun yang BELUM disurvey sekadar dilewati
@@ -172,11 +172,18 @@ def _susut(
     Rata-rata arketipe dihitung dari stasiun TERUKUR saja. Arketipe tanpa satu
     pun stasiun terukur memakai rata-rata global.
 
-    Mengembalikan (nilai setelah shrinkage, keterangan untuk pelaporan).
+    Mengembalikan (nilai setelah shrinkage, SEBARAN per stasiun, keterangan).
+
+    `sebaran` adalah simpangan baku yang melekat pada tiap nilai: NOL untuk
+    stasiun yang variabelnya benar-benar diukur, dan simpangan baku kelompok
+    arketipenya untuk stasiun yang nilainya hasil estimasi. Angka itu dipakai
+    `hitung_sepi` menyusun batas bawah skor, sehingga estimasi yang kelompoknya
+    bervariasi lebar dihukum lebih dalam daripada estimasi yang kelompoknya
+    seragam - dan yang terukur tidak dihukum sama sekali.
     """
     terukur = [v is not None and v == v for v in nilai]
     if not any(terukur):
-        return list(nilai), {"k": None, "terukur": 0, "kelompok": 0}
+        return list(nilai), [0.0] * len(nilai), {"k": None, "terukur": 0, "kelompok": 0}
 
     k = estimasi_k(
         [np.asarray(pengamatan[sid]) for sid in ids if len(pengamatan.get(sid, [])) >= 2]
@@ -188,10 +195,23 @@ def _susut(
             per_kelompok.setdefault(arketipe[sid], []).append(float(nilai[i]))
     rata_global = float(np.mean([float(nilai[i]) for i in range(len(ids)) if terukur[i]]))
     rata_kelompok = {g: float(np.mean(vs)) for g, vs in per_kelompok.items()}
+    # Simpangan baku per kelompok. Kelompok berisi satu stasiun tidak punya
+    # sebaran yang berarti, jadi ia memakai sebaran global - lebih jujur
+    # daripada menyatakan ketidakpastiannya nol.
+    semua_terukur = [float(nilai[i]) for i in range(len(ids)) if terukur[i]]
+    sd_global = float(np.std(semua_terukur)) if len(semua_terukur) > 1 else 0.0
+    sd_kelompok = {
+        g: (float(np.std(vs)) if len(vs) > 1 else sd_global)
+        for g, vs in per_kelompok.items()
+    }
 
     hasil: list[float | None] = []
+    sebaran: list[float] = []
     for i, sid in enumerate(ids):
         acuan = rata_kelompok.get(arketipe.get(sid), rata_global)
+        sebaran.append(
+            0.0 if terukur[i] else sd_kelompok.get(arketipe.get(sid), sd_global)
+        )
         if terukur[i]:
             # Stasiun terukur minimal dihitung satu pengamatan. Tanpa lantai ini,
             # stasiun yang terukur lewat indikator tanpa rekaman per-baris
@@ -202,7 +222,7 @@ def _susut(
             v, _ = shrinkage(0.0, acuan, 0, k)
         hasil.append(v)
 
-    return hasil, {
+    return hasil, sebaran, {
         "k": None if math.isinf(k) else round(k, 3),
         "k_tak_hingga": math.isinf(k),
         "terukur": int(sum(terukur)),
@@ -348,7 +368,7 @@ def build_matrix(
     # tersurvey), jadi di-shrink ke rata-rata arketipe — lihat `_susut`. Tanpa
     # ini stasiun berkeramaian rendah yang disurvey turun, sementara yang belum
     # disurvey lolos bebas: pola B21 yang sama, di tingkat indikator.
-    keramaian_skala, keterangan_susut["keramaian"] = _susut(
+    keramaian_skala, _, keterangan_susut["keramaian"] = _susut(
         keramaian_ukur, ids, arketipe, pengamatan.get("keramaian", {})
     )
 
@@ -392,7 +412,7 @@ def build_matrix(
     # Sekarang sentimen di-shrink ke rata-rata arketipe (stasiun tanpa catatan
     # tidak lagi lolos), lalu dipakai sebagai penalti berpengali di hitung_sepi:
     #     SEPI_akhir = SEPI_dasar x (1 - 0,15 x penalti),  penalti = max(0, -sentimen)
-    sentimen_susut, keterangan_susut["sentimen"] = _susut(
+    sentimen_susut, _, keterangan_susut["sentimen"] = _susut(
         sentimen_mentah, ids, arketipe, pengamatan.get("sentimen", {})
     )
 
@@ -425,10 +445,10 @@ def build_matrix(
 
     # Lintasan 2 — nilai SETELAH SHRINKAGE. Inilah yang dipakai menghitung skor,
     # supaya skor lima variabel dan skor tiga variabel sebanding.
-    susut_e, keterangan_susut["E"] = _susut(
+    susut_e, sebaran_e, keterangan_susut["E"] = _susut(
         [v if v == v else None for v in ukur_e], ids, arketipe, pengamatan.get("E", {})
     )
-    susut_c, keterangan_susut["C"] = _susut(
+    susut_c, sebaran_c, keterangan_susut["C"] = _susut(
         [v if v == v else None for v in ukur_c], ids, arketipe, pengamatan.get("C", {})
     )
 
@@ -471,6 +491,10 @@ def build_matrix(
         d.pop("keramaian", None)
 
         matrix.append([d["raw_t"], d["raw_e"], d["raw_a"], d["raw_u"], d["raw_c"]])
+        # Sebaran per variabel, urutannya sama dengan VARIABEL (T, E, A, U, C).
+        # T, A, dan U selalu terukur langsung sehingga sebarannya nol; hanya E
+        # dan C yang bisa berisi estimasi.
+        d["sebaran"] = [0.0, sebaran_e[i], 0.0, 0.0, sebaran_c[i]]
 
     # Keterangan shrinkage ikut dibawa di rincian pertama supaya pemanggil bisa
     # melaporkannya tanpa mengubah bentuk nilai kembalian fungsi ini.

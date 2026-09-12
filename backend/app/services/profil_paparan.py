@@ -307,6 +307,63 @@ SELECT COUNT(*)
 AMBANG_TITIK_WISATA = 5
 
 
+# Sektor usaha yang masuk akal beriklan, per kelompok pengunjung.
+#
+# Ini HEURISTIK BISNIS, bukan hasil pengukuran - dan keluarannya menyebut itu
+# sendiri. Dasarnya sederhana dan bisa dibantah siapa pun: iklan bekerja ketika
+# yang ditawarkan cocok dengan keperluan orang yang sedang lewat. Pekerja yang
+# bergegas ke kereta relevan dengan layanan yang dipakai harian; pengunjung
+# museum relevan dengan kuliner dan oleh-oleh.
+#
+# Tidak ada angka di sini, dan memang tidak boleh ada. Menempelkan skor pada
+# tebakan akan membuatnya terlihat seperti hasil hitungan.
+SEKTOR_PER_KELOMPOK: dict[str, tuple[str, ...]] = {
+    "pekerja kantor": ("perbankan dan dompet digital", "kopi dan makanan cepat saji", "telekomunikasi"),
+    "warga sekitar": ("kebutuhan rumah tangga", "layanan kesehatan", "ritel harian"),
+    "pengunjung tempat wisata": ("kuliner dan oleh-oleh", "pariwisata dan perjalanan", "pembayaran digital"),
+    "pengunjung pertokoan": ("ritel dan fesyen", "promo belanja", "pembayaran digital"),
+    "pekerja kawasan industri": ("kebutuhan harian", "layanan keuangan mikro"),
+}
+
+
+def sektor_iklan(pengunjung: list[dict], waktu_singgah: dict) -> dict:
+    """Sektor usaha yang paling masuk akal beriklan di satu titik.
+
+    Menggabungkan dua hal yang sudah tersusun: SIAPA yang melintas di kawasan
+    ini, dan BERAPA LAMA orang berhenti di titik itu. Yang pertama menentukan
+    sektornya, yang kedua menentukan apakah pesan panjang sempat terbaca.
+    """
+    sektor: list[str] = []
+    for p in pengunjung[:2]:
+        for s in SEKTOR_PER_KELOMPOK.get(p["kelompok"], ()):
+            if s not in sektor:
+                sektor.append(s)
+
+    label = waktu_singgah.get("label")
+    if label == "cenderung lama":
+        catatan = (
+            "Karena orang berhenti cukup lama di sini, sektor yang perlu "
+            "penjelasan - layanan keuangan, properti, pendidikan - masih sempat "
+            "tersampaikan."
+        )
+    elif label == "cenderung singkat":
+        catatan = (
+            "Karena paparannya sekilas, yang paling berhasil di sini adalah merek "
+            "yang sudah dikenal dan pesan satu kalimat."
+        )
+    else:
+        catatan = None
+
+    return {
+        "sektor": sektor[:4],
+        "catatan": catatan,
+        "dasar": (
+            "Usulan awal berdasarkan profil pengunjung kawasan dan pola singgah "
+            "di titik ini, bukan hasil pengukuran respons iklan."
+        ),
+    }
+
+
 def profil_pengunjung(
     kawasan: dict | None, keramaian: dict, jumlah_titik_wisata: int = 0
 ) -> list[dict]:
@@ -318,8 +375,28 @@ def profil_pengunjung(
     """
     if not kawasan:
         return []
+    # Porsi diambil dari kedua ukuran, lalu dipakai yang TERBESAR per fungsi.
+    #
+    # Versi sebelumnya memakai luas tanah saja, dan hasilnya keliru persis di
+    # tempat yang paling penting: BNI City - jantung kawasan perkantoran -
+    # menampilkan "warga sekitar" di urutan pertama, karena menurut luas tanah
+    # 57% kawasannya permukiman (kampung Karet Tengsin di belakang menara).
+    # Menurut luas lantai terbangun, 84%-nya justru perkantoran.
+    #
+    # Untuk profil paparan, memilih salah satu ukuran selalu salah di sebagian
+    # stasiun: luas tanah mengecilkan menara, luas lantai mengecilkan
+    # permukiman padat. Maka tiap fungsi dinilai dari sisi TERKUATNYA - sebuah
+    # fungsi dianggap hadir kalau ia besar menurut salah satu ukuran. Kawasan
+    # bisa punya banyak kantor DAN banyak rumah sekaligus; itu bukan
+    # kontradiksi, dan keduanya sama-sama mengisi peron.
     ukuran = kawasan.get("per_ukuran") or {}
-    porsi = (ukuran.get("luas_tanah") or ukuran.get("luas_lantai") or {}).get("porsi") or {}
+    porsi: dict[str, float] = {}
+    asal: dict[str, str] = {}
+    for nama_ukuran, u in ukuran.items():
+        for kelas, nilai in ((u or {}).get("porsi") or {}).items():
+            if float(nilai) > porsi.get(kelas, 0.0):
+                porsi[kelas] = float(nilai)
+                asal[kelas] = nama_ukuran
     if not porsi:
         return []
 
@@ -365,9 +442,25 @@ def profil_pengunjung(
         if kelas == "wisata" and any(h["kelompok"] == KELOMPOK_KAWASAN["wisata"] for h in hasil):
             continue
         nama = KELOMPOK_KAWASAN[kelas]
-        dasar = f"{round(nilai * 100)}% kawasan sekitar berupa {kelas}"
+        sebutan = {
+            "hunian": "permukiman",
+            "kantor": "perkantoran",
+            "niaga": "pertokoan",
+            "wisata": "tempat wisata",
+            "industri": "kawasan industri",
+        }.get(kelas, kelas)
+        patokan = (
+            "ruang terbangun di sekitar stasiun"
+            if asal.get(kelas) == "luas_lantai"
+            else "luas wilayah di sekitar stasiun"
+        )
+        dasar = f"{round(nilai * 100)}% {patokan} berupa {sebutan}"
+        # Pola komuter menempel di ALASAN, bukan di nama kelompoknya. Semua yang
+        # masuk stasiun sudah pasti berkomuter, jadi "pekerja kantor yang
+        # berkomuter" tidak membedakan apa pun dari "pekerja kantor" - ia cuma
+        # memanjangkan sebutan. Yang benar-benar informatif adalah jam ramainya,
+        # dan itu tempatnya di kalimat dasar.
         if pola_komuter and kelas in ("kantor", "hunian"):
-            nama = "pekerja komuter" if kelas == "kantor" else "warga sekitar yang berkomuter"
             dasar += ", dan stasiun ramai pada pagi dan sore tetapi lengang di siang hari"
         hasil.append({"kelompok": nama, "dasar": dasar, "porsi_kawasan": round(nilai, 3)})
     return hasil
@@ -425,7 +518,7 @@ def waktu_singgah_narasi(narasi: list[str]) -> dict:
     }
 
 
-def _format_iklan(singgah: dict, keramaian: dict) -> dict:
+def format_iklan_dari_singgah(singgah: dict, keramaian: dict) -> dict:
     """Format iklan yang masuk akal dari watak ruang dan keramaiannya.
 
     Ini rekomendasi FORMAT, bukan harga. Estimasi harga wajar menunggu
@@ -494,7 +587,7 @@ def profil_paparan(session: Session, station_id: int) -> Paparan:
     ).scalar() or 0
     p.audiens = profil_pengunjung(p.kawasan, p.keramaian, titik_wisata)
     p.waktu_singgah = waktu_singgah_narasi(narasi)
-    p.format_iklan = _format_iklan(p.waktu_singgah, p.keramaian)
+    p.format_iklan = format_iklan_dari_singgah(p.waktu_singgah, p.keramaian)
     p.dasar = {
         "jumlah_narasi": len(narasi),
         "jumlah_penilaian_keramaian": sum(v["jumlah_penilaian"] for v in p.keramaian.values()),

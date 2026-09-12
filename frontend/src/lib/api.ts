@@ -32,3 +32,16 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   if (!res.ok) throw await readError(res, path);
   return res.json() as Promise<T>;
 }
+
+/**
+ * Alamat foto survei yang pasti bisa ditampilkan browser.
+ *
+ * Foto HEIC - bawaan kamera iPhone, 76 di antara foto Activity - hanya bisa
+ * ditampilkan Safari. Yang berformat itu dilewatkan endpoint konversi di
+ * backend; sisanya memakai URL aslinya langsung, supaya ribuan foto yang sudah
+ * bisa ditampilkan tidak ikut disalurkan lewat server kita tanpa alasan.
+ */
+export function urlFoto(url: string): string {
+  if (!/\.hei[cf](\?|$)/i.test(url)) return url;
+  return `${BASE_URL}/foto?url=${encodeURIComponent(url)}`;
+}

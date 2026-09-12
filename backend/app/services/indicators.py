@@ -509,7 +509,8 @@ keberagaman AS (
     -- Entropi Shannon atas komposisi kategori usaha, dinormalisasi ln(k) supaya
     -- sebanding antar stasiun. Cara dan alasannya sama dengan variabel U.
     SELECT station_id,
-           COUNT(*)                       AS jumlah_kategori,
+           COUNT(*)                          AS jumlah_kategori,
+           SUM(n)                            AS jumlah_tenant,
            -SUM((n / total) * LN(n / total)) AS h
       FROM (SELECT station_id, category, n,
                    SUM(n) OVER (PARTITION BY station_id) AS total
@@ -519,10 +520,35 @@ keberagaman AS (
 SELECT s.id   AS station_id,
        s.name AS station_name,
        k.jumlah_kategori,
-       CASE WHEN k.jumlah_kategori > 1 THEN k.h / LN(k.jumlah_kategori) ELSE 0 END
-                                                       AS komposisi_usaha,
-       (SELECT COUNT(*) FILTER (WHERE t.status = 'aktif')::float
-             / NULLIF(COUNT(*), 0)
+       -- AMBANG JUMLAH TENANT. Tanpa ini indikatornya degeneratif.
+       --
+       -- Entropi ternormalisasi bernilai TEPAT 1,0 setiap kali tiap kategori
+       -- berisi jumlah tenant yang sama - dan itu terjadi secara sepele ketika
+       -- tiap kategori cuma berisi SATU tenant. Akibatnya Buaran (4 tenant di
+       -- 4 kategori) mendapat keberagaman sempurna 1,000, mengalahkan Sudirman
+       -- yang punya 68 tenant di 37 kategori (0,905). Stasiun berdata paling
+       -- sedikit justru menang.
+       --
+       -- Lebih buruk lagi, angka sempurna itu menular: shrinkage memakai
+       -- rata-rata arketipe, sehingga stasiun TANPA survei apa pun mewarisi
+       -- E = 1,00. Pondok Jati - yang tidak punya satu pun tenant tercatat -
+       -- karena itu sempat menempati skor SEPI tertinggi.
+       --
+       -- Di bawah ambang, keberagaman dinyatakan TIDAK TERUKUR (NULL), bukan
+       -- dipaksa jadi angka. Stasiunnya lalu mendapat estimasi seperti stasiun
+       -- lain yang memang belum disurvei - yang jujur, karena 4 tenant memang
+       -- belum cukup untuk menyimpulkan keberagaman usaha sebuah kawasan.
+       CASE
+           WHEN k.jumlah_tenant >= :min_tenant AND k.jumlah_kategori > 1
+               THEN k.h / LN(k.jumlah_kategori)
+           WHEN k.jumlah_tenant >= :min_tenant
+               THEN 0
+           ELSE NULL
+       END                                             AS komposisi_usaha,
+       (SELECT CASE WHEN COUNT(*) >= :min_tenant
+                    THEN COUNT(*) FILTER (WHERE t.status = 'aktif')::float
+                         / NULLIF(COUNT(*), 0)
+               END
           FROM tenants t WHERE t.station_id = s.id)     AS keterisian_komersial,
        -- `kind = 'menu'` WAJIB. Tabel price_references menampung dua jenis
        -- harga sekaligus: menu (rupiah per porsi, puluhan ribu) dan sewa
@@ -530,7 +556,19 @@ SELECT s.id   AS station_id,
        -- keduanya masuk ke satu median, dan satu baris sewa cukup untuk
        -- melipatgandakan "harga median" sebuah stasiun. Model PriceReference
        -- sudah memperingatkan hal ini pada komentar kolom `unit`.
-       (SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY p.price_idr)
+       -- AMBANG JUMLAH HARGA, sejalan dengan ambang jumlah tenant di atas.
+       --
+       -- Kalideres sempat lolos sebagai "terukur" dengan E = 1,000 padahal
+       -- keberagaman dan keterisiannya sudah ditolak ambang tenant. Jalurnya
+       -- lewat sub-indikator lain: harga median dari DUA baris harga, yang
+       -- kebetulan tertinggi se-Jakarta, sehingga penskalaan maksimum
+       -- memberinya 1,000 - lalu menular ke Manggarai dan Duri lewat shrinkage.
+       --
+       -- Median dari dua angka bukan median; ia sekadar rata-rata dua titik.
+       -- Di bawah tiga pengamatan, harga dinyatakan tidak terukur.
+       (SELECT CASE WHEN COUNT(*) >= :min_harga
+                    THEN PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY p.price_idr)
+               END
           FROM price_references p
          WHERE p.station_id = s.id AND p.kind = 'menu') AS harga_median
   FROM stations s
@@ -565,10 +603,26 @@ def hitung_komersial(session: Session) -> list[IndikatorKomersial]:
     return hasil
 
 
+# Jumlah tenant minimum sebelum keberagaman dan keterisian dianggap terukur.
+#
+# 8 dipilih karena di bawah itu entropi ternormalisasi hampir selalu jatuh ke
+# 1,0 secara sepele: dengan 4 tenant di 4 kategori, tiap kategori berisi satu,
+# dan sebarannya sempurna menurut rumus meski kawasannya jelas belum beragam.
+# Dari data yang ada, ambang ini menyisakan Sudirman (68 tenant) dan Blok M BCA
+# (30) sebagai yang benar-benar terukur - sedikit, tetapi tiap angkanya berarti.
+MIN_TENANT_UNTUK_E = 8
+
+# Jumlah baris harga minimum sebelum harga median dianggap terukur. Median dari
+# dua angka bukan median - ia rata-rata dua titik, dan satu angka tunggal yang
+# kebetulan tertinggi akan mendapat nilai 1,000 penuh setelah penskalaan.
+MIN_HARGA_UNTUK_E = 3
+
+
 def hitung_ekonomi(session: Session) -> list[IndikatorEkonomi]:
     """Bahan variabel E dari hasil survey Activity. Kosong sampai N1 tertutup."""
     hasil = []
-    for r in session.execute(text(SQL_EKONOMI)).all():
+    for r in session.execute(text(SQL_EKONOMI),
+        {"min_tenant": MIN_TENANT_UNTUK_E, "min_harga": MIN_HARGA_UNTUK_E},).all():
         hasil.append(
             IndikatorEkonomi(
                 station_id=r.station_id,

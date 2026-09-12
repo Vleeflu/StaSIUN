@@ -46,3 +46,8 @@ tzdata==2026.3
 uvicorn==0.52.3
 watchfiles==1.2.0
 websockets==16.1.1
+
+# Konversi foto HEIC survei jadi JPEG (app/api/routes/foto.py). Hanya
+# Safari yang bisa menampilkan HEIC; 76 foto Activity berformat itu.
+pillow==12.3.0
+pillow-heif==1.7.0

@@ -30,6 +30,28 @@ PROJECT_BRIEF = """Kamu asisten di dalam StaSIUN (Station Spatial Intelligence f
 Urban Network), sebuah WebGIS untuk menilai potensi ruang komersial stasiun
 KAI Commuter di DKI Jakarta.
 
+ATURAN YANG PALING SERING DILANGGAR, JADI DITARUH PALING ATAS
+SEPI BUKAN ukuran kecocokan maupun nilai ruang iklan. Ia mengukur potensi
+ekonomi kawasan, dan bobotnya menempatkan aksesibilitas serta keberagaman
+kawasan di atas keramaian - berguna untuk menilai kelayakan usaha, keliru untuk
+menilai paparan iklan. Akibatnya Tanah Abang, yang nilai transportasinya
+tertinggi, hanya peringkat 23 menurut SEPI.
+
+Untuk pertanyaan "stasiun mana yang paling bagus untuk iklan", panggil
+`peringkat_paparan` - ia memakai Composite Exposure Index (0,5 transportasi +
+0,3 ekonomi + 0,2 urban, PRD hal. 13). Untuk satu stasiun tertentu, panggil
+`profil_paparan`.
+Untuk pertanyaan tentang penempatan iklan, target audiens, atau sektor usaha
+apa yang cocok beriklan, panggil alat `profil_paparan` dan jawab dari profil
+pengunjung serta pola singgahnya. Menjawab pertanyaan iklan dengan peringkat
+SEPI membuat stasiun berskor tertinggi direkomendasikan untuk apa pun yang
+ditanyakan - iklan perbankan, iklan produk anak, iklan apa saja - dan itu
+jawaban yang salah meskipun angkanya benar.
+
+Sebutkan juga confidence-nya. Skor seluruh stasiun dihitung dari kelima
+variabel, tetapi sebagian variabel berisi estimasi untuk stasiun yang belum
+disurvey. Rekomendasi berbasis skor berconfidence rendah wajib menyebut itu.
+
 MASALAH YANG DIKERJAKAN
 Pendapatan non-farebox KAI baru sekitar 4% dari total, jauh di bawah operator
 sebanding seperti MRT Jakarta yang 30-40%. Penyebabnya ruang komersial stasiun
@@ -55,13 +77,20 @@ buffer.
 
 SEPI DAN TOPSIS ADALAH DUA ANGKA BERBEDA - JANGAN DITUKAR
 - SEPI itu jumlah berbobot 0-100, dihitung per stasiun tanpa melihat stasiun
-  lain. Hanya angka ini yang menentukan kelas (Low / Moderate / Premium), dan
-  peringkat juga diurutkan menurut angka ini.
+  lain. Hanya angka ini yang menentukan kelas (Low / Moderate / Premium).
+  PERINGKATNYA diurutkan memakai batas bawah skor - tiap variabel yang
+  diestimasi dihitung seolah meleset satu simpangan baku ke bawah - sehingga
+  stasiun berdata lengkap tidak kalah oleh stasiun berdata tipis yang kebetulan
+  estimasinya tinggi.
 - TOPSIS itu kedekatan relatif, nilainya ditentukan oleh himpunan stasiun yang
   kebetulan ikut dinilai. Menambah stasiun bisa menukar urutan dua stasiun lain
   yang datanya tidak berubah. Boleh disebut sebagai pembanding, TIDAK boleh
   dipakai menyatakan kelas.
 Kalau ditanya "skor stasiun ini berapa", yang dijawab SEPI.
+
+JANGAN TERTUKAR: T = Transportasi, A = Aksesibilitas. Keduanya berbeda dan
+sering tertukar. T soal moda dan keramaian; A soal luas wilayah yang terjangkau
+jalan kaki. Menyebut "Aksesibilitas (T)" itu salah.
 
 Arti tiap variabel. Semua nilainya skala 0-1, BUKAN jumlah dan BUKAN satuan
 asli - jadi jangan menyebutnya "sekian titik" atau "sekian kilometer persegi":
@@ -97,17 +126,28 @@ Semua angka yang muncul di konteks ini hasil hitungan sungguhan dan boleh
 dipakai menjawab.
 
 CARA TSI DIHITUNG
-TSI = perbandingan calon pelanggan dengan pesaing sejenis, dalam isochrone.
-- Calon pelanggan: seluruh titik minat di dalam isochrone kecuali halte, yaitu
-  titik-titik yang mengisi variabel U. Halte dikecualikan karena ia mengisi
-  variabel T, bukan U.
+TSI = perbandingan calon pelanggan dengan pesaing sejenis.
+- Calon pelanggan: seluruh titik minat di dalam isochrone pita yang diminta,
+  kecuali halte, yaitu titik-titik yang mengisi variabel U. Halte dikecualikan
+  karena ia mengisi variabel T, bukan U.
 - Dikali pengali arus lewat 1,0 sampai 2,0 dari komponen T.
 - Dibagi jumlah pesaing sejenis ditambah satu.
+- PESAING dihitung paling jauh 10 menit jalan kaki. Pada pita 10 menit batas ini
+  berimpit dengan pita calon pelanggan; pada pita 15 menit, pesaingnya tetap
+  berhenti di 10 menit karena gerai sejauh itu melayani kerumunan lain.
+- Pesaing 0 berarti "tidak ada gerai sejenis dalam jangkauan jalan kaki yang
+  dihitung", bukan "tidak ada pesaing sama sekali". Sebutkan begitu kalau
+  angkanya nol.
 Hasilnya dibentangkan ke 0-100 PER KATEGORI, jadi peringkatnya berarti
 "stasiun ini urutan ke berapa untuk usaha jenis itu". Jangan membandingkan
 angka TSI antar kategori seolah setara.
-Kategori yang diskor cuma lima: makanan_minuman, coffee_shop, alfamart,
-indomaret, apotek. TSI mengukur kelapangan pasar, bukan kecocokan merek atau
+Kategori yang diskor ada empat SEKTOR: makanan & minuman, kedai kopi,
+minimarket (Alfamart dan Indomaret dihitung satu sektor karena keduanya saling
+bersaing), serta apotek & obat. Kalau ditanya sektor di luar keempatnya -
+misalnya jasa, fesyen, atau sewa peralatan - JANGAN menjawab "di luar
+kategori". Jelaskan bahwa sektor itu belum diskor, lalu tetap beri gambaran
+memakai indikator yang ada: calon pelanggan dalam jangkauan, keramaian per
+rentang waktu, profil pengunjung, dan sektor terdekat yang sudah diskor. TSI mengukur kelapangan pasar, bukan kecocokan merek atau
 daya beli - sebutkan batas itu kalau relevan.
 
 YANG BELUM ADA - JANGAN SEKALI-KALI DIKARANG
@@ -335,11 +375,22 @@ def build_station_detail(db: Session, station: Station) -> str:
     bands = [row.minutes for row in areas]
     lines = [f"RINCIAN {station.name.upper()}"]
 
+    # Jumlah stasiun terskor DIHITUNG, tidak ditulis tetap.
+    #
+    # Sebelumnya angka 46 ditulis langsung di dua tempat. Jumlah sebenarnya 45,
+    # dan asisten karena itu menjawab "peringkat 2 dari 46" - salah, dan persis
+    # jenis kesalahan yang paling gampang ditangkap juri karena bisa dihitung
+    # sendiri dari layar. Angka tetap selalu akan melenceng begitu datanya
+    # bertambah.
+    jumlah_terskor = db.execute(
+        text("SELECT COUNT(*) FROM station_scores WHERE minutes = 10")
+    ).scalar() or 0
+
     if scores:
         lines.append(
             "Skor SEPI: "
             + " | ".join(
-                f"{r.minutes} menit {r.sepi:.1f} (peringkat {r.rank} dari 46)"
+                f"{r.minutes} menit {r.sepi:.1f} (peringkat {r.rank} dari {jumlah_terskor})"
                 for r in scores
             )
         )
@@ -368,7 +419,9 @@ def build_station_detail(db: Session, station: Station) -> str:
 
     tenants = db.execute(TENANT_QUERY, params).all()
     if tenants:
-        lines.append("Tenant Survival Index (skor / peringkat dari 46 / calon / pesaing):")
+        lines.append(
+            f"Tenant Survival Index (skor / peringkat dari {jumlah_terskor} / calon / pesaing):"
+        )
         for minutes in sorted({r.minutes for r in tenants}):
             lines.append(f"  pita {minutes} menit:")
             for r in [x for x in tenants if x.minutes == minutes]:

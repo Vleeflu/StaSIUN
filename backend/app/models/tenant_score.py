@@ -1,4 +1,4 @@
-from sqlalchemy import Float, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -33,8 +33,21 @@ class TenantScore(Base):
     demand: Mapped[int] = mapped_column(Integer)
     # Pengali arus lewat, 1,0 sampai 2,0, dari komponen T milik SEPI.
     connectivity: Mapped[float] = mapped_column(Float)
-    # Pesaing sejenis yang sudah ada di dalam isochrone.
-    supply: Mapped[int] = mapped_column(Integer)
+    # Pesaing sejenis, TOTAL: yang terpetakan di luar stasiun ditambah yang
+    # beroperasi di dalamnya (PRD hal. 13).
+    supply: Mapped[float] = mapped_column(Float)
+    # Sisi luar: titik minat terpetakan di dalam isochrone pesaing.
+    supply_luar: Mapped[int] = mapped_column(Integer)
+    # Sisi dalam: tenant yang beroperasi di dalam stasiun. Pecahan, karena untuk
+    # stasiun yang belum disurvei nilainya ditaksir dari stasiun sejenis.
+    supply_dalam: Mapped[float] = mapped_column(Float)
+    # False berarti sisi dalam adalah taksiran, bukan hitungan lapangan.
+    dalam_terukur: Mapped[bool] = mapped_column(Boolean)
+    # 0-1. Turun ketika sisi dalam belum pernah diperiksa surveyor.
+    confidence: Mapped[float] = mapped_column(Float)
+    # Skor seandainya taksiran pesaing dalam stasiun meleset satu simpangan ke
+    # arah yang merugikan. INI yang dipakai mengurutkan peringkat.
+    tsi_bawah: Mapped[float] = mapped_column(Float)
     # Calon pelanggan per pesaing, sesudah pesaing ditambah satu (dirinya).
     headroom: Mapped[float] = mapped_column(Float)
 

@@ -84,6 +84,11 @@ def main() -> int:
     print(f"  {hasil.tenant:5d} tenant")
     print(f"  {hasil.keluhan:5d} catatan kondisi fasilitas ({hasil.fasilitas_positif} bernada positif)")
     print(f"  {hasil.harga:5d} harga menu -> price_references")
+    if hasil.bukan_media_iklan:
+        print(
+            f"  {hasil.bukan_media_iklan:5d} fasilitas DITOLAK sebagai media iklan "
+            "(toilet, papan nama toko, dan sejenisnya)"
+        )
     if hasil.harga_luar_stasiun:
         print(
             f"  {hasil.harga_luar_stasiun:5d} harga dilewati karena lapaknya DI LUAR "

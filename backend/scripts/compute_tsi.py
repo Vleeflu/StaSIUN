@@ -30,7 +30,12 @@ COLUMNS = (
     "demand",
     "connectivity",
     "supply",
+    "supply_luar",
+    "supply_dalam",
+    "dalam_terukur",
+    "confidence",
     "headroom",
+    "tsi_bawah",
 )
 
 
@@ -68,11 +73,15 @@ def main() -> int:
         if not top:
             continue
         print(f"{CATEGORY_LABEL[category]}")
-        print(f"{'':4}{'STASIUN':24}{'TSI':>6}{'CALON':>8}{'PESAING':>9}{'RASIO':>9}")
+        print(
+            f"{'':4}{'STASIUN':24}{'TSI':>6}{'BAWAH':>7}{'CALON':>7}"
+            f"{'LUAR':>6}{'DALAM':>7}{'SURVEI':>8}"
+        )
         for r in top:
             print(
-                f"{r['rank']:3} {r['name'][:24]:24}{r['tsi']:6.1f}"
-                f"{r['demand']:8}{r['supply']:9}{r['headroom']:9.1f}"
+                f"{r['rank']:3} {r['name'][:24]:24}{r['tsi']:6.1f}{r['tsi_bawah']:7.1f}"
+                f"{r['demand']:7}{r['supply_luar']:6}{r['supply_dalam']:7.1f}"
+                f"{('ya' if r['dalam_terukur'] else 'taksir'):>8}"
             )
         print()
 

@@ -6,8 +6,12 @@ import AppHeader from "@/components/AppHeader";
 import Assistant from "@/components/Assistant";
 import CompareCard from "@/components/CompareCard";
 import ControlPanel from "@/components/ControlPanel";
+import EksporModal from "@/components/EksporModal";
+import PeringkatModal from "@/components/PeringkatModal";
 import Map, { type FlyTarget } from "@/components/Map";
 import StationPanel, { type Tab } from "@/components/StationPanel";
+import { KELOMPOK_POI } from "@/lib/poi";
+import { useLineRoutes } from "@/hooks/useLineRoutes";
 import { useStationIsochrones } from "@/hooks/useStationIsochrones";
 import { useSponsorshipMarkers } from "@/hooks/useSponsorship";
 import { useStationPois } from "@/hooks/useStationPois";
@@ -72,7 +76,21 @@ export default function Explorer() {
   const isochrones = useStationIsochrones(selectedId, showIsochrone);
   const poiMinutes = reachPoiMinutes(reachBand);
   const pois = useStationPois(selectedId, poiMinutes, showIsochrone);
+
+  // Semua kelompok titik minat menyala secara bawaan; legenda yang mematikan.
+  const [poiKelompok, setPoiKelompok] = useState<string[]>(() =>
+    KELOMPOK_POI.map((k) => k.id)
+  );
+  const togglePoiKelompok = (id: string) =>
+    setPoiKelompok((kini) =>
+      kini.includes(id) ? kini.filter((x) => x !== id) : [...kini, id]
+    );
+  const routes = useLineRoutes();
   const sponsorship = useSponsorshipMarkers(showSponsorship);
+
+  // Dua jendela yang berlaku untuk seluruh halaman, dibuka dari header.
+  const [bukaEkspor, setBukaEkspor] = useState(false);
+  const [bukaPeringkat, setBukaPeringkat] = useState(false);
 
   const stations = shownData?.features ?? [];
   const kaiCount = kaiData?.features.length ?? 0;
@@ -148,7 +166,28 @@ export default function Explorer() {
 
   return (
     <div className="flex h-full flex-col">
-      <AppHeader stationCount={kaiCount} loading={loading} />
+      <AppHeader
+        stationCount={kaiCount}
+        loading={loading}
+        stationName={selected?.properties.name ?? null}
+        onEkspor={() => setBukaEkspor(true)}
+        onPeringkat={() => setBukaPeringkat(true)}
+      />
+
+      {bukaEkspor && (
+        <EksporModal
+          stationId={selectedId}
+          stationName={selected?.properties.name ?? null}
+          onClose={() => setBukaEkspor(false)}
+        />
+      )}
+
+      {bukaPeringkat && (
+        <PeringkatModal
+          stasiunSorot={selected?.properties.name ?? null}
+          onClose={() => setBukaPeringkat(false)}
+        />
+      )}
 
       <div className="flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1">
@@ -156,9 +195,12 @@ export default function Explorer() {
             data={shownData}
             showLabels={showLabels}
             showSepi={showSepi}
+            routes={routes}
+            activeLines={Array.from(activeLines)}
             isochrones={isochrones}
             reachMinutes={bandMinutes(reachBand)}
             pois={pois}
+            poiKelompok={poiKelompok}
             sponsorship={sponsorship}
             selected={selected}
             flyTo={flyTo}
@@ -184,6 +226,8 @@ export default function Explorer() {
               reachBand={reachBand}
               onReachBand={setReachBand}
               poiMinutes={poiMinutes}
+              poiKelompok={poiKelompok}
+              onPoiKelompokChange={togglePoiKelompok}
               hasSelection={selectedId !== null}
             />
           </div>

@@ -1,4 +1,4 @@
-from sqlalchemy import Float, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -59,6 +59,15 @@ class StationScore(Base):
     # yang sah sehingga akan mematahkan API saat disajikan. Terisi begitu
     # survey Activity masuk (blocker N1).
     raw_c: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Hasil UKUR, NULL kalau stasiunnya belum disurvey. Berbeda dari `raw_*` di
+    # atas yang berisi nilai setelah shrinkage - yaitu yang benar-benar dipakai
+    # menghitung skor. Keduanya disimpan supaya panel bisa menampilkan angkanya
+    # sekaligus mengakui mana yang estimasi.
+    ukur_e: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ukur_c: Mapped[float | None] = mapped_column(Float, nullable=True)
+    e_terukur: Mapped[bool] = mapped_column(Boolean, default=False)
+    c_terukur: Mapped[bool] = mapped_column(Boolean, default=False)
 
     line_count: Mapped[int] = mapped_column(Integer)
     halte_count: Mapped[int] = mapped_column(Integer)

@@ -5,7 +5,14 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { FALLBACK_COLOR, LINE_COLOR } from "@/lib/lines";
-import { SUPPLY_CATEGORIES, poiLabel } from "@/lib/poi";
+import {
+  SUPPLY_CATEGORIES,
+  ekspresiWarnaPoi,
+  kategoriAktif,
+  kelompokDariKategori,
+  peranPoi,
+  poiLabel,
+} from "@/lib/poi";
 import { REACH_BANDS } from "@/lib/reach";
 import { SEPI_RAMP_EXPRESSION } from "@/lib/sepi";
 import type { FeatureCollection } from "geojson";
@@ -25,7 +32,6 @@ const ICON_SIZE = 60;
 const COLOR_SEPI_UNSCORED = "#c9c4c1";
 const COLOR_SELECT = "#f2c101";
 const COLOR_REACH = "#a4249e";
-const COLOR_POI = "#55504d";
 // Keluhan fasilitas (F6-2). Warna ke-lima di peta, dan itu batasnya - dipakai
 // hanya saat layernya dinyalakan pengguna, tidak pernah bersamaan dengan
 // titik minat.
@@ -35,6 +41,22 @@ const COLOR_CSR = "#1f6f5c";
 // jumlah unsurnya pasti, dan spread menghilangkan informasi itu. Nilainya
 // tetap dari lib/reach supaya tidak pernah beda dengan legenda.
 const [BAND_NEAR, BAND_MID, BAND_FAR] = REACH_BANDS;
+
+/** Jarak bumi antar dua koordinat, dalam meter (haversine). */
+function jarakLurusMeter(
+  [lon1, lat1]: [number, number],
+  [lon2, lat2]: [number, number]
+): number {
+  const R = 6371000;
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 
 const EMPTY: StationCollection = { type: "FeatureCollection", features: [] };
 
@@ -51,10 +73,16 @@ type Props = {
   data: StationCollection | null;
   showLabels: boolean;
   showSepi: boolean;
+  /** Garis rute skematik tiap line KRL. */
+  routes: FeatureCollection | null;
+  /** Kode line yang sedang dinyalakan di panel kiri. */
+  activeLines: string[];
   isochrones: FeatureCollection | null;
   /** Menit yang poligonnya digambar; sisanya disaring keluar. */
   reachMinutes: number[];
   pois: FeatureCollection | null;
+  /** Kelompok titik minat yang sedang dinyalakan lewat legenda. */
+  poiKelompok: string[];
   /** Penanda keluhan fasilitas yang lolos validasi spasial (F6-2). */
   sponsorship: FeatureCollection | null;
   selected: StationFeature | null;
@@ -103,9 +131,12 @@ export default function Map({
   data,
   showLabels,
   showSepi,
+  routes,
+  activeLines,
   isochrones,
   reachMinutes,
   pois,
+  poiKelompok,
   sponsorship,
   selected,
   flyTo,
@@ -116,13 +147,18 @@ export default function Map({
 
   const dataRef = useRef<StationCollection | null>(data);
   const selectRef = useRef(onSelect);
+  // Stasiun terpilih dibaca lewat ref, bukan lewat dependency: pemasangan
+  // penangan klik hanya terjadi sekali, dan ia butuh nilai yang terbaru saat
+  // titiknya diklik - bukan nilai saat penangannya dipasang.
+  const stasiunRef = useRef<StationFeature | null>(selected);
 
   const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     dataRef.current = data;
     selectRef.current = onSelect;
-  }, [data, onSelect]);
+    stasiunRef.current = selected;
+  }, [data, onSelect, selected]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -198,9 +234,34 @@ export default function Map({
 
     map.addSource("stations", { type: "geojson", data });
     map.addSource("selected-station", { type: "geojson", data: EMPTY });
+    map.addSource("line-routes", { type: "geojson", data: EMPTY_POLYGONS });
     map.addSource("isochrones", { type: "geojson", data: EMPTY_POLYGONS });
     map.addSource("station-pois", { type: "geojson", data: EMPTY_POLYGONS });
     map.addSource("sponsorship", { type: "geojson", data: EMPTY_POLYGONS });
+
+    // Rute digambar PALING BAWAH - di belakang isochrone sekalipun. Ia peta
+    // dasar, bukan temuan: tugasnya membantu mata menelusuri jaringan, dan
+    // begitu ia menutupi lapisan analisis ia berubah jadi gangguan.
+    //
+    // Garisnya SKEMATIK, menyambung stasiun berurutan dengan ruas lurus. Karena
+    // itu ia sengaja digambar tipis dan agak transparan: garis tebal pekat akan
+    // terbaca sebagai jalur rel sungguhan, padahal ia memotong tikungan.
+    map.addLayer({
+      id: "line-routes",
+      type: "line",
+      source: "line-routes",
+      layout: { visibility: "none", "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": [
+          "match",
+          ["get", "line"],
+          ...Object.entries(LINE_COLOR).flatMap(([kode, warna]) => [kode, warna]),
+          FALLBACK_COLOR,
+        ] as never,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.6, 15, 3.5],
+        "line-opacity": 0.55,
+      },
+    });
 
     map.addLayer({
       id: "isochrone-fill",
@@ -221,18 +282,6 @@ export default function Map({
       },
     });
 
-    map.addLayer({
-      id: "isochrone-line",
-      type: "line",
-      source: "isochrones",
-      layout: { visibility: "none" },
-      paint: {
-        "line-color": COLOR_REACH,
-        "line-width": 1.2,
-        "line-opacity": 0.55,
-      },
-    });
-
     // Gerai komersial berisi penuh (pesaing), sisanya berongga (calon
     // pelanggan). Dibedakan lewat isian, bukan rona baru: peta sudah memikul
     // tiga peran warna plus enam warna line.
@@ -244,9 +293,11 @@ export default function Map({
       layout: { visibility: "none" },
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 2, 18, 5],
+        // Isian putih dengan cincin berwarna: kelompoknya terbaca dari warna,
+        // perannya sebagai calon pelanggan tetap terbaca dari isian kosong.
         "circle-color": "#ffffff",
-        "circle-stroke-width": 1.2,
-        "circle-stroke-color": COLOR_POI,
+        "circle-stroke-width": 1.4,
+        "circle-stroke-color": ekspresiWarnaPoi() as never,
         "circle-opacity": 0.9,
       },
     });
@@ -259,9 +310,38 @@ export default function Map({
       layout: { visibility: "none" },
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 2.5, 18, 5.5],
-        "circle-color": COLOR_POI,
+        // Pesaing digambar padat - warnanya sama dengan kelompoknya.
+        "circle-color": ekspresiWarnaPoi() as never,
         "circle-stroke-width": 1,
         "circle-stroke-color": "#ffffff",
+      },
+    });
+
+    // Garis batas jangkauan digambar SESUDAH titik minat, jadi ia lewat di
+    // atasnya. Urutan ini bukan selera: isian poligonnya cuma 7-18% opasitas,
+    // sementara satu stasiun ramai bisa memuat 300-an titik berwarna pekat.
+    // Kalau garisnya ikut tertimbun, batas 5/10/15 menit hilang dari pandangan
+    // persis saat titiknya paling banyak - padahal di situlah batas itu paling
+    // dibutuhkan untuk membaca sebarannya.
+    map.addLayer({
+      id: "isochrone-line",
+      type: "line",
+      source: "isochrones",
+      layout: { visibility: "none" },
+      paint: {
+        "line-color": COLOR_REACH,
+        // Pita terdalam digambar paling tebal supaya ketiganya tetap bisa
+        // dibedakan walau warnanya satu.
+        "line-width": [
+          "match",
+          ["get", "minutes"],
+          BAND_NEAR.minutes,
+          2.2,
+          BAND_MID.minutes,
+          1.8,
+          1.4,
+        ],
+        "line-opacity": 0.85,
       },
     });
 
@@ -388,6 +468,18 @@ export default function Map({
       className: "poi-popup",
     });
 
+    // Popup kedua, khusus untuk klik. Sengaja terpisah dari popup sorot supaya
+    // keterangan yang sudah dibuka tidak ikut terhapus begitu kursor bergeser
+    // ke titik sebelahnya - di kawasan padat, titiknya berdempetan dan menggeser
+    // kursor satu piksel saja sudah cukup untuk kehilangan bacaan.
+    const popupRinci = new maplibregl.Popup({
+      closeButton: true,
+      closeOnClick: false,
+      offset: 12,
+      maxWidth: "260px",
+      className: "poi-popup poi-popup-rinci",
+    });
+
     for (const layer of ["poi-demand", "poi-supply"]) {
       map.on("mouseenter", layer, (e) => {
         const hit = e.features?.[0];
@@ -402,14 +494,89 @@ export default function Map({
         title.textContent = String(hit.properties?.name ?? "");
         const kind = document.createElement("span");
         kind.textContent = poiLabel(String(hit.properties?.category ?? ""));
+        const ajakan = document.createElement("em");
+        ajakan.textContent = "klik untuk keterangan";
 
-        box.append(title, document.createElement("br"), kind);
+        box.append(
+          title,
+          document.createElement("br"),
+          kind,
+          document.createElement("br"),
+          ajakan
+        );
         popup.setLngLat(e.lngLat).setDOMContent(box).addTo(map);
       });
 
       map.on("mouseleave", layer, () => {
         map.getCanvas().style.cursor = "";
         popup.remove();
+      });
+
+      map.on("click", layer, (e) => {
+        const hit = e.features?.[0];
+        if (!hit) return;
+
+        popup.remove();
+
+        const kategori = String(hit.properties?.category ?? "");
+        const kelompok = kelompokDariKategori(kategori);
+        const { peran, alasan } = peranPoi(kategori);
+
+        const box = document.createElement("div");
+
+        const judul = document.createElement("strong");
+        judul.textContent = String(hit.properties?.name ?? "Tanpa nama");
+        box.append(judul);
+
+        // Baris kelompok, lengkap dengan contoh warnanya - supaya warna di peta
+        // dan warna di legenda bisa dicocokkan tanpa menutup popup dulu.
+        const barisKelompok = document.createElement("div");
+        barisKelompok.className = "poi-popup-kelompok";
+        if (kelompok) {
+          const contoh = document.createElement("span");
+          contoh.className = "poi-popup-warna";
+          contoh.style.backgroundColor = kelompok.warna;
+          barisKelompok.append(contoh);
+        }
+        const teksKelompok = document.createElement("span");
+        teksKelompok.textContent = kelompok
+          ? `${poiLabel(kategori)} · ${kelompok.label}`
+          : poiLabel(kategori);
+        barisKelompok.append(teksKelompok);
+        box.append(barisKelompok);
+
+        const labelPeran = document.createElement("div");
+        labelPeran.className = "poi-popup-peran";
+        labelPeran.textContent = peran;
+        box.append(labelPeran);
+
+        const teksAlasan = document.createElement("p");
+        teksAlasan.textContent = alasan;
+        box.append(teksAlasan);
+
+        // Jarak dihitung lurus dari stasiun, bukan menyusuri jalan. Bedanya
+        // ditulis apa adanya: angka yang tampak presisi padahal bukan jarak
+        // tempuh justru menyesatkan pembaca yang memakainya untuk menaksir
+        // waktu jalan kaki.
+        const stasiun = stasiunRef.current;
+        const asal = stasiun?.geometry?.coordinates;
+        const tujuan = (hit.geometry as { coordinates?: number[] } | undefined)
+          ?.coordinates;
+
+        if (Array.isArray(asal) && Array.isArray(tujuan)) {
+          const meter = jarakLurusMeter(
+            asal as [number, number],
+            tujuan as [number, number]
+          );
+          const teksJarak = document.createElement("p");
+          teksJarak.className = "poi-popup-jarak";
+          teksJarak.textContent = `± ${Math.round(meter)} m garis lurus dari ${
+            stasiun?.properties?.name ?? "stasiun"
+          }`;
+          box.append(teksJarak);
+        }
+
+        popupRinci.setLngLat(e.lngLat).setDOMContent(box).addTo(map);
       });
     }
 
@@ -482,6 +649,29 @@ export default function Map({
 
   useEffect(() => {
     const map = mapRef.current;
+    const source = map?.getSource("line-routes");
+
+    if (!map || !mapReady || !source || !map.getLayer("line-routes")) return;
+
+    (source as maplibregl.GeoJSONSource).setData(routes ?? EMPTY_POLYGONS);
+
+    // Rute mengikuti saringan line yang sama dengan penanda stasiun. Kalau
+    // tidak, mematikan sebuah line akan menyembunyikan stasiunnya tetapi
+    // meninggalkan garisnya menggantung tanpa perhentian.
+    map.setLayoutProperty(
+      "line-routes",
+      "visibility",
+      routes && activeLines.length > 0 ? "visible" : "none"
+    );
+    map.setFilter("line-routes", [
+      "in",
+      ["get", "line"],
+      ["literal", activeLines],
+    ] as never);
+  }, [mapReady, routes, activeLines]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     const source = map?.getSource("isochrones");
 
     if (!map || !mapReady || !source || !map.getLayer("isochrone-fill")) return;
@@ -522,7 +712,24 @@ export default function Map({
     const visibility = pois ? "visible" : "none";
     map.setLayoutProperty("poi-demand", "visibility", visibility);
     map.setLayoutProperty("poi-supply", "visibility", visibility);
-  }, [mapReady, pois]);
+
+    // Saringan dari legenda. Kelompok yang dimatikan disaring keluar, BUKAN
+    // dibuat transparan - titik transparan tetap menangkap klik dan tetap
+    // membebani penggambaran, sehingga peta terasa berat tanpa alasan yang
+    // terlihat pengguna.
+    const aktif = kategoriAktif(poiKelompok);
+    const cocokKelompok = ["in", ["get", "category"], ["literal", aktif]];
+    map.setFilter("poi-demand", [
+      "all",
+      ["!", ["in", ["get", "category"], ["literal", [...SUPPLY_CATEGORIES]]]],
+      cocokKelompok,
+    ] as never);
+    map.setFilter("poi-supply", [
+      "all",
+      ["in", ["get", "category"], ["literal", [...SUPPLY_CATEGORIES]]],
+      cocokKelompok,
+    ] as never);
+  }, [mapReady, pois, poiKelompok]);
 
   useEffect(() => {
     const map = mapRef.current;

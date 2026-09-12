@@ -148,6 +148,7 @@ def main() -> int:
         terukur=terukur,
         penalti=penalti,
         batas_modifier=BATAS_MODIFIER_TEKS,
+        sebaran=np.asarray([d["sebaran"] for d in details], dtype=float),
     )
     hasil = topsis(x, weights)
 
@@ -200,7 +201,22 @@ def main() -> int:
 
     # Diurutkan menurut SEPI, bukan menurut TOPSIS, supaya urutan yang tampil
     # konsisten dengan angka yang tampil di sebelahnya.
-    ranked = sorted(zip(details, skor_sepi, hasil.kedekatan), key=lambda t: -t[1].nilai)
+    # PERINGKAT memakai BATAS BAWAH skor, bukan nilai titiknya.
+    #
+    # Dua stasiun bisa berskor sama padahal yang satu terukur penuh dan yang
+    # lain separuh estimasi. Mengurutkan dengan nilai titik menyamakan
+    # keduanya, dan stasiun berdata tipis bisa menyalip hanya karena kebetulan
+    # rata-rata arketipenya tinggi - persis yang dikhawatirkan saat peringkat
+    # dibaca juri.
+    #
+    # `nilai_bawah` adalah skor seandainya tiap estimasi meleset satu simpangan
+    # baku kelompoknya ke bawah. Stasiun terukur penuh tidak terkena apa pun
+    # (sebarannya nol), sedangkan yang estimasinya banyak turun sebanyak
+    # ketidakpastiannya sendiri. Skor yang DITAMPILKAN tetap `nilai`; yang
+    # berubah hanya urutannya (ADJUSTMENT 9.59).
+    ranked = sorted(
+        zip(details, skor_sepi, hasil.kedekatan), key=lambda t: -t[1].nilai_bawah
+    )
 
     print(
         "\n" + f"{'#':>3}  {'STASIUN':24}{'SEPI':>7}{'KELAS':>20}{'yakin':>7}"
@@ -255,18 +271,30 @@ def main() -> int:
             f"{sum(1 for x in skor_sepi if x.variabel_terpakai == v)} stasiun {v} variabel"
             for v in ragam
         )
+        # Pesan lama di sini berbunyi "peringkat lintas-kelengkapan TIDAK sah
+        # dibandingkan" dan "skor 3 variabel TIDAK sebanding dengan skor 5
+        # variabel". Keduanya KELIRU, dan kekeliruannya berbahaya justru karena
+        # terdengar seperti kehati-hatian.
+        #
+        # Skor SELURUH stasiun dihitung dari kelima variabel: yang belum
+        # terukur diisi estimasi shrinkage terhadap stasiun berarketipe serupa
+        # (matrix.py, mekanisme PRD hal. 15). Peringkatnya karena itu sebanding.
+        # Yang berbeda adalah seberapa besar porsi yang berasal dari pengukuran
+        # langsung - dan itulah arti confidence.
         print(
-            f"\n!! KELENGKAPAN TIDAK SERAGAM: {rinci}."
-            "\n   Peringkat lintas-kelengkapan TIDAK sah dibandingkan begitu saja."
-            "\n   Bandingkan hanya di antara stasiun dengan confidence yang sama,"
-            "\n   atau tunggu survey Activity lengkap."
+            f"\n!! KELENGKAPAN PENGUKURAN TIDAK SERAGAM: {rinci}."
+            "\n   Skornya tetap sebanding: variabel yang belum terukur diisi"
+            "\n   estimasi shrinkage terhadap stasiun berarketipe serupa, bukan"
+            "\n   dikosongkan. Yang berbeda porsi pengukuran langsungnya, dan"
+            "\n   itulah yang dinyatakan confidence."
         )
 
     n_var = min(x.variabel_terpakai for x in skor_sepi)
     print(
-        f"\nSEPI disusun dari {n_var} dari 5 variabel, jadi confidence "
-        f"{min(x.confidence for x in skor_sepi):.2f}. Skor {n_var} variabel TIDAK sebanding dengan "
-        f"skor 5 variabel, dan itu wajib ikut disebut di panel maupun laporan."
+        f"\nPaling sedikit {n_var} dari 5 variabel terukur langsung, jadi confidence "
+        f"terendah {min(x.confidence for x in skor_sepi):.2f}. Seluruh skor memakai "
+        f"kelima variabel; sisanya estimasi, dan porsi estimasi itu wajib ikut "
+        f"disebut di panel maupun laporan."
     )
 
     if args.dry_run:
@@ -284,15 +312,28 @@ def main() -> int:
             "variabel_terpakai": sepi.variabel_terpakai,
             "confidence": round(sepi.confidence, 4),
             "rank": position,
-            # Yang disimpan dan ditampilkan adalah HASIL UKUR, bukan nilai hasil
-            # shrinkage. Panel harus tetap bisa bilang "belum diukur" untuk
-            # stasiun yang memang belum disurvey; skornya saja yang memakai
-            # estimasi, dan confidence-nya menyatakan itu.
+            # KEDUANYA disimpan, dan ini koreksi 12 Sep.
+            #
+            # Sebelumnya hanya hasil ukur yang disimpan, dengan alasan panel
+            # harus bisa bilang "belum diukur". Alasannya benar, akibatnya
+            # tidak: panel jadi menulis "3 dari 5 variabel", yang terbaca
+            # seolah skornya dihitung dari tiga variabel saja. Padahal tidak -
+            # `matrix.py` memakai nilai setelah shrinkage untuk SEMUA stasiun,
+            # sehingga peringkatnya sebanding.
+            #
+            # Maka `raw_*` kini berisi nilai yang benar-benar dipakai skor
+            # (sesuai namanya), `ukur_*` berisi hasil ukur, dan dua penanda
+            # menyatakan mana yang diukur dan mana yang diestimasi. Panel bisa
+            # menampilkan angkanya sekaligus mengakui asalnya.
             "raw_t": detail["ukur_t"],
-            "raw_e": _atau_none(detail["ukur_e"]),
+            "raw_e": _atau_none(detail["raw_e"]),
             "raw_a": detail["ukur_a"],
             "raw_u": detail["ukur_u"],
-            "raw_c": _atau_none(detail["ukur_c"]),
+            "raw_c": _atau_none(detail["raw_c"]),
+            "ukur_e": _atau_none(detail["ukur_e"]),
+            "ukur_c": _atau_none(detail["ukur_c"]),
+            "e_terukur": bool(detail["terukur"][1]),
+            "c_terukur": bool(detail["terukur"][4]),
             "line_count": detail["line_count"],
             # moda_jalan menggantikan halte_count, moda_rel menggantikan
             # other_mode_count: keduanya kini datang dari hitung_transportasi,

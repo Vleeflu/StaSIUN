@@ -50,6 +50,28 @@ PENANDA_HARIAN = re.compile(r"per\s+day|\bTPD\b|\bRPD\b|quota|exhausted", re.IGN
 # Batas per menit - tunggu sebentar, penyedia yang sama masih bisa dipakai.
 TUNGGU = re.compile(r"try again in\s+(?:(\d+)m)?\s*([\d.]+)(ms|s)", re.IGNORECASE)
 
+# Penyedia yang menolak BENTUK permintaannya, bukan kehabisan kuota.
+#
+# Kasus nyata 12 Sep: Gemini menolak riwayat percakapan yang memuat panggilan
+# alat dengan galat "Function call is missing a thought_signature in
+# functionCall parts". Gemini menyimpan tanda tangan penalaran pada tiap
+# panggilan alat dan menuntutnya dikirim balik pada giliran berikutnya; lapisan
+# OpenAI-compatible tidak membawa tanda itu, jadi begitu asisten memanggil alat
+# satu kali, giliran berikutnya SELALU gagal di Gemini.
+#
+# Ini bukan kegagalan sementara - menunggu tidak akan menyembuhkannya, dan
+# mencoba ulang ke penyedia yang sama hanya mengulang galat yang sama. Yang
+# benar adalah pindah ke penyedia berikutnya, persis seperti saat kuota habis.
+#
+# Penting: ini TIDAK menonaktifkan Gemini. Jalur ekstraksi tidak memakai alat
+# sama sekali, dan di sana Gemini tetap bekerja normal - ia hanya dilewati pada
+# panggilan yang bentuknya memang tidak ia dukung.
+PENANDA_TIDAK_COCOK = re.compile(
+    r"thought_signature|function call is missing|tool[_ ]?use.*not supported|"
+    r"does not support tools",
+    re.IGNORECASE,
+)
+
 MAKS_COBA_PER_MENIT = 6
 TUNGGU_BAWAAN_DETIK = 15.0
 
@@ -108,6 +130,25 @@ def _lama_tunggu(pesan: str) -> float:
     angka = float(m.group(2))
     detik = angka / 1000 if m.group(3).lower() == "ms" else angka
     return menit * 60 + detik + 1.0
+
+
+class PanggilanGagal(RuntimeError):
+    """Panggilan gagal, LENGKAP dengan penyedia mana yang menolaknya.
+
+    Tanpa ini pesan galat menyebut penyedia yang keliru: `llm_service` melapor
+    memakai `settings.LLM_BASE_URL`, yaitu penyedia UTAMA, padahal rantai bisa
+    saja sudah berpindah ke cadangan. Pada 12 Sep pesan galat menyebut Groq
+    untuk galat yang jelas-jelas datang dari Gemini, dan penelusurannya jadi
+    menunjuk ke arah yang salah.
+    """
+
+    def __init__(self, penyedia: "Penyedia", asli: Exception):
+        self.penyedia = penyedia
+        self.asli = asli
+        super().__init__(
+            f"penyedia '{penyedia.nama}' (model={penyedia.model}, "
+            f"base_url={penyedia.base_url}) menolak panggilan: {asli}"
+        )
 
 
 class Rantai:
@@ -178,7 +219,9 @@ class Rantai:
                     if PENANDA_HARIAN.search(pesan):
                         break  # kuota harian penyedia ini habis
                     time.sleep(_lama_tunggu(pesan))
-                except APIError:
+                except APIError as exc:
+                    if PENANDA_TIDAK_COCOK.search(str(exc)):
+                        break  # bentuk permintaannya tidak didukung penyedia ini
                     return None
             self._pindah()
 
@@ -192,4 +235,10 @@ class Rantai:
             except RateLimitError as exc:
                 if not PENANDA_HARIAN.search(str(exc)):
                     raise
+                self._pindah()
+            except APIError as exc:
+                # Penyedia menolak bentuk permintaannya. Menunggu tidak
+                # menolong; yang menolong pindah penyedia.
+                if not PENANDA_TIDAK_COCOK.search(str(exc)):
+                    raise PanggilanGagal(self.sekarang, exc) from exc
                 self._pindah()
