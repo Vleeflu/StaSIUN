@@ -21,3 +21,15 @@ Thumbs.db
 !**/README.md
 
 PRD_StaSIUN_Jujursayatidaktahudanjugatidakdiberitahu.pdf
+# Poligon guna lahan mentah dari Overpass (4 MB, bisa dibuat ulang lewat
+# scripts/ingest_area_profile.py). Disimpan di host untuk audit dan untuk
+# --dari-berkas, tetapi tidak perlu masuk Git.
+backend/data/landuse_mentah.json
+
+# Dump database. Besar, berisi data survey, dan bisa dibuat ulang lewat pg_dump.
+backup/
+
+# Cadangan .env — BERISI KUNCI API. Jangan pernah masuk Git.
+.env.bak
+backend/.env.bak
+*.env.bak

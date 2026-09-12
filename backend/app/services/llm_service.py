@@ -10,7 +10,11 @@ Penyedia yang dipakai sekarang: Groq. Riwayat keputusannya di ADJUSTMENT.md
 bagian 7.7.
 """
 
-from openai import APIError, AsyncOpenAI, RateLimitError
+import json
+
+from openai import APIError, AsyncOpenAI, RateLimitError  # noqa: F401
+
+from app.services.llm_penyedia import Rantai, SemuaPenyediaHabis
 
 from app.core.config import settings
 from app.schemas.chat import Message
@@ -18,6 +22,13 @@ from app.schemas.chat import Message
 # Riwayat dipotong supaya percakapan panjang tidak terus membengkak. Konteks
 # proyek dan daftar stasiun selalu ikut, jadi yang dibuang cuma basa-basi lama.
 MAX_HISTORY = 12
+
+# Batas putaran tool calling per pertanyaan. Dinaikkan dari 4 ke 6 setelah satu
+# pertanyaan berantai menabraknya. Tapi batas itu BUKAN perbaikan sebenarnya:
+# penyebabnya model memanggil peringkat_tenant lima kali berturut-turut, satu
+# per kategori, karena belum ada alat yang menjawab seluruh kategori untuk satu
+# stasiun. Alat itu ditambahkan (tenant_untuk_stasiun); angka ini cuma margin.
+MAX_PUTARAN_ALAT = 6
 
 
 class LLMService:
@@ -45,12 +56,31 @@ class LLMService:
 
         return self._client
 
+    def _rantai(self) -> Rantai:
+        """Rantai penyedia untuk satu pertanyaan.
+
+        Dibuat per pertanyaan, bukan sekali seumur proses: kuota harian penyedia
+        pertama bisa pulih di antara dua pertanyaan, dan asisten sebaiknya
+        kembali ke penyedia utama begitu itu terjadi.
+        """
+        return Rantai()
+
     async def chat(
         self,
         message: str,
         history: list[Message],
         context: str | None = None,
-    ) -> str:
+        db=None,
+    ) -> tuple[str, list[dict]]:
+        """Jawab satu pertanyaan, dengan alat kalau `db` diberikan.
+
+        Mengembalikan (jawaban, log alat). Log berisi alat yang benar-benar
+        dipanggil beserta hasilnya, dipakai menyusun tombol aksi.
+
+        Tanpa `db` ia bekerja seperti sebelumnya: tanya-jawab di atas konteks
+        yang disuntikkan. Dengan `db`, model boleh memanggil alat di
+        `ai_tools` untuk MENGHITUNG, bukan menebak.
+        """
         client = self._ensure_client()
 
         messages: list[dict] = []
@@ -64,11 +94,16 @@ class LLMService:
         )
         messages.append({"role": "user", "content": message})
 
+        if db is not None:
+            return await self._chat_dengan_alat(self._rantai(), messages, db)
+
         try:
-            response = await client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-            )
+            response = await self._rantai().panggil_async(messages=messages)
+        except SemuaPenyediaHabis as e:
+            raise RuntimeError(
+                "Seluruh penyedia model sedang kehabisan kuota harian. "
+                "Tambahkan penyedia cadangan lewat LLM_FALLBACKS di .env."
+            ) from e
         except RateLimitError as e:
             raise RuntimeError(
                 "Kuota penyedia model sedang habis, coba lagi sebentar."
@@ -88,7 +123,94 @@ class LLMService:
         if not reply:
             raise RuntimeError("Model tidak mengembalikan jawaban.")
 
-        return reply
+        return reply, []
+
+    async def _chat_dengan_alat(
+        self, rantai: Rantai, messages: list[dict], db
+    ) -> tuple[str, list[dict]]:
+        """Lingkaran tool calling: model memanggil alat, kita jalankan, ulangi.
+
+        Batas putarannya KERAS. Model yang bingung bisa memanggil alat yang sama
+        berulang-ulang tanpa pernah menjawab; tanpa batas, satu pertanyaan bisa
+        menghabiskan kuota penyedia dan menggantung permintaan pengguna.
+
+        Kalau batas tercapai, yang dikembalikan bukan jawaban karangan melainkan
+        pengakuan bahwa pertanyaannya tidak terjawab - lebih berguna daripada
+        kalimat meyakinkan yang tidak berdasar hitungan apa pun.
+        """
+        from app.services import ai_tools
+
+        log: list[dict] = []
+        for _ in range(MAX_PUTARAN_ALAT):
+            try:
+                response = await rantai.panggil_async(
+                    messages=messages, tools=ai_tools.TOOL_SCHEMAS
+                )
+            except SemuaPenyediaHabis as e:
+                raise RuntimeError(
+                    "Seluruh penyedia model sedang kehabisan kuota harian. "
+                    "Tambahkan penyedia cadangan lewat LLM_FALLBACKS di .env."
+                ) from e
+            except RateLimitError as e:
+                raise RuntimeError(
+                    "Kuota penyedia model sedang habis, coba lagi sebentar."
+                ) from e
+            except APIError as e:
+                raise RuntimeError(
+                    f"Panggilan ke model gagal (model={self._model}, "
+                    f"base_url={settings.LLM_BASE_URL}): {e}"
+                ) from e
+
+            pesan = response.choices[0].message
+            panggilan = getattr(pesan, "tool_calls", None)
+
+            if not panggilan:
+                if pesan.content:
+                    return pesan.content, log
+                raise RuntimeError("Model tidak mengembalikan jawaban.")
+
+            # Pesan model WAJIB ikut disisipkan sebelum hasil alat, kalau tidak
+            # tool_call_id-nya menggantung dan penyedia menolak permintaan
+            # berikutnya.
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": pesan.content or "",
+                    "tool_calls": [
+                        {
+                            "id": p.id,
+                            "type": "function",
+                            "function": {
+                                "name": p.function.name,
+                                "arguments": p.function.arguments,
+                            },
+                        }
+                        for p in panggilan
+                    ],
+                }
+            )
+
+            for p in panggilan:
+                try:
+                    argumen = json.loads(p.function.arguments or "{}")
+                except json.JSONDecodeError:
+                    argumen = {}
+
+                teks, hasil = ai_tools.jalankan_terekam(db, p.function.name, argumen)
+                log.append({"alat": p.function.name, "argumen": argumen, "hasil": hasil})
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": p.id,
+                        "content": teks,
+                    }
+                )
+
+        return (
+            "Maaf, saya memanggil alat hitung berulang kali tanpa sampai ke "
+            "jawaban. Coba persempit pertanyaannya — misalnya sebutkan nama "
+            "stasiunnya, atau satu kategori usaha saja."
+        ), log
 
 
 llm_service = LLMService()

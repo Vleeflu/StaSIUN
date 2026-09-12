@@ -1,6 +1,5 @@
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
-/** Ambil keterangan error dari FastAPI, yang menaruhnya di field `detail`. */
 async function readError(res: Response, path: string): Promise<Error> {
   try {
     const payload: unknown = await res.json();
@@ -13,7 +12,6 @@ async function readError(res: Response, path: string): Promise<Error> {
       return new Error(payload.detail);
     }
   } catch {
-    // Badan responsnya bukan JSON, pakai pesan umum saja.
   }
 
   return new Error(`Request ${path} gagal (${res.status})`);

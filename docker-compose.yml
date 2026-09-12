@@ -47,12 +47,23 @@ services:
       SEED_SOURCE: "local"
       MAPID_API_KEY: ${MAPID_API_KEY:-}
       MAPID_PROJECT_ID: ${MAPID_PROJECT_ID:-}
+      # Kunci Activity terpisah dari MAPID_API_KEY (lihat core/config.py).
+      MAPID_MISSION_KEY: ${MAPID_MISSION_KEY:-}
+      # Kunci yang DIPAKAI endpoint Activity. Namanya menyesatkan: ia bukan
+      # cuma untuk basemap, melainkan kunci umum layanan MAPID. Diuji 11 Sep:
+      # inilah yang diterima /web/competition/activities.
+      MAPID_BASEMAP_KEY: ${MAPID_BASEMAP_KEY:-}
       # Tanpa ini asisten AI mati di jalur Docker walau .env sudah diisi.
       # Base URL dan model ikut diteruskan supaya penyedia bisa diganti dari
       # .env saja, tanpa membangun ulang image.
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.groq.com/openai/v1}
       LLM_MODEL: ${LLM_MODEL:-openai/gpt-oss-120b}
+      # Rantai penyedia cadangan, dipakai begitu kuota harian penyedia
+      # utama habis. Tanpa baris ini nilainya berhenti di .env dan tidak
+      # pernah sampai ke container - seluruh rantai diam-diam menyusut
+      # jadi satu penyedia, dan itu baru ketahuan saat kuota habis.
+      LLM_FALLBACKS: ${LLM_FALLBACKS:-}
     ports:
       - "8000:8000"
 

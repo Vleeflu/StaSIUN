@@ -1,0 +1,130 @@
+# Matriks perbandingan berpasangan AHP untuk bobot variabel SEPI (blocker N9).
+#
+# ============================================================================
+# SIAPA YANG DITANYA
+# ============================================================================
+# PRD hal. 13 hanya menulis "AHP dari penilaian ahli" dan TIDAK mendefinisikan
+# siapa ahlinya. Yang dinilai kepentingan relatif ANTAR-VARIABEL SEPI, bukan
+# kondisi stasiun mana pun — jadi tidak ada kaitannya dengan data Activity,
+# survey lapangan, maupun NLP.
+#
+# Urutan pilihan, dari yang paling kuat:
+#
+#   1. PELAKU USAHA di dalam atau sekitar stasiun. Paling dianjurkan. Mereka
+#      sudah mengambil keputusan komersial sungguhan dengan modal sendiri,
+#      jadi tahu dari pengalaman langsung apa yang menentukan lapak bertahan.
+#   2. Praktisi ritel transit, pengelola properti stasiun, dosen perencanaan
+#      kota atau ekonomi perkotaan.
+#   3. Tim sendiri berbasis riset literatur. Sah, ASALKAN ditulis jujur di
+#      kolom peran sebagai "tim, berbasis literatur" dan sumbernya dicatat.
+#
+# Petugas keamanan atau kebersihan TIDAK dianjurkan untuk AHP. Mereka
+# narasumber yang tepat untuk skala keramaian (PRD hal. 10: punya basis
+# pembanding harian), tetapi itu pertanyaan berbeda — soal seberapa ramai,
+# bukan soal apa yang membuat ruang komersial bernilai.
+#
+# ============================================================================
+# CARA BERTANYA — pakai kalimat ini, jangan istilah variabelnya
+# ============================================================================
+# Jangan tanyakan "Transportasi versus Ekonomi". Pakai terjemahan operasional
+# berikut; jawabannya tetap masuk ke variabel yang sama.
+#
+#   T_vs_E  "Mana yang lebih menentukan ramainya jualan di sini: banyaknya
+#            orang yang LEWAT, atau DAYA BELI orang di sekitar sini?"
+#   T_vs_A  "...banyaknya orang LEWAT, atau seberapa MUDAH orang berjalan kaki
+#            ke sini tanpa terhalang rel, sungai, atau jalan besar?"
+#   T_vs_U  "...banyaknya orang LEWAT, atau RAMAINYA KAWASAN sekitar - banyak
+#            kantor, sekolah, rumah sakit, pertokoan?"
+#   T_vs_C  "...banyaknya orang LEWAT, atau kondisi DI DALAM stasiunnya -
+#            banyak lapak lain, ada papan iklan, fasilitas terawat?"
+#   E_vs_A  "...DAYA BELI orang sekitar, atau kemudahan orang BERJALAN ke sini?"
+#   E_vs_U  "...DAYA BELI orang sekitar, atau RAMAINYA KAWASAN sekitar?"
+#   E_vs_C  "...DAYA BELI orang sekitar, atau kondisi DI DALAM stasiun?"
+#   A_vs_U  "...kemudahan BERJALAN ke sini, atau RAMAINYA KAWASAN sekitar?"
+#   A_vs_C  "...kemudahan BERJALAN ke sini, atau kondisi DI DALAM stasiun?"
+#   U_vs_C  "...RAMAINYA KAWASAN sekitar, atau kondisi DI DALAM stasiun?"
+#
+# Lalu tanyakan seberapa jauh bedanya: "sama saja" (1), "sedikit lebih" (3),
+# "jelas lebih" (5), "jauh lebih" (7), "tidak sebanding" (9).
+#
+# ============================================================================
+# SKALA SAATY
+# ============================================================================
+#     1  sama penting            5  yang KIRI jelas lebih penting
+#     3  yang KIRI sedikit lebih 7  yang KIRI sangat lebih penting
+#     9  yang KIRI mutlak lebih  2,4,6,8  nilai antara
+#
+#   Kalau yang KANAN yang lebih penting, tulis kebalikannya sebagai desimal:
+#     sedikit -> 0.333   jelas -> 0.2   sangat -> 0.143   mutlak -> 0.111
+#
+# ============================================================================
+# BEBERAPA PENILAI SEKALIGUS
+# ============================================================================
+# Boleh mengisi lebih dari satu blok penilai. Jawaban digabung memakai RATA-
+# RATA GEOMETRIK, bukan rata-rata biasa. Itu cara baku AHP (Aggregation of
+# Individual Judgements), dan alasannya matematis: rata-rata geometrik
+# mempertahankan sifat resiprokal matriks, rata-rata biasa merusaknya. Kalau
+# satu orang menjawab 3 dan satu lagi 1/3, rata-rata geometriknya 1 (memang
+# seimbang); rata-rata biasanya 1,67 - condong ke penjawab pertama tanpa
+# alasan apa pun.
+#
+# Tiga penilai sudah cukup baik. Satu pun tetap sah.
+#
+# Setelah diisi:  python -m scripts.check_ahp
+
+penilai:
+  # ---------------------------------------------------------------------------
+  # SUMBER: riset literatur (blocker N9, jalur ke-2 dari tiga jalur sah).
+  # Dijalankan 9 Sep 2026 memakai riset_prompt_N9_ahp_literatur.md.
+  #
+  # Riset itu MENOLAK mengarang matriks. Ia mengembalikan bobot apa adanya dari
+  # tiap studi dan menyerahkan pemetaan ke variabel T/E/A/U/C kepada kita.
+  # Angka di bawah adalah rasio bobot LANGSUNG dari studi bersangkutan, bukan
+  # sintesis - tiap baris menyebut asalnya.
+  #
+  # JANGKAR UTAMA: Irwan, N.P. (2023), "Penentuan Potensi Pengembangan Kawasan
+  # Berorientasi Transit di Sekitar Titik Transit MRT Jakarta", Jurnal
+  # Transportasi ITB 23(1): 53-70. AHP, Expert Choice 11, 5 ahli, IR 0,05.
+  # Satu-satunya studi berbobot terverifikasi pada stasiun rel Jakarta.
+  #   fasilitas pedestrian            21,4%  -> A
+  #   jumlah jenis penggunaan lahan   20,4%  -> U
+  #   jumlah moda transportasi        18,8%  -> T
+  # Pemetaan T dikuatkan definisi penulisnya sendiri: "jumlah rute moda
+  # transportasi massal lainnya, yang terhubung dalam bangunan stasiun maupun
+  # dengan stasiun penghubung" - itu persis variabel T kita.
+  #
+  # JANGKAR KEDUA untuk E: Sangsrichan dkk. (2025), Scientific Journal of
+  # Silesian University of Technology, Series Transport Vol. 128 (SFAHP).
+  #   density 20,1% | diversity 18,1% | transit 15,1%
+  #   destination accessibility 11,7% | economic development 10,8%  -> E
+  # Dipakai HANYA untuk pasangan yang melibatkan E, karena Irwan tidak memuat
+  # dimensi ekonomi sama sekali. Konteksnya stasiun regional Thailand, bukan
+  # Jakarta - ini batasan yang harus ditulis di laporan.
+  #
+  # C: KEEMPAT pasangannya TIDAK DITEMUKAN di literatur. Riset menyimpulkan
+  # kondisi komersial di DALAM stasiun belum pernah masuk indeks kawasan
+  # berbobot mana pun. Diisi 1 (tidak ada preferensi), BUKAN karena setara,
+  # melainkan karena tidak ada dasar untuk menyatakan sebaliknya. Ini celah
+  # riset primer, dan harus disebut apa adanya di laporan maupun video.
+  # ---------------------------------------------------------------------------
+  - nama: "Riset literatur (Irwan 2023 + Sangsrichan dkk. 2025)"
+    peran: "sintesis literatur akademik, bukan penilaian ahli langsung"
+    tanggal: "2026-09-09"
+    catatan: >-
+      Jalur ke-2 dari tiga jalur sah untuk N9. Rasio diambil langsung dari bobot
+      terbit; pasangan yang melibatkan C tidak punya bukti dan diisi netral.
+      Perlu diganti kalau penilaian pelaku usaha di stasiun (jalur ke-1)
+      terkumpul.
+    perbandingan:
+      T_vs_E: 1.398    # Irwan tak punya E; SFAHP: transit 15,1 / econ dev 10,8
+      T_vs_A: 0.879    # Irwan: moda 18,8 / pedestrian 21,4 -> A sedikit unggul
+      T_vs_U: 0.922    # Irwan: moda 18,8 / guna lahan 20,4 -> U sedikit unggul
+      T_vs_C: 1        # TIDAK DITEMUKAN
+      E_vs_A: 0.923    # SFAHP: econ dev 10,8 / destination accessibility 11,7
+      E_vs_U: 0.597    # SFAHP: econ dev 10,8 / diversity 18,1
+      E_vs_C: 1        # TIDAK DITEMUKAN
+      A_vs_U: 1.049    # Irwan: pedestrian 21,4 / guna lahan 20,4
+      A_vs_C: 1        # TIDAK DITEMUKAN
+      U_vs_C: 1        # TIDAK DITEMUKAN
+
+lambda_entropy: 0.5

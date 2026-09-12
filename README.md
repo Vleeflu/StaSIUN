@@ -84,33 +84,113 @@ Buat tabelnya:
 python -c "import app.models.station; from app.core.database import engine, Base; Base.metadata.create_all(bind=engine)"
 ```
 
-Lalu isi datanya. Ada **dua cara**, pilih salah satu — keduanya mengosongkan
-tabel lebih dulu, jadi aman dijalankan berulang kali.
+Lalu siapkan skemanya. Aman dijalankan berulang — tanpa argumen, cuma tabel
+yang belum ada yang dibuat.
 
-**Cara 1 — dari berkas GeoJSON lokal (disarankan).** Tidak butuh kredensial
-apa pun dan datanya paling mutakhir.
+```bash
+python -m scripts.init_db
+```
+
+Kalau bentuk tabelnya berubah (ada kolom baru di model), skrip ini berhenti dan
+menyebutkan kolom mana yang ketinggalan. `--reset` menghapus lalu membuat ulang
+ketiga tabel proyek; isinya bisa ditarik penuh lagi dari MAPID, jadi tidak ada
+yang hilang permanen.
+
+Lalu isi datanya dari Geoserver MAPID. Butuh `MAPID_API_KEY` dan
+`MAPID_PROJECT_ID` yang sah di `backend/.env`.
+
+```bash
+python -m scripts.ingest_layers                    # stasiun, isochrone, POI
+python -m scripts.ingest_layers stations           # satu bagian saja
+python -m scripts.ingest_layers isochrones pois
+```
+
+Layer yang ditarik didaftar di `backend/data/layers.yml`. Stasiun dan isochrone
+sudah terisi lengkap: 75 stasiun dan 228 poligon. Bagian `pois` sengaja
+dikosongkan — id-nya diisi sendiri sambil layernya diunggah ke GEO MAPID.
+
+Katalog POI-nya berpatokan Jakarta Pusat: `poi_categories` mendaftar kategori
+baku beserta variabel SEPI yang disuapinya, lalu tiap wilayah mengisi id per
+kategori yang sama. Kategori yang `layer_id`-nya masih `""` dilewati dengan
+catatan, jadi katalognya boleh diisi bertahap tanpa bikin impor gagal.
+
+Id dipatok satu per satu, tidak dicari otomatis, karena proyek GEO MAPID
+menyimpan beberapa layer dengan nama yang sama persis dan sebagian di antaranya
+salah. Dua penjagaan dipasang untuk itu:
+
+- Tiap layer isochrone divalidasi sebelum dipakai — harus ada isinya, berprofil
+  `foot`, dan `time_limit`-nya cocok dengan `minutes`. Kalau gagal, impornya
+  berhenti dengan pesan, bukan dilewati diam-diam.
+- Sebelum menarik apa pun, katalognya dicocokkan dengan daftar layer yang hidup.
+  API MAPID tetap melayani layer yang sudah dibuang ke tempat sampah, jadi
+  "bisa ditarik" bukan jaminan layernya masih ada.
+
+Nama layer di GEO MAPID berpola tetap, jadi id-nya bisa dijodohkan sendiri ke
+katalog — tidak perlu menyalin 75 id satu per satu:
+
+```bash
+python -m scripts.match_layers           # lihat dulu hasil jodohnya
+python -m scripts.match_layers --write   # tulis ke data/layers.yml
+```
+
+Kalau satu kategori punya beberapa terbitan (misalnya halte edisi 2024 dan
+2025), yang tahunnya paling baru yang dipakai. Untuk mencari id satuan tanpa
+membuka dasbor — bawaannya cuma layer aktif yang ditampilkan:
+
+```bash
+python -m scripts.list_layers alfamart pusat   # saring per kata
+python -m scripts.list_layers --all            # ikut yang di tempat sampah
+```
+
+Layer bertanda premium tidak muncul di daftar itu; id-nya harus disalin dari
+dasbor.
+
+**Alternatif tanpa kredensial** — isi tabel stasiun saja dari berkas lokal
+`backend/data/railway_station_DKI.geojson`:
 
 ```bash
 python -m scripts.seed_stations
 ```
 
-Sumbernya `backend/data/railway_station_DKI.geojson`, ekspor OpenStreetMap
-stasiun kereta di DKI Jakarta. Hasilnya `78 stations stored (77 served, 1 not served)`.
+Keduanya memakai modul yang sama, `app/services/station_import.py`, sehingga
+penempelan line dan penandaan stasiun tak terlayani berlaku identik apa pun
+sumbernya. Bedanya berkas lokal tidak punya isochrone maupun POI.
 
-**Cara 2 — tarik langsung dari Geoserver MAPID.**
+
+Terakhir, hitung skornya:
 
 ```bash
-python -m scripts.ingest_layers
+python -m scripts.compute_sepi              # pita 10 menit
+python -m scripts.compute_sepi --minutes 15
+python -m scripts.compute_sepi --dry-run    # tampilkan saja, jangan simpan
 ```
 
-Layer yang ditarik didaftar di `backend/data/layers.yml`, dan butuh
-`MAPID_API_KEY` serta `MAPID_PROJECT_ID` yang sah di `backend/.env`. Hasilnya
-`48 stations stored` dari sumber yang lebih tua, jadi jumlah dan koordinatnya
-sedikit berbeda dengan Cara 1.
+Alurnya mengikuti proposal: matriks keputusan disusun dari isi tiap isochrone,
+bobotnya entropy dipadu AHP, peringkatnya lewat TOPSIS. Perbandingan
+berpasangan AHP ada di `backend/data/ahp.yml` — **angkanya masih sementara dan
+harus diganti hasil kesepakatan tim.** Consistency ratio diperiksa tiap kali
+dijalankan; kalau mencapai 0,10 skoringnya berhenti.
 
-Kedua jalur memakai modul yang sama, `app/services/station_import.py`, sehingga
-penyaringan jaringan, penempelan lin, dan penandaan stasiun tak terlayani
-berlaku identik apa pun sumbernya.
+Skornya lalu ikut menempel di `/api/stations` sebagai `sepi` dan `sepi_rank`,
+dengan rinciannya di `/api/stations/{id}/score`.
+
+Lalu Tenant Survival Index, yang mengambil pengali konektivitasnya dari skor
+SEPI — jadi jalankan setelahnya:
+
+```bash
+python -m scripts.compute_tsi              # pita 10 menit
+python -m scripts.compute_tsi --minutes 5
+```
+
+TSI membandingkan calon pelanggan yang bisa berjalan kaki ke sebuah stasiun
+dengan pesaing sejenis yang sudah ada di sana. Calon pelanggan dihitung dari
+titik variabel E dan U saja; titik komersial sengaja tidak ikut, supaya daerah
+yang sudah padat warung tidak tercatat butuh lebih banyak warung. Hasilnya
+dibentangkan ke 0–100 **per kategori**, jadi peringkatnya berarti "stasiun ini
+urutan ke berapa untuk usaha jenis itu" — bukan perbandingan antar kategori.
+
+Lima kategori yang diskor: makanan & minuman, kedai kopi merek, Alfamart,
+Indomaret, dan apotek. Hasilnya tersedia di `/api/stations/{id}/tenants`.
 
 
 Jalankan servernya:
@@ -183,34 +263,27 @@ stasiun-app/
    ├─ app/                  # halaman App Router
    ├─ components/           # Map, StationSearch
    ├─ hooks/                # useStations
-   ├─ lib/                  # helper API & konstanta lin
+   ├─ lib/                  # helper API & konstanta line
    └─ types/                # tipe bersama
 ```
 
 ## Catatan data
 
-Unit analisisnya stasiun KRL di DKI Jakarta, tetapi **seluruh moda rel ikut
-disimpan**: 42 KAI Commuter, 13 MRT Jakarta, 12 LRT Jabodebek, 6 LRT Jakarta,
-4 KAI, dan 1 Whoosh — total 78 titik, 77 dilayani.
+Unit analisisnya stasiun jaringan **KAI** di DKI Jakarta: KRL Commuter beserta
+stasiun antarkota yang juga dilewati KRL. MRT, LRT Jabodebek, LRT Jakarta, dan
+Whoosh sengaja tidak diikutkan.
 
-Titik non-KRL tidak ikut sekadar untuk melengkapi peta. PRD menjadikan
-**konektivitas antarmoda** salah satu indikator Aksesibilitas (variabel A), jadi
-keberadaan MRT, LRT, atau kereta cepat di dekat sebuah stasiun KRL adalah data
-yang dipakai perhitungan, bukan hiasan.
+Penyaringan memakai tag `network` bernilai `KAI Commuter` **atau** `KAI`. Nilai
+kedua itu penting: Jakarta Kota, Jatinegara, dan Pasar Senen ditandai `KAI` di
+OpenStreetMap padahal ketiganya stasiun KRL utama, dan Jakarta Kota bahkan
+terminus dua line. Menyaring dengan satu nilai saja akan membuang mereka.
+Jakarta Gudang dikecualikan karena emplasemen barang tanpa layanan penumpang.
 
-Roster lin hanya ditempelkan ke jaringan KAI, lewat penjagaan `KAI_NETWORKS` di
-`backend/app/services/station_import.py`. Tanpa itu stasiun senama dari moda lain
-ikut kebagian lin KRL — Cawang LRT sempat kena, padahal letaknya 1,4 km dari
-Cawang KRL. Nilai `KAI` di samping `KAI Commuter` juga penting: Jakarta Kota,
-Jatinegara, dan Pasar Senen ditandai `KAI` di OpenStreetMap padahal ketiganya
-stasiun KRL utama. Jakarta Gudang dikecualikan karena emplasemen barang tanpa
-layanan penumpang.
-
-Keanggotaan lin tidak berasal dari berkas sumber, melainkan dari roster resmi
+Keanggotaan line tidak berasal dari berkas sumber, melainkan dari roster resmi
 peta rute KAI Commuter yang ditanam di `app/services/station_import.py`. Enam
-lin dipakai beserta kodenya: `B` Bogor, `C` Lingkar Cikarang, `R` Rangkasbitung,
+line dipakai beserta kodenya: `B` Bogor, `C` Lingkar Cikarang, `R` Rangkasbitung,
 `T` Tangerang, `TP` Tanjung Priok, dan `A` KA Bandara. Stasiun yang dilewati
-lebih dari satu lin ditandai sebagai interchange dan digambar sebagai lingkaran
+lebih dari satu line ditandai sebagai interchange dan digambar sebagai lingkaran
 berjuring banyak warna di peta.
 
 Kolom `served` menandai stasiun yang hanya dilewati KRL tanpa berhenti. Saat ini

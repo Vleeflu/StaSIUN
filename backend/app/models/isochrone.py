@@ -10,7 +10,7 @@ stasiun.
 from datetime import datetime
 
 from geoalchemy2 import Geometry
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -30,6 +30,19 @@ class Isochrone(TimestampMixin, Base):
     station_id: Mapped[int | None] = mapped_column(
         ForeignKey("stations.id", ondelete="CASCADE"), index=True
     )
+
+    # Disalin apa adanya dari layer, sehingga poligon yang tidak ketemu
+    # stasiunnya tetap bisa ditelusuri, bukan hilang tanpa jejak. Rancangan
+    # dari branch main.
+    station_osm_id: Mapped[str | None] = mapped_column(String, index=True)
+    station_name: Mapped[str | None]
+
+    # Profil perjalanan yang dipakai saat poligon dibangkitkan. WAJIB "foot".
+    # Proyek GEO MAPID memuat beberapa layer isochrone bernama sama yang
+    # sebagian dihitung dengan profil mobil — dan dari luar tidak ada bedanya.
+    # Menyimpan profilnya membuat kesalahan itu bisa ketahuan setelah impor,
+    # bukan cuma dicegah sebelum impor.
+    profile: Mapped[str | None]
 
     # 5, 10, atau 15 menit sesuai PRD hal. 12. Tidak dikunci ke tiga nilai itu
     # lewat constraint supaya durasi lain masih bisa masuk kalau tim

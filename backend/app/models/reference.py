@@ -32,16 +32,46 @@ from app.models.mixins import SourceMixin, TimestampMixin
 
 
 class Poi(TimestampMixin, Base):
-    """Titik minat di sekitar stasiun, ditarik dari OpenStreetMap."""
+    """Titik minat di sekitar stasiun.
+
+    Menampung DUA sumber sekaligus, dibedakan lewat kolom `source`. PRD Tabel 6
+    memang menyebut dua sumber untuk variabel U: "OpenStreetMap" dan "data
+    profil kawasan", jadi keduanya sah. Sifatnya berbeda jauh, dan itu sebabnya
+    keduanya disimpan berdampingan alih-alih salah satu dibuang:
+
+      overpass  tag OSM mentah ikut tersimpan, jadi taksonominya bisa dihitung
+                ulang tanpa menarik data lagi. Itu yang menyelamatkan koreksi
+                kategori fasilitas_jalan (863 -> 32 baris, nol panggilan
+                Overpass). Sumbernya hidup: kueri hari ini memberi keadaan OSM
+                hari ini.
+      mapid     jauh lebih rapat untuk kategori komersial (1.714 titik makanan
+                di Jakarta Pusat saja), tapi tanpa tag mentah dan tanpa id
+                stabil. Layernya beku: date == date_created pada seluruh 75
+                layer POI, semuanya diunggah 9 Sep 2026 pukul 11.04-11.06 dan
+                tidak pernah diubah sejak itu.
+
+    Keduanya TIDAK boleh dilebur jadi satu perhitungan entropi Shannon, karena
+    sistem kategorinya bukan partisi yang sama. Entropi dihitung per sumber.
+    """
 
     __tablename__ = "poi"
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
+    # "overpass" atau "mapid". Menentukan lajur mana yang dipakai, dan wajib
+    # ikut di setiap agregasi supaya dua sumber tidak pernah terjumlah diam-diam.
+    source: Mapped[str] = mapped_column(
+        index=True, default="overpass", server_default=text("'overpass'")
+    )
+
     # Identitas asli di OSM. Dipakai sebagai kunci idempotensi: menarik ulang
     # data yang sama tidak menghasilkan baris ganda, cukup memperbarui isinya.
-    osm_type: Mapped[str]
-    osm_id: Mapped[int] = mapped_column(BigInteger)
+    # Boleh kosong sejak layer MAPID ikut masuk - layer itu tidak membawa
+    # osm_id sama sekali (sudah diperiksa: 0 dari 1.714 titik). PostgreSQL
+    # memperlakukan tiap NULL sebagai nilai berbeda, jadi unique constraint di
+    # bawah tetap menjaga baris Overpass tanpa menghalangi baris MAPID.
+    osm_type: Mapped[str | None]
+    osm_id: Mapped[int | None] = mapped_column(BigInteger)
 
     name: Mapped[str | None]
 
@@ -49,6 +79,15 @@ class Poi(TimestampMixin, Base):
     # hasil penyeragaman dari tag OSM yang bentuknya beragam. Diindeks karena
     # GapScore menghitung supply per kategori.
     category: Mapped[str] = mapped_column(index=True)
+
+    # Fungsi lahan sesungguhnya, terpisah dari `category`.
+    #
+    # Perlu dua kolom karena sebagian layer MAPID adalah MEREK, bukan fungsi:
+    # "alfamart" dan "indomaret" keduanya ritel. Kalau merek dipakai langsung
+    # sebagai kategori entropi Shannon, dua minimarket berbeda merek terhitung
+    # sebagai dua fungsi lahan berbeda dan keberagaman kawasan menggelembung
+    # palsu. `category` menyimpan asal-usulnya, `fungsi` yang masuk hitungan.
+    fungsi: Mapped[str | None] = mapped_column(index=True)
 
     # Tag OSM mentah, disimpan apa adanya. Kalau nanti aturan penyeragaman
     # kategori berubah, kategorinya bisa dihitung ulang dari sini tanpa perlu
@@ -155,6 +194,14 @@ class PriceReference(SourceMixin, TimestampMixin, Base):
     # lagi berlaku untuk kawasan yang lebih luas.
     station_id: Mapped[int | None] = mapped_column(
         ForeignKey("stations.id", ondelete="SET NULL"), index=True
+    )
+
+    # Titik Activity asal harga ini, kalau ia dipanen dari narasi survey.
+    # Menyamakan tabel ini dengan `ad_spots` dan `tenants` yang sudah menyimpan
+    # asal-usulnya. NULL untuk benchmark hasil riset pasar, yang memang tidak
+    # berasal dari narasi mana pun.
+    activity_point_id: Mapped[int | None] = mapped_column(
+        ForeignKey("activity_points.id", ondelete="SET NULL"), index=True
     )
     location: Mapped[str | None] = mapped_column(
         Geometry("POINT", srid=SRID_RENDER, spatial_index=True)

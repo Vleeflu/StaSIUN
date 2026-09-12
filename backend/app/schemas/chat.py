@@ -17,10 +17,24 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     history: list[Message] = Field(default_factory=list)
-    # Stasiun yang sedang dibuka di panel kanan, kalau ada. Dipakai supaya
-    # pertanyaan seperti "lin apa saja di sini" punya rujukan yang jelas.
     station_id: int | None = None
+
+
+class Aksi(BaseModel):
+    """Tombol yang menyertai jawaban asisten.
+
+    Disusun backend dari alat yang benar-benar dipanggil (services/ai_actions.py),
+    tidak pernah dari teks bebas model.
+    """
+
+    jenis: str  # buka_stasiun | bandingkan | simulasi
+    label: str
+    station_id: int | None = None
+    station_ids: list[int] | None = None
+    tab: str | None = None
+    bobot: dict[str, float] | None = None
 
 
 class ChatResponse(BaseModel):
     reply: str
+    actions: list[Aksi] = Field(default_factory=list)

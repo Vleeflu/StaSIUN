@@ -98,8 +98,6 @@ export default function StationSearch({
         </p>
       )}
 
-      {/* Dropdown mengambang di atas isi panel supaya seksi di bawahnya tidak
-          ikut terdorong tiap kali user mengetik. */}
       {showDropdown && results.length > 0 && (
         <ul
           id={listId}
@@ -135,7 +133,7 @@ export default function StationSearch({
                   >
                     {codes.length > 0
                       ? lineLabel(codes)
-                      : (f.properties.network ?? "Tanpa lin")}
+                      : (f.properties.network ?? "Tanpa line")}
                   </span>
                 </button>
               </li>

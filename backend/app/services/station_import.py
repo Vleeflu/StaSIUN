@@ -13,8 +13,8 @@ from app.core.database import SessionLocal
 from app.core.geo import SRID_RENDER
 from app.models.station import Station
 
-# Jaringan yang memakai penomoran lin KRL. Dipakai buat menentukan apakah
-# roster lin boleh ditempelkan, bukan lagi buat menyaring stasiun.
+# Jaringan yang memakai penomoran line KRL. Dipakai buat menentukan apakah
+# roster line boleh ditempelkan, bukan lagi buat menyaring stasiun.
 KAI_NETWORKS = {"KAI COMMUTER", "KAI", "COMMUTER", "KERETA API"}
 
 # Emplasemen barang, tidak melayani penumpang.
@@ -23,7 +23,7 @@ EXCLUDED = {"JAKARTAGUDANG"}
 # Dilewati KRL tanpa berhenti.
 UNSERVED = {"GAMBIR"}
 
-# Roster resmi tiap lin, mengikuti peta rute KAI Commuter Jabodetabek & Merak.
+# Roster resmi tiap line, mengikuti peta rute KAI Commuter Jabodetabek & Merak.
 LINE_ROSTER = {
     "B": """Jakarta Kota;Jayakarta;Mangga Besar;Sawah Besar;Juanda;Gambir;Gondangdia;Cikini;
         Manggarai;Tebet;Cawang;Duren Kalibata;Pasar Minggu Baru;Pasar Minggu;Tanjung Barat;
@@ -80,6 +80,11 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
     if not name:
         return None
 
+    # Kunci sambungan ke poligon isochrone. Prefiks n/w/r dibuang supaya
+    # cocok dengan bentuk yang dipakai layer isochrone GEO MAPID.
+    osm_id = props.get("osm_id") or props.get("full_id")
+    osm_id = str(osm_id).lstrip("nwr") if osm_id else None
+
     key = normalize(name)
     if key in EXCLUDED:
         return None
@@ -88,14 +93,15 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
     # disimpan apa adanya di kolom types supaya bisa dibedakan saat analisis.
     network = props.get("network") or props.get("TIPE_3") or "Lainnya"
 
-    # Roster lin cuma berlaku buat jaringan KAI. Tanpa penjagaan ini, stasiun
-    # senama dari moda lain ikut kebagian lin KRL — Cawang LRT sempat kena,
+    # Roster line cuma berlaku buat jaringan KAI. Tanpa penjagaan ini, stasiun
+    # senama dari moda lain ikut kebagian line KRL — Cawang LRT sempat kena,
     # padahal letaknya 1,4 km dari Cawang KRL.
     is_kai = network.upper() in KAI_NETWORKS
 
     lon, lat = geometry["coordinates"][:2]
 
     return {
+        "osm_id": osm_id,
         "name": name,
         "code": props.get("railway:ref"),
         "types": [network],
@@ -109,12 +115,43 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
 
 
 def save_stations(rows: list[dict]) -> None:
-    """Ganti seluruh isi tabel stations. Dipanggil hanya kalau rows tidak kosong."""
+    """Selaraskan tabel stations lewat upsert ber-`osm_id`, bukan hapus-lalu-isi.
+
+    Versi sebelumnya memanggil `session.query(Station).delete()`. Itu terlihat
+    aman karena seed selalu mengisi ulang barisnya, padahal `isochrones` dan
+    `passenger_volume` menunjuk `stations.id` dengan ON DELETE CASCADE - jadi
+    menghapus seluruh stasiun ikut memusnahkan 225 poligon isochrone yang baru
+    diimpor. Dan karena SEED_ON_START=1, itu terjadi pada SETIAP restart
+    backend, tanpa satu pun pesan error.
+
+    Upsert menjaga `stations.id` tetap sama, jadi tidak ada cascade yang
+    terpicu. Stasiun yang benar-benar hilang dari sumber tetap dibuang, tapi
+    dilaporkan dulu - kalau penghapusan itu tidak disengaja, cascade-nya masih
+    bisa menelan isochrone, dan kejadian itu harus terlihat.
+    """
     session = SessionLocal()
     try:
-        session.query(Station).delete()
+        lama = {s.osm_id: s for s in session.query(Station).all()}
+        baru_ids = {row["osm_id"] for row in rows}
+
         for row in rows:
-            session.add(Station(**row))
+            stasiun = lama.get(row["osm_id"])
+            if stasiun is None:
+                session.add(Station(**row))
+            else:
+                for kolom, nilai in row.items():
+                    setattr(stasiun, kolom, nilai)
+
+        hilang = [s for osm_id, s in lama.items() if osm_id not in baru_ids]
+        if hilang:
+            print(
+                f"  ! {len(hilang)} stasiun tidak ada lagi di sumber dan dihapus "
+                f"(isochrone-nya ikut terhapus): "
+                f"{', '.join(sorted(s.name for s in hilang))}"
+            )
+            for stasiun in hilang:
+                session.delete(stasiun)
+
         session.commit()
     finally:
         session.close()
@@ -125,4 +162,4 @@ def report(rows: list[dict]) -> None:
     without_line = [r["name"] for r in rows if not r["lines"]]
     print(f"{len(rows)} stations stored ({served} served, {len(rows) - served} not served)")
     if without_line:
-        print(f"  tanpa lin: {', '.join(sorted(without_line))}")
+        print(f"  tanpa line: {', '.join(sorted(without_line))}")
