@@ -167,6 +167,7 @@ export default function StationPanel({
             {props.survei_tim && (
               <span className="label-caps border border-accent bg-accent px-2 py-1 text-white">
                 Disurvei langsung
+                {props.survei_titik ? ` · ${props.survei_titik} titik` : ""}
               </span>
             )}
             {!props.served && (
@@ -177,25 +178,42 @@ export default function StationPanel({
           </div>
         )}
 
+        {/*
+          Keterangan survei DILIPAT, bukan ditampilkan penuh.
+
+          Kepala panel ini tidak ikut bergulir, jadi tiap barisnya langsung
+          memotong ruang baca isi tab di bawahnya. Paragraf enam baris di sini
+          menyisakan kurang dari separuh tinggi panel untuk skor, komponen, dan
+          rekomendasi - padahal itu yang dicari pembaca, sedangkan keterangan
+          survei cukup dibaca sekali.
+
+          Angka terpentingnya tetap terlihat tanpa dibuka, menempel di lencana.
+        */}
         {props.survei_tim && (
-          <p className="mt-2 border-l-2 border-accent pl-2 text-[11px] leading-relaxed text-muted">
-            Stasiun ini termasuk lokasi yang disurvei langsung oleh tim, dengan{" "}
-            <strong className="text-ink">{props.survei_titik ?? 0} titik pengamatan</strong>
-            {(props.survei_skala ?? 0) > 0 && (
-              <>
-                {" "}
-                dan{" "}
-                <strong className="text-ink">
-                  {props.survei_skala} penilaian keramaian
-                </strong>{" "}
-                yang diperoleh dari petugas serta pelaku usaha di lokasi
-              </>
-            )}
-            . Katalog media iklan, foto lapangan, dan pola keramaian pada halaman
-            ini karena itu bersumber dari pengamatan langsung. Tingkat kelengkapan
-            variabel skornya disajikan terpisah melalui indikator keyakinan di
-            bawah.
-          </p>
+          <details className="mt-2">
+            <summary className="cursor-pointer text-[11px] text-muted hover:text-ink">
+              Apa artinya stasiun ini disurvei langsung?
+            </summary>
+            <p className="mt-1.5 border-l-2 border-accent pl-2 text-[11px] leading-relaxed text-muted">
+              Tim mendatangi stasiun ini dan mencatat{" "}
+              <strong className="text-ink">
+                {props.survei_titik ?? 0} titik pengamatan
+              </strong>
+              {(props.survei_skala ?? 0) > 0 && (
+                <>
+                  {" "}
+                  serta{" "}
+                  <strong className="text-ink">
+                    {props.survei_skala} penilaian keramaian
+                  </strong>{" "}
+                  dari petugas dan pelaku usaha di lokasi
+                </>
+              )}
+              . Katalog media iklan, foto lapangan, dan pola keramaian pada
+              halaman ini bersumber dari pengamatan tersebut. Kelengkapan variabel
+              skornya disajikan terpisah melalui indikator keyakinan.
+            </p>
+          </details>
         )}
       </div>
 
