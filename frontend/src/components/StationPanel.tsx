@@ -109,7 +109,7 @@ export default function StationPanel({
   const codes = parseLines(props.lines);
 
   return (
-    <aside className="flex w-[400px] shrink-0 flex-col overflow-hidden border-l border-ink bg-panel">
+    <aside className="fixed inset-x-0 bottom-0 top-[52px] z-30 flex w-full flex-col overflow-hidden border-ink bg-panel sm:static sm:inset-auto sm:z-auto sm:w-[400px] sm:shrink-0 sm:border-l">
       <div className="shrink-0 border-b border-hair p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

@@ -56,7 +56,7 @@ export default function ControlPanel({
   hasSelection,
 }: Props) {
   return (
-    <div className="panel-float w-[264px] border border-ink bg-panel">
+    <div className="panel-float w-full border border-ink bg-panel sm:w-[264px]">
       <Section title="Cari stasiun">
         <StationSearch
           stations={stations}

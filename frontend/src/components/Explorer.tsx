@@ -116,6 +116,11 @@ export default function Explorer() {
   const [bukaEkspor, setBukaEkspor] = useState(false);
   const [bukaPeringkat, setBukaPeringkat] = useState(false);
 
+  // Di telepon, panel kontrol melayang menutupi hampir seluruh peta, jadi ia
+  // ditutup secara bawaan dan dibuka lewat tombol. Di layar lebar (sm ke atas)
+  // ia selalu tampil lewat kelas `sm:block`, tak peduli nilai state ini.
+  const [kontrolTerbuka, setKontrolTerbuka] = useState(false);
+
   // Titik katalog yang sedang dibuka rinciannya, disorot di peta. Disimpan di
   // sini - bukan di dalam halaman timbulnya - karena yang menggambarnya peta,
   // dan peta hidup satu tingkat di atas panel.
@@ -253,7 +258,32 @@ export default function Explorer() {
             onSelect={handleSelect}
           />
 
-          <div className="absolute left-3 top-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto">
+          {/* Pemicu panel kontrol, hanya di telepon. */}
+          {!kontrolTerbuka && (
+            <button
+              type="button"
+              onClick={() => setKontrolTerbuka(true)}
+              className="panel-float absolute left-3 top-3 z-10 flex items-center gap-2 border border-ink bg-panel px-3 py-2 text-xs font-semibold text-ink sm:hidden"
+            >
+              <FilterMark />
+              Filter &amp; Layer
+            </button>
+          )}
+
+          <div
+            className={`absolute left-3 top-3 z-20 max-h-[calc(100%-1.5rem)] w-[calc(100vw-1.5rem)] max-w-[264px] overflow-y-auto sm:z-10 sm:w-auto sm:max-w-none ${
+              kontrolTerbuka ? "block" : "hidden"
+            } sm:block`}
+          >
+            {/* Tombol tutup, hanya di telepon. */}
+            <button
+              type="button"
+              onClick={() => setKontrolTerbuka(false)}
+              aria-label="Tutup panel kontrol"
+              className="absolute right-2 top-2 z-10 border border-hair bg-panel px-1.5 py-0.5 text-xs leading-none text-ink-soft hover:border-ink hover:text-ink sm:hidden"
+            >
+              ✕
+            </button>
             <ControlPanel
               stations={stations}
               loading={loading}
@@ -304,5 +334,23 @@ export default function Explorer() {
         )}
       </div>
     </div>
+  );
+}
+
+function FilterMark() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 5h18M6 12h12M10 19h4" />
+    </svg>
   );
 }
