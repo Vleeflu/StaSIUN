@@ -88,7 +88,7 @@ class Bagian:
 
 def _e(teks: object) -> str:
     """Amankan teks apa pun sebelum masuk HTML."""
-    return html.escape(str(teks if teks is not None else "—"))
+    return html.escape(str(teks if teks is not None else "-"))
 
 
 def _tabel(baris: list[tuple[str, object]]) -> str:
@@ -121,18 +121,15 @@ def susun_bagian(data: dict) -> dict[str, Bagian]:
                     (
                         "Peringkat",
                         f"#{skor.get('rank')} dari {skor.get('rank_total')} stasiun KRL"
-                        f" (lebih tinggi daripada {skor.get('persentil')}% stasiun)",
-                    ),
+                        f" (lebih tinggi daripada {skor.get('persentil')}% stasiun)"),
                     ("Keputusan", skor.get("keputusan")),
                     (
                         "Keyakinan data",
-                        f"{skor.get('confidence')} — {skor.get('variabel_terpakai')} "
+                        f"{skor.get('confidence')}, {skor.get('variabel_terpakai')} "
                         f"dari {skor.get('variabel_total')} variabel terukur langsung"
-                        + (f", estimasi pada {', '.join(belum)}" if belum else ""),
-                    ),
+                        + (f", estimasi pada {', '.join(belum)}" if belum else "")),
                 ]
-            ),
-        )
+            ))
 
     if paparan.get("cei") is not None:
         bagian["paparan"] = Bagian(
@@ -145,8 +142,7 @@ def susun_bagian(data: dict) -> dict[str, Bagian]:
                 ]
             )
             + "<p class='nota'>Dihitung terpisah dari SEPI. Untuk menilai ruang "
-            "iklan, keramaian dan jangkauan transportasi diberi bobot separuh.</p>",
-        )
+            "iklan, keramaian dan jangkauan transportasi diberi bobot separuh.</p>")
 
     kategori = tenant.get("categories") or []
     if kategori:
@@ -162,8 +158,7 @@ def susun_bagian(data: dict) -> dict[str, Bagian]:
             f"<th>Peringkat</th></tr>{baris}</table>"
             f"<p class='nota'>Basis pelanggan sama untuk semua sektor: "
             f"{_e(urut[0].get('demand'))} titik aktivitas dalam jangkauan. Yang "
-            "membedakan adalah jumlah pesaing sejenis.</p>",
-        )
+            "membedakan adalah jumlah pesaing sejenis.</p>")
 
     daftar_area = [a for a in (areas.get("areas") or []) if a["iklan"]["per_jenis"]]
     if daftar_area:
@@ -177,8 +172,7 @@ def susun_bagian(data: dict) -> dict[str, Bagian]:
         bagian["iklan"] = Bagian(
             "Inventaris ruang iklan",
             "<table><tr><th>Titik</th><th>Media</th><th>Waktu singgah</th>"
-            f"<th>Format yang sesuai</th></tr>{baris}</table>",
-        )
+            f"<th>Format yang sesuai</th></tr>{baris}</table>")
 
     peluang = sponsor.get("peluang") or []
     if peluang:
@@ -190,8 +184,7 @@ def susun_bagian(data: dict) -> dict[str, Bagian]:
         bagian["sponsorship"] = Bagian(
             "Peluang sponsorship fasilitas",
             "<table><tr><th>Bentuk kemitraan</th><th>Fasilitas</th>"
-            f"<th>Kewenangan</th></tr>{baris}</table>",
-        )
+            f"<th>Kewenangan</th></tr>{baris}</table>")
 
     potensi = naming.get("potensi") or {}
     if potensi.get("cei") is not None:
@@ -202,8 +195,7 @@ def susun_bagian(data: dict) -> dict[str, Bagian]:
                 (
                     "Peringkat paparan",
                     f"#{potensi.get('peringkat_paparan')} dari "
-                    f"{potensi.get('dari_stasiun_krl')} stasiun KRL",
-                ),
+                    f"{potensi.get('dari_stasiun_krl')} stasiun KRL"),
                 ("Nilai kontrak", "belum tersedia"),
             ]
         )
@@ -257,7 +249,7 @@ def susun_dokumen(
 
     return f"""<!doctype html>
 <html lang="id"><head><meta charset="utf-8">
-<title>StaSIUN — {_e(stasiun)}</title><style>{GAYA}</style></head><body>
+<title>StaSIUN, {_e(stasiun)}</title><style>{GAYA}</style></head><body>
 <h1>{_e(stasiun)}</h1>
 <p class="kop">Ringkasan analisis untuk {_e(p['label'].lower())} · disusun {_e(tanggal)}</p>
 {narasi}

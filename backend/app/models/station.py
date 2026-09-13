@@ -15,7 +15,7 @@ class Station(Base):
     # Kunci sambungan ke poligon isochrone, diambil dari OpenStreetMap.
     # Nama TIDAK bisa dipakai sebagai kunci: "Halim" dan "Cawang" masing-masing
     # dipakai dua stasiun dari moda berbeda (lihat ADJUSTMENT.md B10). Rancangan
-    # ini diadopsi dari branch main — dua analisis terpisah menemukan jebakan
+    # ini diadopsi dari branch main, dua analisis terpisah menemukan jebakan
     # yang sama, dan osm_id adalah jawabannya di kedua analisis itu.
     osm_id: Mapped[str | None] = mapped_column(String, unique=True, index=True)
 

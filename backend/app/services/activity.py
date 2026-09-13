@@ -116,7 +116,7 @@ def _kunci() -> str:
     if not key:
         raise ActivityError(
             "Tidak ada kunci sama sekali. Isi MAPID_BASEMAP_KEY di backend/.env "
-            "— itu kunci yang diterima endpoint Activity."
+            ", itu kunci yang diterima endpoint Activity."
         )
     return key
 
@@ -139,8 +139,7 @@ def ambil_untuk_poligon(
     selesai: date,
     *,
     hashtag: list[str] | None = None,
-    timeout: float = 90.0,
-) -> list[dict]:
+    timeout: float = 90.0) -> list[dict]:
     """Tarik Activity di dalam satu poligon, pada satu rentang tanggal.
 
     `mulai` dan `selesai` WAJIB. Lihat catatan nomor 1 di atas: tanpa keduanya
@@ -171,8 +170,7 @@ def ambil_untuk_poligon(
             settings.MAPID_ACTIVITY_URL,
             headers={"Content-Type": "application/json", "x-api-key": _kunci()},
             json=body,
-            timeout=timeout,
-        )
+            timeout=timeout)
     except httpx.RequestError as exc:
         raise ActivityError(f"tidak bisa menghubungi API Activity: {exc}") from exc
 
@@ -264,8 +262,7 @@ def tarik_semua(
     *,
     menit: int = 15,
     hashtag: list[str] | None = None,
-    simpan: bool = True,
-) -> HasilTarik:
+    simpan: bool = True) -> HasilTarik:
     """Tarik Activity untuk seluruh stasiun yang punya isochrone.
 
     Cincin 15 menit dipakai sebagai gate spasial, mengikuti LAYER.md - paling
@@ -314,8 +311,7 @@ def tarik_semua(
                         # 'pending' | 'passed' | 'rejected'. Bukan pilihan bebas.
                         "status": "passed" if lolos else "rejected",
                         "reason": None if lolos else "gagal gate wilayah/kualitas",
-                    },
-                ).rowcount
+                    }).rowcount
                 if terpakai:
                     hasil.tersimpan += 1
                 else:

@@ -306,6 +306,7 @@ def main() -> int:
             "station_id": detail["id"],
             "minutes": args.minutes,
             "sepi": round(sepi.nilai, 2),
+            "sepi_bawah": round(sepi.nilai_bawah, 2),
             "kelas": sepi.kelas,
             "keputusan": sepi.keputusan,
             "topsis": round(dekat * 100, 2),

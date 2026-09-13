@@ -25,8 +25,7 @@ def main() -> int:
         "--topik",
         type=int,
         default=5,
-        help="jumlah arketipe. Bawaan 5, dipilih konseptual — bukan ditala ke skor",
-    )
+        help="jumlah arketipe. Bawaan 5, dipilih konseptual, bukan ditala ke skor")
     p.add_argument("--seed", type=int, default=42)
     args = p.parse_args()
 
@@ -46,7 +45,7 @@ def main() -> int:
         session.close()
 
     print(f"{hasil.dokumen} dokumen, {hasil.topik} topik, {hasil.tersimpan} label tersimpan")
-    print(f"perplexity {hasil.perplexity:.1f} — dilaporkan untuk diperiksa, BUKAN dasar pemilihan\n")
+    print(f"perplexity {hasil.perplexity:.1f}, dilaporkan untuk diperiksa, BUKAN dasar pemilihan\n")
 
     print("kata kunci tiap topik:")
     for i, kata in sorted(hasil.kata_kunci.items()):

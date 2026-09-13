@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import StationSearch from "@/components/StationSearch";
 import { KELOMPOK_POI } from "@/lib/poi";
 import { KRL_LINES, lineColor, shortLabel } from "@/lib/lines";
+import { SEPI_SKALA } from "@/lib/sepi";
 import {
   REACH_CHOICES,
   bandLabel,
@@ -20,8 +21,6 @@ type Props = {
   onSelect: (station: StationFeature) => void;
   activeLines: Set<string>;
   onToggleLine: (code: string) => void;
-  showLabels: boolean;
-  onToggleLabels: (next: boolean) => void;
   showSepi: boolean;
   onToggleSepi: (next: boolean) => void;
   showIsochrone: boolean;
@@ -43,8 +42,6 @@ export default function ControlPanel({
   onSelect,
   activeLines,
   onToggleLine,
-  showLabels,
-  onToggleLabels,
   showSepi,
   onToggleSepi,
   showIsochrone,
@@ -103,11 +100,6 @@ export default function ControlPanel({
       <Section title="Layer">
         <div className="flex flex-col gap-2">
           <Toggle
-            label="Label nama stasiun"
-            checked={showLabels}
-            onChange={onToggleLabels}
-          />
-          <Toggle
             label="Skor SEPI per stasiun"
             checked={showSepi}
             onChange={onToggleSepi}
@@ -139,13 +131,23 @@ export default function ControlPanel({
               }}
             />
             <div className="mt-1 flex justify-between">
-              <span className="data-num text-[10px] text-muted">0</span>
+              <span className="data-num text-[10px] text-muted">
+                {SEPI_SKALA.bawah}
+              </span>
               <span className="label-caps text-[9px] text-muted">Skor SEPI</span>
-              <span className="data-num text-[10px] text-muted">100</span>
+              <span className="data-num text-[10px] text-muted">
+                {SEPI_SKALA.atas}
+              </span>
             </div>
             <p className="mt-2 text-[10px] leading-relaxed text-muted">
               Cincin latar di belakang penanda stasiun. Abu-abu berarti skornya
               belum dihitung.
+            </p>
+            <p className="mt-1.5 text-[10px] leading-relaxed text-muted">
+              Skalanya {SEPI_SKALA.bawah}&ndash;{SEPI_SKALA.atas}, bukan
+              0&ndash;100, karena seluruh stasiun KRL DKI memang jatuh di rentang
+              itu. Warnanya menyatakan posisi relatif antar stasiun, bukan nilai
+              mutlak.
             </p>
             <ul className="mt-2.5 flex flex-col gap-2 border-t border-hair pt-2.5 text-xs text-ink-soft">
               <LegendRow color="#c90025">Stasiun satu line</LegendRow>

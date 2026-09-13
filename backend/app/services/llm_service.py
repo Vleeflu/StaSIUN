@@ -2,7 +2,7 @@
 
 Sengaja tidak terikat ke satu penyedia. Yang dipakai adalah SDK OpenAI, dan SDK
 itu bisa diarahkan ke layanan mana pun yang menyediakan endpoint
-OpenAI-compatible — Groq, Gemini, OpenAI sendiri, dan lainnya. Berpindah
+OpenAI-compatible, Groq, Gemini, OpenAI sendiri, dan lainnya. Berpindah
 penyedia karena itu cukup mengubah tiga nilai di .env (LLM_API_KEY,
 LLM_BASE_URL, LLM_MODEL) tanpa menyentuh berkas ini.
 
@@ -51,8 +51,7 @@ class LLMService:
 
             self._client = AsyncOpenAI(
                 api_key=settings.LLM_API_KEY,
-                base_url=settings.LLM_BASE_URL,
-            )
+                base_url=settings.LLM_BASE_URL)
 
         return self._client
 
@@ -70,8 +69,7 @@ class LLMService:
         message: str,
         history: list[Message],
         context: str | None = None,
-        db=None,
-    ) -> tuple[str, list[dict]]:
+        db=None) -> tuple[str, list[dict]]:
         """Jawab satu pertanyaan, dengan alat kalau `db` diberikan.
 
         Mengembalikan (jawaban, log alat). Log berisi alat yang benar-benar
@@ -207,7 +205,7 @@ class LLMService:
 
         return (
             "Maaf, saya memanggil alat hitung berulang kali tanpa sampai ke "
-            "jawaban. Coba persempit pertanyaannya — misalnya sebutkan nama "
+            "jawaban. Coba persempit pertanyaannya, misalnya sebutkan nama "
             "stasiunnya, atau satu kategori usaha saja."
         ), log
 

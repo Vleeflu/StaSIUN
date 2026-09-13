@@ -2,7 +2,7 @@
 
 Mixin adalah kelas yang tidak pernah menjadi tabel sendiri. Isinya hanya kumpulan
 kolom yang ditempelkan ke tabel lain lewat pewarisan, supaya definisi yang sama
-tidak ditulis ulang di belasan tempat — dan supaya tidak ada satu tabel pun yang
+tidak ditulis ulang di belasan tempat, dan supaya tidak ada satu tabel pun yang
 kelupaan memakainya.
 """
 
@@ -32,8 +32,7 @@ class SourceMixin:
     """Asal data eksternal beserta tanggal aksesnya.
 
     PRD hal. 8 dan 9 mensyaratkan setiap data pendukung di luar ekosistem MAPID
-    mencantumkan sumber dan tanggal akses. Karena itu keduanya WAJIB diisi —
-    kalau boleh kosong, cepat atau lambat akan ada baris tanpa sumber dan
+    mencantumkan sumber dan tanggal akses. Karena itu keduanya WAJIB diisi, kalau boleh kosong, cepat atau lambat akan ada baris tanpa sumber dan
     klaimnya jadi tidak bisa dipertanggungjawabkan.
     """
 

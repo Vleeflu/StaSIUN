@@ -72,7 +72,7 @@ def fetch_layer(layer_id: str, timeout: float = 60.0) -> Any:
         features.extend(fresh)
 
         # Halaman tidak penuh berarti sudah habis. `fresh` kosong berarti server
-        # mengabaikan `skip` dan menyodorkan halaman yang sama — berhenti juga,
+        # mengabaikan `skip` dan menyodorkan halaman yang sama, berhenti juga,
         # daripada menumpuk permintaan yang tidak menambah apa-apa.
         if len(batch) < PAGE_SIZE or not fresh:
             break

@@ -27,7 +27,7 @@ const INITIAL_ZOOM = 11;
 const ICON_SIZE = 60;
 
 // Warna peran, dijaga sama dengan token di globals.css. MapLibre menggambar di
-// kanvas WebGL, jadi tidak bisa membaca custom property CSS — nilainya harus
+// kanvas WebGL, jadi tidak bisa membaca custom property CSS, nilainya harus
 // ditulis di sini, dan berubahnya wajib berbarengan.
 const COLOR_SEPI_UNSCORED = "#c9c4c1";
 const COLOR_SELECT = "#f2c101";
@@ -36,6 +36,9 @@ const COLOR_REACH = "#a4249e";
 // hanya saat layernya dinyalakan pengguna, tidak pernah bersamaan dengan
 // titik minat.
 const COLOR_CSR = "#1f6f5c";
+// Calon sponsor hak penamaan. Warna keenam, dan ia hanya muncul saat tab Naming
+// dibuka - tidak pernah bersamaan dengan titik minat maupun keluhan fasilitas.
+const COLOR_SPONSOR = "#6b3fa0";
 
 // Diurai satu per satu, bukan di-spread: tipe ekspresi MapLibre menuntut
 // jumlah unsurnya pasti, dan spread menghilangkan informasi itu. Nilainya
@@ -71,7 +74,6 @@ export type FlyTarget = {
 
 type Props = {
   data: StationCollection | null;
-  showLabels: boolean;
   showSepi: boolean;
   /** Garis rute skematik tiap line KRL. */
   routes: FeatureCollection | null;
@@ -85,6 +87,10 @@ type Props = {
   poiKelompok: string[];
   /** Penanda keluhan fasilitas yang lolos validasi spasial (F6-2). */
   sponsorship: FeatureCollection | null;
+  /** Calon sponsor hak penamaan; disorot saat tab Naming dibuka. */
+  kandidatSponsor: FeatureCollection | null;
+  /** Satu titik katalog yang sedang dibuka rinciannya. */
+  sorotTitik: { lon: number; lat: number; nama: string } | null;
   selected: StationFeature | null;
   flyTo: FlyTarget | null;
   onSelect: (station: StationFeature) => void;
@@ -129,7 +135,6 @@ function createPieIcon(colors: string[]): ImageData {
 
 export default function Map({
   data,
-  showLabels,
   showSepi,
   routes,
   activeLines,
@@ -138,6 +143,8 @@ export default function Map({
   pois,
   poiKelompok,
   sponsorship,
+  kandidatSponsor,
+  sorotTitik,
   selected,
   flyTo,
   onSelect,
@@ -238,6 +245,8 @@ export default function Map({
     map.addSource("isochrones", { type: "geojson", data: EMPTY_POLYGONS });
     map.addSource("station-pois", { type: "geojson", data: EMPTY_POLYGONS });
     map.addSource("sponsorship", { type: "geojson", data: EMPTY_POLYGONS });
+    map.addSource("kandidat-sponsor", { type: "geojson", data: EMPTY_POLYGONS });
+    map.addSource("titik-sorot", { type: "geojson", data: EMPTY_POLYGONS });
 
     // Rute digambar PALING BAWAH - di belakang isochrone sekalipun. Ia peta
     // dasar, bukan temuan: tugasnya membantu mata menelusuri jaringan, dan
@@ -451,6 +460,108 @@ export default function Map({
       },
     });
 
+    // Calon sponsor digambar PALING ATAS, lengkap dengan namanya. Daftar nama
+    // di panel meninggalkan pertanyaan yang paling praktis - "sebelah mana?" -
+    // dan lapisan ini yang menjawabnya. Ia berdiri sendiri, tidak ikut saklar
+    // titik minat, karena ia muncul justru saat pembaca sedang membuka tab
+    // Naming dan belum tentu menyalakan lapisan apa pun.
+    map.addLayer({
+      id: "kandidat-sponsor-titik",
+      type: "circle",
+      source: "kandidat-sponsor",
+      layout: { visibility: "none" },
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 5, 17, 9],
+        "circle-color": "#ffffff",
+        "circle-stroke-width": 3,
+        // Yang di luar inti kawasan digambar lebih pucat: tetap terlihat,
+        // tetapi tidak menuntut perhatian yang sama.
+        "circle-stroke-color": [
+          "case",
+          ["get", "dalam_inti"],
+          COLOR_SPONSOR,
+          "#b9a4b8",
+        ],
+      },
+    });
+
+    map.addLayer({
+      id: "kandidat-sponsor-label",
+      type: "symbol",
+      source: "kandidat-sponsor",
+      layout: {
+        "text-field": ["get", "nama"],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 10,
+        "text-offset": [0, 1.2],
+        "text-anchor": "top",
+        "text-max-width": 9,
+        // Nama calon sponsor bisa sepanjang "PT PROFESIONAL TELEKOMUNIKASI
+        // INDONESIA". Dibiarkan bertindih akan menutupi peta, jadi yang tidak
+        // muat disembunyikan MapLibre - kecuali yang di dalam inti kawasan,
+        // yang memang paling perlu terbaca.
+        "text-allow-overlap": false,
+        "text-ignore-placement": false,
+        visibility: "none",
+      },
+      paint: {
+        "text-color": COLOR_SPONSOR,
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.8,
+      },
+    });
+
+    // Titik katalog yang sedang dibuka rinciannya. Digambar paling akhir supaya
+    // tidak pernah tertutup apa pun - kalau pengguna sedang membaca rincian satu
+    // titik, titik itulah satu-satunya yang harus mudah ditemukan di peta.
+    map.addLayer({
+      id: "titik-sorot-halo",
+      type: "circle",
+      source: "titik-sorot",
+      layout: { visibility: "none" },
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 14, 18, 26],
+        "circle-color": COLOR_SELECT,
+        "circle-opacity": 0.25,
+      },
+    });
+
+    map.addLayer({
+      id: "titik-sorot-inti",
+      type: "circle",
+      source: "titik-sorot",
+      layout: { visibility: "none" },
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 5, 18, 8],
+        "circle-color": COLOR_SELECT,
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "#201e1d",
+      },
+    });
+
+    map.addLayer({
+      id: "titik-sorot-label",
+      type: "symbol",
+      source: "titik-sorot",
+      layout: {
+        "text-field": ["get", "nama"],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 11,
+        "text-offset": [0, 1.8],
+        "text-anchor": "top",
+        "text-max-width": 12,
+        // Dibiarkan menimpa apa pun: hanya ada satu titik sorot pada satu waktu,
+        // jadi tidak ada yang bisa ia tabrak selain dirinya sendiri.
+        "text-allow-overlap": true,
+        visibility: "none",
+      },
+      paint: {
+        "text-color": "#201e1d",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 2,
+      },
+    });
+
     const handleClick = (e: maplibregl.MapLayerMouseEvent) => {
       const hit = e.features?.[0];
       const collection = dataRef.current;
@@ -487,8 +598,7 @@ export default function Map({
 
         map.getCanvas().style.cursor = "pointer";
 
-        // Nama datang dari basis data, jadi ditempel lewat textContent —
-        // tidak pernah lewat innerHTML, sekalipun kelihatannya aman.
+        // Nama datang dari basis data, jadi ditempel lewat textContent, // tidak pernah lewat innerHTML, sekalipun kelihatannya aman.
         const box = document.createElement("div");
         const title = document.createElement("strong");
         title.textContent = String(hit.properties?.name ?? "");
@@ -623,17 +733,17 @@ export default function Map({
     }
   }, [mapReady, data]);
 
+  // Nama stasiun SELALU tampil. Sebelumnya ia saklar yang mati secara bawaan,
+  // jadi peta dibuka dengan puluhan bulatan tanpa nama - dan pengguna harus
+  // menemukan saklarnya dulu sebelum bisa mengenali satu pun stasiun. Nama
+  // bukan lapisan analisis yang perlu dipilih; ia identitas bendanya.
   useEffect(() => {
     const map = mapRef.current;
 
     if (!map || !mapReady || !map.getLayer("stations-label")) return;
 
-    map.setLayoutProperty(
-      "stations-label",
-      "visibility",
-      showLabels ? "visible" : "none"
-    );
-  }, [mapReady, showLabels]);
+    map.setLayoutProperty("stations-label", "visibility", "visible");
+  }, [mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -730,6 +840,49 @@ export default function Map({
       cocokKelompok,
     ] as never);
   }, [mapReady, pois, poiKelompok]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const source = map?.getSource("titik-sorot");
+
+    if (!map || !mapReady || !source || !map.getLayer("titik-sorot-inti")) return;
+
+    (source as maplibregl.GeoJSONSource).setData(
+      sorotTitik
+        ? {
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                geometry: {
+                  type: "Point",
+                  coordinates: [sorotTitik.lon, sorotTitik.lat],
+                },
+                properties: { nama: sorotTitik.nama },
+              },
+            ],
+          }
+        : EMPTY_POLYGONS
+    );
+
+    const tampil = sorotTitik ? "visible" : "none";
+    for (const id of ["titik-sorot-halo", "titik-sorot-inti", "titik-sorot-label"]) {
+      map.setLayoutProperty(id, "visibility", tampil);
+    }
+  }, [mapReady, sorotTitik]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const source = map?.getSource("kandidat-sponsor");
+
+    if (!map || !mapReady || !source || !map.getLayer("kandidat-sponsor-titik")) return;
+
+    (source as maplibregl.GeoJSONSource).setData(kandidatSponsor ?? EMPTY_POLYGONS);
+
+    const tampil = kandidatSponsor ? "visible" : "none";
+    map.setLayoutProperty("kandidat-sponsor-titik", "visibility", tampil);
+    map.setLayoutProperty("kandidat-sponsor-label", "visibility", tampil);
+  }, [mapReady, kandidatSponsor]);
 
   useEffect(() => {
     const map = mapRef.current;

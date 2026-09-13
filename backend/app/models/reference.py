@@ -21,8 +21,7 @@ from sqlalchemy import (
     ForeignKey,
     Numeric,
     UniqueConstraint,
-    text,
-)
+    text)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -102,7 +101,8 @@ class Poi(TimestampMixin, Base):
 
     fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    __table_args__ = (UniqueConstraint("osm_type", "osm_id", name="uq_poi_osm"),)
+    __table_args__ = (UniqueConstraint("osm_type", "osm_id", name="uq_poi_osm"),
+    )
 
 
 class PassengerVolume(SourceMixin, TimestampMixin, Base):
@@ -164,7 +164,7 @@ class PriceReference(SourceMixin, TimestampMixin, Base):
 
     Menggantikan jalur OCR yang dikeluarkan dari lingkup PRD. Karena angkanya
     tidak diukur sendiri di lapangan, sumber dan tanggal aksesnya adalah bagian
-    dari datanya, bukan pelengkap — itu sebabnya kolom itu wajib lewat
+    dari datanya, bukan pelengkap, itu sebabnya kolom itu wajib lewat
     SourceMixin.
     """
 

@@ -29,7 +29,7 @@ def metric(column):
     """Proyeksikan geometri ke UTM 48S supaya hasilnya dalam meter.
 
     Pakai ini di setiap ST_Area / ST_Distance / ST_Buffer / ST_DWithin, jangan
-    memanggil ST_Transform lepasan — supaya SRID metrik hanya ditulis di satu
+    memanggil ST_Transform lepasan, supaya SRID metrik hanya ditulis di satu
     tempat kalau suatu saat cakupannya keluar dari zona 48S.
     """
     return func.ST_Transform(column, SRID_METRIC)

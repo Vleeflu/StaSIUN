@@ -17,7 +17,7 @@ type ChatMessage = {
  *
  * Kotak masukan kosong tidak memberi tahu apa pun soal apa yang bisa dikerjakan
  * asisten. Ketiga pemantik ini dipilih supaya masing-masing memanggil alat yang
- * berbeda — peringkat tenant, simulasi bobot, dan perbandingan — sehingga
+ * berbeda, peringkat tenant, simulasi bobot, dan perbandingan, sehingga
  * sekali lihat pengguna tahu asisten ini menghitung, bukan sekadar menjawab.
  */
 function suggestionsFor(name: string | null): string[] {

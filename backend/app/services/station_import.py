@@ -99,7 +99,7 @@ def feature_to_station(feature: dict[str, Any]) -> dict | None:
     network = props.get("network") or props.get("TIPE_3") or "Lainnya"
 
     # Roster line cuma berlaku buat jaringan KAI. Tanpa penjagaan ini, stasiun
-    # senama dari moda lain ikut kebagian line KRL — Cawang LRT sempat kena,
+    # senama dari moda lain ikut kebagian line KRL, Cawang LRT sempat kena,
     # padahal letaknya 1,4 km dari Cawang KRL.
     is_kai = network.upper() in KAI_NETWORKS
 

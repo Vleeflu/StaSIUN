@@ -46,7 +46,16 @@ from openai import APIError, AsyncOpenAI, OpenAI, RateLimitError
 from app.core.config import settings
 
 # Batas HARIAN (atau kuota habis sama sekali) - pindah penyedia.
-PENANDA_HARIAN = re.compile(r"per\s+day|\bTPD\b|\bRPD\b|quota|exhausted", re.IGNORECASE)
+#
+# "payment required" ikut di sini sejak 13 Sep. Cerebras membalas 402 untuk akun
+# yang alokasi gratisnya belum aktif, dan keadaannya sama persis dengan kuota
+# habis: menunggu tidak menyembuhkan, dan mencoba ulang ke penyedia yang sama
+# hanya mengulang galat yang sama. Tanpa penanda ini, satu penyedia yang belum
+# diaktifkan akan menghentikan seluruh rantai alih-alih dilewati begitu saja.
+PENANDA_HARIAN = re.compile(
+    r"per\s+day|\bTPD\b|\bRPD\b|quota|exhausted|payment\s+required|insufficient",
+    re.IGNORECASE,
+)
 # Batas per menit - tunggu sebentar, penyedia yang sama masih bisa dipakai.
 TUNGGU = re.compile(r"try again in\s+(?:(\d+)m)?\s*([\d.]+)(ms|s)", re.IGNORECASE)
 

@@ -10,8 +10,10 @@ import EksporModal from "@/components/EksporModal";
 import PeringkatModal from "@/components/PeringkatModal";
 import Map, { type FlyTarget } from "@/components/Map";
 import StationPanel, { type Tab } from "@/components/StationPanel";
+import type { FeatureCollection } from "geojson";
 import { KELOMPOK_POI } from "@/lib/poi";
 import { useLineRoutes } from "@/hooks/useLineRoutes";
+import { useStationNaming } from "@/hooks/useStationNaming";
 import { useStationIsochrones } from "@/hooks/useStationIsochrones";
 import { useSponsorshipMarkers } from "@/hooks/useSponsorship";
 import { useStationPois } from "@/hooks/useStationPois";
@@ -33,7 +35,6 @@ export default function Explorer() {
   const [activeLines, setActiveLines] = useState<Set<string>>(
     () => new Set(KRL_LINES)
   );
-  const [showLabels, setShowLabels] = useState(false);
   const [showSepi, setShowSepi] = useState(false);
   const [showIsochrone, setShowIsochrone] = useState(false);
   const [showSponsorship, setShowSponsorship] = useState(false);
@@ -86,11 +87,55 @@ export default function Explorer() {
       kini.includes(id) ? kini.filter((x) => x !== id) : [...kini, id]
     );
   const routes = useLineRoutes();
+
+  // Calon sponsor hanya diambil saat tab Naming benar-benar dibuka. Mengambilnya
+  // di setiap pemilihan stasiun berarti satu permintaan jaringan untuk data yang
+  // biasanya tidak dilihat siapa pun.
+  const { naming } = useStationNaming(panelTab === "Naming" ? selectedId : null);
+  const kandidatSponsor = useMemo<FeatureCollection | null>(() => {
+    const daftar = naming?.kandidat_sponsor ?? [];
+    if (panelTab !== "Naming" || daftar.length === 0) return null;
+    return {
+      type: "FeatureCollection",
+      features: daftar.map((k, i) => ({
+        type: "Feature",
+        id: i,
+        geometry: { type: "Point", coordinates: [k.lon, k.lat] },
+        properties: {
+          nama: k.nama,
+          jenis: k.jenis,
+          jarak_m: k.jarak_m,
+          dalam_inti: k.dalam_inti,
+        },
+      })),
+    };
+  }, [naming, panelTab]);
   const sponsorship = useSponsorshipMarkers(showSponsorship);
 
   // Dua jendela yang berlaku untuk seluruh halaman, dibuka dari header.
   const [bukaEkspor, setBukaEkspor] = useState(false);
   const [bukaPeringkat, setBukaPeringkat] = useState(false);
+
+  // Titik katalog yang sedang dibuka rinciannya, disorot di peta. Disimpan di
+  // sini - bukan di dalam halaman timbulnya - karena yang menggambarnya peta,
+  // dan peta hidup satu tingkat di atas panel.
+  const [sorotTitik, setSorotTitik] = useState<{
+    lon: number;
+    lat: number;
+    nama: string;
+  } | null>(null);
+
+  const sorotKatalog = useCallback(
+    (titik: { lon: number; lat: number; nama: string } | null) => {
+      setSorotTitik(titik);
+      if (titik) {
+        // Zoom 16 supaya bangunan sekitarnya ikut terbaca; titik tanpa konteks
+        // tidak menjawab pertanyaan "sebelah mana".
+        setFlyTo({ lon: titik.lon, lat: titik.lat, minZoom: 16, nonce: Date.now() });
+      }
+    },
+    []
+  );
 
   const stations = shownData?.features ?? [];
   const kaiCount = kaiData?.features.length ?? 0;
@@ -193,7 +238,6 @@ export default function Explorer() {
         <div className="relative min-w-0 flex-1">
           <Map
             data={shownData}
-            showLabels={showLabels}
             showSepi={showSepi}
             routes={routes}
             activeLines={Array.from(activeLines)}
@@ -202,6 +246,8 @@ export default function Explorer() {
             pois={pois}
             poiKelompok={poiKelompok}
             sponsorship={sponsorship}
+            kandidatSponsor={kandidatSponsor}
+            sorotTitik={sorotTitik}
             selected={selected}
             flyTo={flyTo}
             onSelect={handleSelect}
@@ -215,8 +261,6 @@ export default function Explorer() {
               onSelect={handleSelect}
               activeLines={activeLines}
               onToggleLine={handleToggleLine}
-              showLabels={showLabels}
-              onToggleLabels={setShowLabels}
               showSepi={showSepi}
               onToggleSepi={setShowSepi}
               showIsochrone={showIsochrone}
@@ -250,9 +294,11 @@ export default function Explorer() {
             tab={panelTab}
             onTabChange={setPanelTab}
             simulasiPreset={simulasiPreset}
+            onSorot={sorotKatalog}
             onClose={() => {
               setSelected(null);
               setPanelTab("Ikhtisar");
+              setSorotTitik(null);
             }}
           />
         )}

@@ -1,4 +1,6 @@
 import json
+import os
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select, text
@@ -90,6 +92,33 @@ def list_stations(
 
     rows = db.execute(stmt).all()
 
+    # Stasiun yang benar-benar didatangi tim, beserta apa yang dibawanya pulang.
+    #
+    # Dipisahkan TEGAS dari confidence, dan itu disengaja. Survei lapangan
+    # menghasilkan catatan, foto, inventaris media iklan, dan skala keramaian
+    # dari narasumber - bukti yang tidak bisa didapat dari pemetaan. Tetapi ia
+    # TIDAK otomatis membuat variabel skor terukur: dari 9 stasiun yang
+    # disurvei, hanya Sudirman yang E dan C-nya lengkap. Menyatukan keduanya
+    # dalam satu lencana "data lengkap" akan menjadi klaim yang salah untuk
+    # delapan stasiun.
+    survei = {
+        r.station_id: {"titik": r.titik, "skala": r.skala}
+        for r in db.execute(
+            text(
+                """
+                SELECT ap.station_id,
+                       COUNT(*) FILTER (WHERE ap.provenance = 'survey tim') AS titik,
+                       (SELECT COUNT(*) FROM crowd_ratings cr
+                         WHERE cr.station_id = ap.station_id) AS skala
+                  FROM activity_points ap
+                 WHERE ap.station_id IS NOT NULL
+                 GROUP BY ap.station_id
+                HAVING COUNT(*) FILTER (WHERE ap.provenance = 'survey tim') > 0
+                """
+            )
+        ).all()
+    }
+
     return {
         "type": "FeatureCollection",
         "features": [
@@ -111,6 +140,9 @@ def list_stations(
                     "sepi_rank": r.rank,
                     "kecamatan": r.kecamatan,
                     "address": r.address,
+                    "survei_tim": r.id in survei,
+                    "survei_titik": survei.get(r.id, {}).get("titik", 0),
+                    "survei_skala": survei.get(r.id, {}).get("skala", 0),
                 },
             }
             for r in rows
@@ -230,6 +262,35 @@ def station_score(
             "berdata tipis turun sebanyak ketidakpastiannya sendiri. Skor yang "
             "ditampilkan tetap nilai penuhnya."
         ),
+        # Variabel yang estimasinya SAMA di seluruh stasiun, dihitung dari data
+        # sungguhan - bukan dihardcode.
+        #
+        # Kenapa ini perlu disebut ke pembaca. Saat sebuah variabel cuma terukur
+        # di satu stasiun, shrinkage tidak punya kelompok pembanding yang
+        # berbeda-beda untuk dituju, sehingga seluruh stasiun berakhir di angka
+        # yang sama persis. Itulah yang terjadi pada E: 0,908 di keempat puluh
+        # lima stasiun. Panel menampilkannya berdampingan dengan T dan A yang
+        # benar-benar berbeda per stasiun, jadi tanpa keterangan ia terbaca
+        # seperti sifat stasiun ini - padahal ia konstanta.
+        #
+        # Akibatnya pada peringkat: nol. Konstanta menggeser skor semua stasiun
+        # sama besar, jadi urutannya tidak berubah sama sekali. Yang hilang bukan
+        # ketepatan peringkat, melainkan daya beda variabel itu.
+        "seragam_di_semua_stasiun": [
+            r[0]
+            for r in db.execute(
+                text(
+                    """
+                    SELECT 'E' AS v FROM station_scores WHERE minutes = :menit
+                     HAVING COUNT(DISTINCT ROUND(raw_e::numeric, 4)) = 1
+                     UNION ALL
+                    SELECT 'C' FROM station_scores WHERE minutes = :menit
+                     HAVING COUNT(DISTINCT ROUND(raw_c::numeric, 4)) = 1
+                    """
+                ),
+                {"menit": minutes},
+            ).all()
+        ],
         "catatan_estimasi": (
             "Variabel yang belum terukur diisi estimasi shrinkage terhadap "
             "stasiun berarketipe serupa (PRD hal. 15), bukan dikosongkan. "
@@ -473,23 +534,80 @@ SELECT (SELECT COUNT(*) FROM nilai) AS total,
 # Yang diambil hanya kategori yang pemiliknya berupa badan usaha bermerek -
 # bank dan perkantoran. Warung dan tempat ibadah tidak masuk: keduanya nyata,
 # tetapi bukan calon pembeli hak penamaan stasiun.
+# Jarak lurus yang masih disebut "inti kawasan stasiun", untuk MENANDAI calon
+# sponsor - bukan untuk menyaringnya.
+#
+# Pertanyaan ini pernah diajukan dan jawabannya jujur: PRD TIDAK menetapkan
+# radius apa pun untuk calon sponsor. Di sana kandidat direncanakan datang dari
+# NER atas narasi Activity lalu diranking TOPSIS, tanpa menyebut jarak.
+#
+# Saringan yang berjalan sekarang adalah isochrone 10 menit jalan kaki, dan itu
+# pilihan kami. Konsekuensinya harus disebut: isochrone mengikuti jalan, dan 10
+# menit pada kecepatan jalan kaki wajar setara sekitar 800 m tempuh - jadi di
+# koridor lurus seperti Sudirman, titik 636 m garis lurus memang sah masuk.
+#
+# 400 m dipakai sebagai penanda karena itu konvensi pedestrian shed yang lazim
+# pada perencanaan kawasan berorientasi transit - kira-kira lima menit jalan
+# kaki, jarak yang orang tempuh tanpa berpikir dua kali. Merek yang berdiri di
+# dalamnya masuk akal disebut "melekat pada stasiun ini"; yang di luarnya tetap
+# ditampilkan, hanya diberi keterangan supaya tidak dibaca setara.
+BATAS_INTI_KAWASAN_M = 400
+
+JENIS_KANDIDAT = {
+    "atm_bank": "bank",
+    "kantor": "perkantoran",
+    "kantor_swasta": "perkantoran",
+    "coffee_shop": "kedai kopi",
+    "alfamart": "minimarket",
+    "indomaret": "minimarket",
+}
+
+# Calon sponsor = MEREK yang punya kehadiran fisik bernama di sekitar stasiun.
+#
+# Mesin ATM SENGAJA dibuang, dan ini koreksi. Sebelumnya kategori `atm_bank`
+# masuk seluruhnya, sehingga "ATM BANK BCA 2094-RAMAYANA RAGUNAN" tampil sebagai
+# calon sponsor. Sebuah mesin yang dititipkan di gedung orang lain tidak
+# menyatakan apa pun tentang kelekatan merek pada kawasan - yang menyatakan itu
+# adalah kantor, cabang, atau gerai.
+#
+# Saringannya memakai BATAS KATA, bukan awalan. Versi pertama menyaring nama
+# yang DIAWALI "ATM", dan itu meloloskan 814 mesin yang menaruh katanya di
+# tengah atau di akhir: "BANK BRI ATM", "MANDIRI ATM", "BII ATM KCP TANAH ABANG
+# BLOK A". Ketahuan dari tangkapan layar Villyan, bukan dari pengujian kode.
+#
+# Batas kata juga yang menjaga cabang tetap masuk: "BANK BTN", "CIMB NIAGA
+# (SURYOPRANOTO)", dan "BNI KLN TANAH ABANG" tidak mengandung kata ATM sama
+# sekali, jadi tidak ikut tersaring.
+#
+# Gerai ritel berjenama justru DITAMBAHKAN, karena preseden terkuatnya ada di
+# sana: Cipete Raya TUKU dinamai begitu sebab gerai pertama TUKU berdiri di
+# situ, dan Fatmawati Indomaret mengikuti pola yang sama. Kedai kopi dan
+# minimarket adalah merek yang benar-benar membeli hak penamaan di Jakarta,
+# sedangkan mesin ATM tidak pernah.
 SQL_KANDIDAT_SPONSOR = """
 SELECT p.name,
        p.category,
+       ST_X(p.location) AS lon,
+       ST_Y(p.location) AS lat,
        ROUND(ST_Distance(p.location::geography, s.location::geography)::numeric) AS jarak_m
   FROM isochrones i
   JOIN poi p ON ST_Contains(i.geom, p.location)
   JOIN stations s ON s.id = i.station_id
  WHERE i.station_id = :sid AND i.minutes = 10
-   AND p.category IN ('atm_bank', 'kantor', 'kantor_swasta')
+   AND p.source = 'mapid'
+   AND p.category IN (
+         'kantor', 'kantor_swasta', 'atm_bank',
+         'coffee_shop', 'alfamart', 'indomaret'
+       )
    AND p.name IS NOT NULL
+   AND NOT (p.category = 'atm_bank' AND p.name ~* '\y(ATM|CDM|CRM|SETOR TUNAI)\y')
  ORDER BY jarak_m
  LIMIT 12
 """
 
 
 SQL_PERINGKAT_SEPI = """
-SELECT s.name, sc.sepi AS nilai, sc.rank, sc.confidence, sc.kelas
+SELECT s.name, sc.sepi AS nilai, sc.sepi_bawah, sc.rank, sc.confidence, sc.kelas
   FROM station_scores sc JOIN stations s ON s.id = sc.station_id
  WHERE sc.minutes = :menit
  ORDER BY sc.rank
@@ -529,6 +647,7 @@ def peringkat(db: Session = Depends(get_db), minutes: int = Query(default=10, ge
             "peringkat": r["rank"],
             "stasiun": r["name"],
             "nilai": round(float(r["nilai"]), 1),
+            "nilai_bawah": round(float(r["sepi_bawah"]), 1),
             "confidence": round(float(r["confidence"]), 2),
             "kelas": r["kelas"],
         }
@@ -554,7 +673,7 @@ def peringkat(db: Session = Depends(get_db), minutes: int = Query(default=10, ge
                 "nilai": round(float(r["nilai"]), 1),
                 "nilai_bawah": round(float(r["tsi_bawah"]), 1),
                 "confidence": round(float(r["confidence"]), 2),
-                "pesaing": round(float(r["supply"]), 1),
+                "pesaing": round(float(r["supply"])),
             }
         )
 
@@ -613,8 +732,14 @@ def station_naming(station_id: int, db: Session = Depends(get_db)):
     kandidat = [
         {
             "nama": r["name"],
-            "jenis": "bank" if r["category"] == "atm_bank" else "perkantoran",
+            "jenis": JENIS_KANDIDAT.get(r["category"], "perkantoran"),
             "jarak_m": int(r["jarak_m"]),
+            # Koordinat ikut dikirim supaya calon sponsor bisa disorot di peta.
+            # Daftar nama saja menyisakan pertanyaan yang paling praktis bagi
+            # pembaca - "sebelah mana?" - padahal jawabannya sudah kita punya.
+            "lon": r["lon"],
+            "lat": r["lat"],
+            "dalam_inti": int(r["jarak_m"]) <= BATAS_INTI_KAWASAN_M,
         }
         for r in db.execute(text(SQL_KANDIDAT_SPONSOR), {"sid": station_id})
         .mappings()
@@ -656,10 +781,14 @@ def station_naming(station_id: int, db: Session = Depends(get_db)):
             "kelas_paparan": kelas_paparan(cei),
             "peringkat_paparan": peringkat,
             "dari_stasiun_krl": total_krl,
+            # Ditulis untuk calon pembaca, bukan untuk penguji metodologi.
+            # Versi sebelumnya menyebut nomor halaman PRD dan membantah SEPI -
+            # keduanya urusan internal tim, dan pembaca yang baru membuka tab ini
+            # tidak sedang bertanya variabel mana yang kami pakai.
             "catatan": (
-                "Nilai paparan inilah dasar valuasi hak penamaan menurut PRD "
-                "hal. 13 - bukan SEPI. Stasiun berpaparan tinggi menjangkau "
-                "lebih banyak mata setiap hari, dan itu yang dibeli sponsor."
+                "Yang dibeli sponsor adalah jumlah orang yang melihat namanya "
+                "setiap hari. Angka ini mengukur itu: seberapa banyak mata yang "
+                "melintasi stasiun ini dibanding stasiun KRL lain."
             ),
         },
         "peluang_pasar": {
@@ -667,17 +796,48 @@ def station_naming(station_id: int, db: Session = Depends(get_db)):
             "mrt_lrt_total": ringkasan["total"],
             "krl_terjual": 0,
             "krl_total": total_krl,
-            "catatan": (
-                "Pasarnya terbukti ada di Jakarta: 12 dari 31 stasiun MRT dan "
-                "LRT hak penamaannya sudah terjual. Di jaringan KRL, praktis "
-                "belum tersentuh - dan justru di situ ruang tumbuhnya."
-            ),
+            # Angkanya sudah tampil sebagai dua baris di panel, jadi kalimat
+            # yang mengulanginya cuma menambah panjang - apalagi kalimat yang
+            # menyimpulkan sendiri bahwa ini peluang. Pembaca yang melihat
+            # "0 dari 45" sanggup menarik kesimpulan itu tanpa dibantu.
+            "catatan": "",
         },
         "kandidat_sponsor": kandidat,
+        "batas_inti_kawasan_m": BATAS_INTI_KAWASAN_M,
+        # Dua penjelasan yang selama ini tidak pernah diberikan: dari mana
+        # angkanya, dan kenapa nama-nama itu yang muncul.
+        "cara_hitung": {
+            "indeks": (
+                "Angka paparan menggabungkan tiga hal yang bisa diukur: seberapa "
+                "banyak moda lain bertemu di stasiun ini (bobot 50%), seberapa "
+                "ramai stasiunnya menurut catatan lapangan (30%), dan seberapa "
+                "padat bangunan di sekitarnya (20%). Ketiganya disamakan dulu ke "
+                "skala 0-100 sebelum digabung, lalu hasilnya dibandingkan dengan "
+                "44 stasiun KRL lain untuk menentukan peringkat."
+            ),
+            "kenapa_bobot": (
+                "Jumlah moda diberi bobot terbesar karena stasiun yang menjadi "
+                "titik pindah dilewati orang yang tidak tinggal maupun bekerja di "
+                "sekitarnya - dan mereka tetap melihat namanya."
+            ),
+            "kandidat": (
+                "Calon sponsor dipilih dari merek yang punya kantor, cabang, atau "
+                "gerai bernama dalam jangkauan jalan kaki, lalu diurutkan dari "
+                "yang terdekat. Mesin ATM tidak dihitung: ia dititipkan di gedung "
+                "pihak lain dan tidak menyatakan kelekatan merek pada kawasan."
+            ),
+        },
+        "catatan_kandidat": (
+            f"Calon sponsor diambil dari seluruh titik dalam jangkauan jalan "
+            f"kaki 10 menit. Yang berjarak lebih dari {BATAS_INTI_KAWASAN_M} m "
+            f"garis lurus ditandai terpisah: masih terjangkau jalan kaki, tetapi "
+            f"di luar jarak yang biasanya disebut inti kawasan stasiun."
+        ),
         "nilai_kontrak": None,
         "alasan_nilai_kosong": (
-            "Butuh pembanding transaksi naming rights nyata di Indonesia (PRD "
-            "hal. 13). Belum ada, jadi tidak ditebak."
+            "Nilai kontrak baru bisa dihitung kalau ada data transaksi hak "
+            "penamaan yang benar-benar terjadi di Indonesia sebagai pembanding. "
+            "Data itu belum tersedia untuk ditampilkan di sini."
         ),
         "selisih_daftar": periksa_daftar(db),
     }
@@ -803,3 +963,68 @@ def rute_line(db: Session = Depends(get_db)):
         )
 
     return {"type": "FeatureCollection", "features": fitur}
+
+
+@router.get("/kesegaran")
+def kesegaran_data(db: Session = Depends(get_db)):
+    """Kapan tiap kumpulan data terakhir diperbarui, dan hasil penyegaran terakhir.
+
+    KENAPA PERLU. Begitu aplikasinya publik, yang membaca angka tidak punya cara
+    tahu apakah yang dilihatnya hasil kemarin atau hasil tiga bulan lalu. Tanggal
+    penyegaran bukan hiasan: keputusan sewa dan tarif iklan diambil dari angka
+    ini, dan angka yang usang tetap terlihat meyakinkan.
+
+    Dibaca dari stempel waktu baris yang sudah ada, bukan dari tabel pencatat
+    baru. Tabel pencatat bisa bercerita berbeda dari datanya sendiri kalau ada
+    tahap yang gagal separuh jalan; stempel waktu barisnya tidak bisa.
+    """
+    baris = db.execute(
+        text(
+            """
+            SELECT 'Activity' AS kumpulan, MAX(updated_at) AS terakhir,
+                   COUNT(*) AS jumlah FROM activity_points
+            UNION ALL
+            SELECT 'Titik minat', MAX(updated_at), COUNT(*) FROM poi
+            UNION ALL
+            SELECT 'Guna lahan kawasan', MAX(updated_at), COUNT(*) FROM area_profile
+            UNION ALL
+            -- `station_scores` dan `tenant_scores` TIDAK punya kolom stempel
+            -- waktu, jadi tanggalnya dibiarkan kosong alih-alih diisi tanggal
+            -- hari ini. Angka kosong yang jujur lebih baik daripada tanggal
+            -- yang seolah-olah hasil pencatatan. Kesegarannya terbaca dari
+            -- `penyegaran_terakhir` di bawah.
+            SELECT 'Skor SEPI', NULL, COUNT(*) FROM station_scores
+            UNION ALL
+            SELECT 'Indeks kelayakan usaha', NULL, COUNT(*) FROM tenant_scores
+            """
+        )
+    ).mappings().all()
+
+    # Ringkasan penyegaran terakhir, kalau orkestratornya pernah jalan.
+    jalan_terakhir = None
+    jalur = Path(os.environ.get("REFRESH_STATUS", "/tmp/stasiun_refresh.json"))
+    try:
+        if jalur.exists():
+            jalan_terakhir = json.loads(jalur.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        # Status yang tidak terbaca bukan alasan endpoint ini gagal; data
+        # kesegarannya sendiri sudah cukup menjawab pertanyaan utamanya.
+        jalan_terakhir = None
+
+    return {
+        "kumpulan": [
+            {
+                "nama": r["kumpulan"],
+                "terakhir_diperbarui": r["terakhir"].isoformat() if r["terakhir"] else None,
+                "jumlah_baris": r["jumlah"],
+            }
+            for r in baris
+        ],
+        "penyegaran_terakhir": jalan_terakhir,
+        "catatan": (
+            "Tanggal di atas menunjukkan kapan baris terakhir pada tiap kumpulan "
+            "data ditulis. Penyegaran dijalankan terjadwal melalui "
+            "scripts.refresh_data; tahap yang menarik data dari Overpass "
+            "dijalankan terpisah karena memerlukan waktu jauh lebih lama."
+        ),
+    }

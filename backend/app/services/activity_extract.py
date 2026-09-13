@@ -64,8 +64,7 @@ POLA_KANDIDAT = re.compile(
     r"(iklan|banner|videotron|\bLED\b|billboard|gapura|lightbox|"
     r"unit|kios|lapak|tenant|gerai|"
     r"keluhan|rusak|kotor|panas|bocor|bau|gelap|antre)",
-    re.IGNORECASE,
-)
+    re.IGNORECASE)
 
 # Kata yang menandai catatan KONDISI fasilitas, baik buruk maupun baik. Daftar
 # pertama di atas hanya berisi kata keluhan, sehingga catatan "banyak tempat
@@ -75,8 +74,7 @@ POLA_FASILITAS = re.compile(
     r"lift|tangga|\bAC\b|kipas|pencahayaan|lampu|terang|gelap|bersih|kotor|"
     r"nyaman|sempit|luas|licin|bocor|panas|sejuk|sampah|rusak|antre|"
     r"penunjuk\s+arah|signage|ramp|difabel|disabilitas|trotoar|peneduh|kanopi)",
-    re.IGNORECASE,
-)
+    re.IGNORECASE)
 
 # Penyaring kasar sebelum memanggil model: narasi yang tidak menyebut angka
 # rupiah sama sekali tidak mungkin memuat harga, dan memanggil model untuknya
@@ -104,8 +102,7 @@ SKEMA_HARGA = """{
 BUKAN_MEDIA_IKLAN = re.compile(
     r"^\s*(toilet|pos polisi|atm|vending|tempat sampah|bollard|penanda|"
     r"papan nama|rambu|hydrant|musala|mushola|loker|kursi|bangku)",
-    re.IGNORECASE,
-)
+    re.IGNORECASE)
 
 SKEMA = """{
   "iklan": [{"jenis": "str", "jumlah": int, "status": "terpakai|kosong", "kutipan": "str"}],
@@ -201,8 +198,7 @@ def _normalkan(teks: str) -> str:
     """Rapatkan spasi dan turunkan huruf, untuk mencocokkan kutipan.
 
     Model kadang menyalin dengan spasi ganda atau memotong di tengah kata.
-    Menormalkan keduanya menghindari penolakan karena beda spasi semata —
-    tetapi TIDAK melonggarkan isinya: kata yang tidak ada tetap tidak ketemu.
+    Menormalkan keduanya menghindari penolakan karena beda spasi semata, tetapi TIDAK melonggarkan isinya: kata yang tidak ada tetap tidak ketemu.
     """
     return re.sub(r"\s+", " ", teks).strip().lower()
 
@@ -258,12 +254,24 @@ def ekstrak_satu(
             {"role": "user", "content": narasi},
         ],
         response_format={"type": "json_object"},
-        extra_body={"reasoning_effort": "low"},
-    )
+        extra_body={"reasoning_effort": "low"})
     if balasan is None:
         return None
 
-    isi = balasan.choices[0].message.content or ""
+    # `choices` bisa KOSONG atau None sekalipun permintaannya dibalas 200.
+    # Terjadi 13 Sep di tengah penarikan: satu penyedia mengembalikan balasan
+    # tanpa choices sama sekali, dan `balasan.choices[0]` melempar TypeError
+    # yang menghentikan SELURUH ekstraksi pada narasi ke-526 dari 1.034.
+    #
+    # Satu balasan cacat tidak boleh membatalkan sisa antrean. Narasi ini
+    # dilewati, penanda `llm_ec_at`-nya tidak ditulis, jadi ia akan dicoba lagi
+    # pada penyegaran berikutnya - persis perlakuan yang sama dengan JSON yang
+    # gagal diurai di bawah.
+    pilihan = getattr(balasan, "choices", None)
+    if not pilihan:
+        return None
+
+    isi = (getattr(pilihan[0].message, "content", None) or "")
     try:
         return json.loads(isi)
     except json.JSONDecodeError:
@@ -333,8 +341,7 @@ def _simpan(
                 "jumlah": jumlah,
                 "status": status if status in ("terpakai", "kosong") else "terpakai",
                 "catatan": item.get("kutipan")[:300],
-            },
-        )
+            })
         hasil.iklan += 1
 
     lapak = data.get("lapak")
@@ -360,8 +367,7 @@ def _simpan(
                 "terisi": terisi if terisi is not None else 0,
                 "kosong": (total - terisi) if terisi is not None else 0,
                 "catatan": lapak.get("kutipan")[:300],
-            },
-        )
+            })
         hasil.klaster += 1
     elif total is not None and not kutipan_sah(lapak.get("kutipan"), narasi):
         hasil.kutipan_ditolak += 1
@@ -385,8 +391,7 @@ def _simpan(
                 "sid": station_id, "pid": point_id, "nama": nama[:120],
                 "kat": (item.get("kategori") or "lainnya")[:60],
                 "status": status if status in ("aktif", "tutup", "kosong") else "aktif",
-            },
-        )
+            })
         hasil.tenant += 1
 
     _simpan_harga(session, station_id, point_id, narasi, data, hasil)
@@ -431,8 +436,7 @@ def _simpan_harga(
                  FROM activity_points ap, stations s
                 WHERE ap.id = :pid AND s.id = :sid"""
         ),
-        {"pid": point_id, "sid": station_id},
-    ).scalar()
+        {"pid": point_id, "sid": station_id}).scalar()
     if jarak is not None and jarak > BATAS_AREA_STASIUN_M:
         hasil.harga_luar_stasiun += len(_objek(data.get("harga"), hasil))
         return
@@ -464,8 +468,7 @@ def _simpan_harga(
                 "satuan": (item.get("satuan") or "per porsi")[:40],
                 "sid": station_id,
                 "pid": point_id,
-            },
-        )
+            })
         hasil.harga += 1
 
 
@@ -503,8 +506,7 @@ def _simpan_fasilitas(
                 "jenis": (item.get("jenis") or "lainnya")[:60],
                 "desk": (item.get("ringkasan") or item.get("kutipan"))[:500],
                 "sentimen": sentimen,
-            },
-        )
+            })
         hasil.keluhan += 1
         if sentimen is not None and sentimen > 0:
             hasil.fasilitas_positif += 1
@@ -563,16 +565,14 @@ def ekstrak_harga_ulang(
              ORDER BY s.served DESC, ap.id
             """
         ),
-        {"stasiun": stasiun},
-    ).all()
+        {"stasiun": stasiun}).all()
 
     for point_id, station_id, narasi in baris:
         if not POLA_HARGA.search(narasi or ""):
             hasil.dilewati += 1
             session.execute(
                 text("UPDATE activity_points SET llm_harga_at = now() WHERE id = :i"),
-                {"i": point_id},
-            )
+                {"i": point_id})
             session.commit()
             continue
         if batas is not None and hasil.diproses >= batas:
@@ -594,14 +594,12 @@ def ekstrak_harga_ulang(
                 "DELETE FROM price_references WHERE activity_point_id = :i "
                 "AND source = 'survey activity'"
             ),
-            {"i": point_id},
-        )
+            {"i": point_id})
         if station_id is not None:
             _simpan_harga(session, station_id, point_id, narasi, data, hasil)
         session.execute(
             text("UPDATE activity_points SET llm_harga_at = now() WHERE id = :i"),
-            {"i": point_id},
-        )
+            {"i": point_id})
         session.commit()
 
     hasil.penyedia_terpakai = rantai.terpakai
@@ -612,8 +610,7 @@ def ekstrak_semua(
     session: Session,
     batas: int | None = None,
     stasiun: list[str] | None = None,
-    menyebut: str | None = None,
-) -> HasilEkstraksi:
+    menyebut: str | None = None) -> HasilEkstraksi:
     """Ekstrak E dan C dari seluruh narasi yang berpeluang memuatnya.
 
     `menyebut` menyaring berdasarkan ISI narasi, bukan stasiunnya. Ditambahkan
@@ -651,8 +648,7 @@ def ekstrak_semua(
              ORDER BY s.served DESC, ap.id
             """
         ),
-        {"stasiun": stasiun, "menyebut": menyebut},
-    ).all()
+        {"stasiun": stasiun, "menyebut": menyebut}).all()
 
     for point_id, station_id, narasi in baris:
         if not (POLA_KANDIDAT.search(narasi or "") or POLA_FASILITAS.search(narasi or "")):
@@ -681,8 +677,7 @@ def ekstrak_semua(
                 "UPDATE activity_points SET llm_ec_at = now(), "
                 "llm_fasilitas_at = now(), llm_harga_at = now() WHERE id = :i"
             ),
-            {"i": point_id},
-        )
+            {"i": point_id})
 
         # Commit per entri supaya penarikan panjang yang terputus di tengah
         # tidak kehilangan seluruh pekerjaannya.
@@ -716,16 +711,14 @@ def ekstrak_fasilitas_ulang(
              ORDER BY s.served DESC, ap.id
             """
         ),
-        {"stasiun": stasiun},
-    ).all()
+        {"stasiun": stasiun}).all()
 
     for point_id, station_id, narasi in baris:
         if not POLA_FASILITAS.search(narasi or ""):
             hasil.dilewati += 1
             session.execute(
                 text("UPDATE activity_points SET llm_fasilitas_at = now() WHERE id = :i"),
-                {"i": point_id},
-            )
+                {"i": point_id})
             continue
         if batas is not None and hasil.diproses >= batas:
             break
@@ -745,8 +738,7 @@ def ekstrak_fasilitas_ulang(
         _simpan_fasilitas(session, station_id, point_id, narasi, data, hasil)
         session.execute(
             text("UPDATE activity_points SET llm_fasilitas_at = now() WHERE id = :i"),
-            {"i": point_id},
-        )
+            {"i": point_id})
         session.commit()
 
     session.commit()

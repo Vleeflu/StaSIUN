@@ -1,7 +1,7 @@
 """Tenant Survival Index: seberapa aman satu jenis usaha dibuka di satu stasiun.
 
 Pertanyaan yang dijawab persis pertanyaan pemilik UMKM sebelum tanda tangan
-sewa — kalau saya buka warung kopi di sini, pelanggannya cukup atau sudah
+sewa, kalau saya buka warung kopi di sini, pelanggannya cukup atau sudah
 diperebutkan terlalu banyak orang?
 
 Jawabannya satu perbandingan sederhana: berapa calon pelanggan yang bisa
@@ -19,15 +19,14 @@ from app.services.scoring.tenant_dalam import (
     CONFIDENCE_TAKSIRAN,
     CONFIDENCE_TERUKUR,
     cacah_per_stasiun,
-    taksir,
-)
+    taksir)
 
 # Kategori yang masuk akal mengisi lapak stasiun. Sisanya sengaja tidak
 # diskor: masjid, museum, dan halte bukan sesuatu yang disewakan, dan kantor
 # tidak muat di lapak peron.
 # Lajur bawaan adalah "mapid", bukan "overpass". Kategori di bawah adalah nama
 # layer GEO MAPID; lajur Overpass hanya punya 11 kelas kasar (ritel,
-# makanan_minuman, ...) sehingga saringan `category = 'alfamart'` tidak akan
+# makanan_minuman...) sehingga saringan `category = 'alfamart'` tidak akan
 # pernah cocok di sana. Peran ini sudah ditetapkan di ADJUSTMENT 8.5: MAPID
 # menjadi sisi PASOKAN GapScore, justru karena taksonominya lebih halus.
 TENANT_CATEGORIES = ["makanan_minuman", "coffee_shop", "minimarket", "apotek"]
@@ -139,7 +138,7 @@ def _scale_to_100(values: list[float]) -> list[float]:
 
     Di sini min-max justru yang benar, kebalikan dari matriks SEPI. Skornya
     dibaca manusia sebagai peringkat relatif antar stasiun, bukan disuapkan ke
-    entropy — jadi memakai seluruh rentang malah bikin bedanya kebaca.
+    entropy, jadi memakai seluruh rentang malah bikin bedanya kebaca.
     """
     low, high = min(values), max(values)
     span = high - low
@@ -167,8 +166,7 @@ def compute_category(
                 "menit_pesaing": menit_pesaing,
                 "sumber": sumber,
                 "networks": list(SCORED_NETWORKS),
-            },
-        )
+            })
         .mappings()
         .all()
     )
@@ -180,7 +178,7 @@ def compute_category(
     if tanpa_pita:
         raise TenantError(
             f"{len(tanpa_pita)} stasiun belum punya isochrone {menit_pesaing} menit "
-            f"({', '.join(tanpa_pita[:3])}...), padahal pita itulah yang dipakai "
+            f"({', '.join(tanpa_pita[:3])}, ...), padahal pita itulah yang dipakai "
             f"menghitung pesaing. Jalankan dulu pembuatan isochrone untuk pita "
             f"{menit_pesaing} menit."
         )
@@ -211,7 +209,7 @@ def compute_category(
     if missing:
         raise TenantError(
             f"pita {minutes} menit: {len(missing)} stasiun belum punya skor SEPI "
-            f"({', '.join(missing[:3])}...). "
+            f"({', '.join(missing[:3])}, ...). "
             f"Jalankan dulu: python -m scripts.compute_sepi --minutes {minutes}"
         )
 

@@ -57,7 +57,7 @@ from sqlalchemy.orm import Session
 
 # Stopword Bahasa Indonesia, ditulis di sini alih-alih menambah satu dependensi
 # lagi hanya untuk sebuah daftar kata. Ditambah kata-kata yang muncul di hampir
-# setiap narasi survey ("stasiun", "pengamatan", "terlihat") — kata yang ada di
+# setiap narasi survey ("stasiun", "pengamatan", "terlihat"), kata yang ada di
 # mana-mana tidak memisahkan apa pun dan justru mendominasi tiap topik.
 STOPWORD = {
     "yang", "dan", "di", "ke", "dari", "ini", "itu", "pada", "untuk", "dengan",
@@ -97,7 +97,7 @@ def _bersihkan(teks: str) -> str:
     """Buang tagar, URL, dan angka sebelum pemodelan.
 
     Tagar dibuang karena ia menandai TIM, bukan isi. Membiarkannya akan membuat
-    LDA menemukan "topik" yang sebenarnya cuma pengelompokan per tim — persis
+    LDA menemukan "topik" yang sebenarnya cuma pengelompokan per tim, persis
     kebalikan dari universalitas yang PRD minta.
     """
     teks = re.sub(r"#\w+", " ", teks)
@@ -109,13 +109,12 @@ def _bersihkan(teks: str) -> str:
 def hitung_arketipe(
     session: Session,
     jumlah_topik: int = JUMLAH_TOPIK_BAWAAN,
-    seed: int = 42,
-) -> HasilArketipe:
+    seed: int = 42) -> HasilArketipe:
     """Latih LDA atas seluruh narasi Activity, lalu beri label tiap titik.
 
     `seed` dikunci supaya hasilnya bisa direproduksi. LDA punya komponen acak;
     tanpa seed tetap, arketipe sebuah stasiun bisa berubah antar-jalan tanpa
-    satu pun datanya berubah — dan itu akan sangat membingungkan saat ditanya.
+    satu pun datanya berubah, dan itu akan sangat membingungkan saat ditanya.
     """
     hasil = HasilArketipe(topik=jumlah_topik)
 
@@ -144,16 +143,14 @@ def hitung_arketipe(
         stop_words=list(STOPWORD),
         min_df=MIN_DOKUMEN,
         max_df=MAKS_PROPORSI,
-        token_pattern=r"(?u)\b[a-z]{4,}\b",
-    )
+        token_pattern=r"(?u)\b[a-z]{4,}\b")
     matriks = vectorizer.fit_transform(korpus)
 
     lda = LatentDirichletAllocation(
         n_components=jumlah_topik,
         random_state=seed,
         learning_method="batch",
-        max_iter=30,
-    )
+        max_iter=30)
     sebaran = lda.fit_transform(matriks)
     hasil.perplexity = float(lda.perplexity(matriks))
 
@@ -189,8 +186,7 @@ def hitung_arketipe(
                     {"model": "sklearn.LatentDirichletAllocation",
                      "n_components": jumlah_topik, "seed": seed}
                 ),
-            },
-        )
+            })
         hasil.tersimpan += 1
 
     # Arketipe per stasiun: topik yang paling sering dominan di titik-titiknya.

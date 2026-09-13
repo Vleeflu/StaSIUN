@@ -25,6 +25,7 @@ export default function KatalogModal({
   areas,
   sponsorship,
   segmenAwal = "iklan",
+  onSorot,
   onClose,
 }: {
   stasiun: string;
@@ -32,6 +33,7 @@ export default function KatalogModal({
   areas: AreaStasiun[];
   sponsorship: LaporanSponsorship | null;
   segmenAwal?: Segmen;
+  onSorot: (titik: { lon: number; lat: number; nama: string } | null) => void;
   onClose: () => void;
 }) {
   const [segmen, setSegmen] = useState<Segmen>(segmenAwal);
@@ -60,15 +62,35 @@ export default function KatalogModal({
   const peluang = sponsorship?.peluang ?? [];
 
   return (
+    // DUA BENTUK, satu komponen.
+    //
+    // Saat masih memilih dari daftar, ia halaman timbul biasa: di tengah,
+    // selebar mungkin, latar digelapkan - pengguna memang sedang membandingkan
+    // banyak titik dan tidak butuh peta.
+    //
+    // Begitu satu titik dibuka, pertanyaannya berubah jadi "sebelah mana?", dan
+    // jawabannya ada di peta yang justru sedang tertutup. Maka ia merapat jadi
+    // kolom kiri, latarnya dilepas, dan `pointer-events-none` pada pembungkus
+    // mengembalikan peta menjadi bisa digeser dan diklik. Menutup halaman ini
+    // untuk melihat peta bukan jalan keluar - rinciannya ikut hilang, padahal
+    // itu yang sedang dibaca.
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+      className={
+        terpilih
+          ? "pointer-events-none fixed inset-0 z-50 flex items-stretch justify-start p-3"
+          : "fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+      }
       role="dialog"
-      aria-modal="true"
+      aria-modal={terpilih ? undefined : true}
       aria-label={`Katalog ${stasiun}`}
-      onClick={onClose}
+      onClick={terpilih ? undefined : onClose}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-3xl flex-col border border-ink bg-panel"
+        className={
+          terpilih
+            ? "pointer-events-auto flex w-[440px] max-w-[calc(100%-1.5rem)] flex-col border border-ink bg-panel shadow-2xl"
+            : "flex max-h-[88vh] w-full max-w-3xl flex-col border border-ink bg-panel"
+        }
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex shrink-0 items-start justify-between gap-3 border-b border-hair p-4">
@@ -116,7 +138,10 @@ export default function KatalogModal({
             area={terpilih}
             cei={score?.paparan?.cei ?? null}
             kelasPaparan={score?.paparan?.kelas ?? null}
-            onKembali={() => setTerpilih(null)}
+            onKembali={() => {
+              setTerpilih(null);
+              onSorot(null);
+            }}
           />
         ) : (
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -147,7 +172,14 @@ export default function KatalogModal({
               ) : (
                 <ul className="flex flex-col gap-3">
                   {tampil.map((a) => (
-                    <KartuIklan key={a.id} area={a} onBuka={() => setTerpilih(a)} />
+                    <KartuIklan
+                      key={a.id}
+                      area={a}
+                      onBuka={() => {
+                        setTerpilih(a);
+                        onSorot({ lon: a.lon, lat: a.lat, nama: a.nama });
+                      }}
+                    />
                   ))}
                 </ul>
               )}
@@ -215,6 +247,13 @@ function DetailTitik({
         ← Kembali ke katalog
       </button>
 
+      {/* Penanda bahwa titik ini sedang ditunjuk di peta sebelah. Tanpa kalimat
+          ini, sorotan kuning di peta bisa terbaca sebagai kebetulan. */}
+      <p className="mb-2 border-l-2 border-select pl-2 text-[11px] leading-relaxed text-muted">
+        Titik ini sedang ditandai di peta sebelah kanan. Petanya tetap bisa
+        digeser dan diperbesar tanpa menutup halaman ini.
+      </p>
+
       <h3 className="text-lg font-bold leading-snug tracking-[-0.01em]">{area.nama}</h3>
       <p className="mt-1 text-[11px] text-muted">
         {area.di_stasiun ? "Di dalam area stasiun" : `${area.jarak_m} m dari stasiun`} ·{" "}
@@ -238,7 +277,7 @@ function DetailTitik({
               {rincian.map((j) => (
                 <li key={j.jenis} className="flex items-baseline gap-2 text-xs">
                   <span className="data-num w-8 shrink-0 text-ink-soft">
-                    {j.jumlah > 0 ? `${j.jumlah}×` : "—"}
+                    {j.jumlah > 0 ? `${j.jumlah}×` : "-"}
                   </span>
                   <span className="text-ink-soft">{j.jenis}</span>
                 </li>
@@ -268,10 +307,10 @@ function DetailTitik({
           <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
             {kelasPaparan}.{" "}
             {cei >= 70
-              ? "Jangkauannya luas — layak untuk merek besar yang mengejar kesadaran luas."
+              ? "Jangkauannya luas, layak untuk merek besar yang mengejar kesadaran luas."
               : cei >= 40
-                ? "Jangkauannya menengah — paling efektif untuk merek yang menyasar komuter harian."
-                : "Jangkauannya terbatas — cocok untuk penawaran lokal, dan itu perlu disampaikan sejak awal."}
+                ? "Jangkauannya menengah, paling efektif untuk merek yang menyasar komuter harian."
+                : "Jangkauannya terbatas, cocok untuk penawaran lokal, dan itu perlu disampaikan sejak awal."}
           </p>
           <p className="mt-1 text-[10px] leading-relaxed text-muted">
             Nilai ini berlaku untuk STASIUN, bukan untuk titik ini sendiri. Yang
@@ -286,7 +325,7 @@ function DetailTitik({
             Iklan yang cocok di titik ini
           </p>
           <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-            Waktu singgah <strong>{area.waktu_singgah.label}</strong> —{" "}
+            Waktu singgah <strong>{area.waktu_singgah.label}</strong>, {" "}
             {area.waktu_singgah.alasan}
             {area.waktu_singgah.dari_pola_stasiun && " (mengikuti pola umum stasiun ini)"}.
           </p>
@@ -401,7 +440,9 @@ function KartuIklan({ area, onBuka }: { area: AreaStasiun; onBuka: () => void })
           {area.nama}
         </h3>
         <span className="label-caps shrink-0 text-[9px] text-muted">
-          {area.di_stasiun ? "di dalam stasiun" : `${area.jarak_m} m dari stasiun`}
+          {area.di_stasiun
+            ? `di dalam stasiun · ${area.jarak_m} m`
+            : `${area.jarak_m} m dari stasiun`}
         </span>
       </div>
 
@@ -432,7 +473,7 @@ function KartuIklan({ area, onBuka }: { area: AreaStasiun; onBuka: () => void })
         {rincian.map((j) => (
           <li key={j.jenis} className="flex items-baseline gap-2 text-[11px] leading-relaxed">
             <span className="data-num shrink-0 text-ink-soft">
-              {j.jumlah > 0 ? `${j.jumlah}×` : "—"}
+              {j.jumlah > 0 ? `${j.jumlah}×` : "-"}
             </span>
             <span className="text-ink-soft">{j.jenis}</span>
           </li>
@@ -443,7 +484,7 @@ function KartuIklan({ area, onBuka }: { area: AreaStasiun; onBuka: () => void })
         <div className="mt-2 border-t border-canvas pt-2">
           <p className="text-[11px] leading-relaxed text-ink-soft">
             <span className="label-caps mr-1 text-[9px] text-muted">Pola singgah</span>
-            <strong>{area.waktu_singgah.label}</strong> — {area.waktu_singgah.alasan}
+            <strong>{area.waktu_singgah.label}</strong>, {area.waktu_singgah.alasan}
             {area.waktu_singgah.dari_pola_stasiun && (
               <span className="text-muted"> (mengikuti pola umum stasiun ini)</span>
             )}
@@ -510,7 +551,7 @@ function KartuFasilitas({ peluang }: { peluang: LaporanSponsorship["peluang"][nu
       </div>
 
       <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
-        <strong>{u.bentuk}</strong> — kondisi {peluang.jenis} di titik ini perlu
+        <strong>{u.bentuk}</strong>, kondisi {peluang.jenis} di titik ini perlu
         pembenahan
         {peluang.jumlah_laporan > 1 && `, dilaporkan ${peluang.jumlah_laporan} kali`}.
       </p>
@@ -525,6 +566,20 @@ function KartuFasilitas({ peluang }: { peluang: LaporanSponsorship["peluang"][nu
         <p className="mt-2 border-l-2 border-hair pl-2 text-[11px] italic leading-relaxed text-muted">
           “{peluang.keluhan}”
         </p>
+      )}
+
+      {/*
+        Foto hanya muncul kalau surveyor benar-benar memotret. Tidak ada bingkai
+        kosong maupun tulisan "tanpa foto": keluhan tanpa foto tetap keluhan yang
+        sah, dan menandainya kekurangan akan membuat pembaca meragukan laporan
+        yang sebenarnya baik-baik saja.
+      */}
+      {peluang.foto?.length > 0 && (
+        <div className="mt-2 flex gap-1.5 overflow-x-auto">
+          {peluang.foto.map((url) => (
+            <FotoSurvei key={url} url={url} nama={peluang.jenis} />
+          ))}
+        </div>
       )}
     </li>
   );

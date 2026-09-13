@@ -99,7 +99,7 @@ export default function EksporModal({
             <>
               <p className="text-xs leading-relaxed text-ink-soft">
                 Seluruh analisis stasiun ini dalam satu dokumen yang bisa
-                dibagikan — potensi kawasan, ruang iklan, kelayakan usaha, dan
+                dibagikan, potensi kawasan, ruang iklan, kelayakan usaha, dan
                 hak penamaan sekaligus. Pilih dulu siapa pembacanya; urutan dan
                 penekanannya menyesuaikan.
               </p>
@@ -133,7 +133,7 @@ export default function EksporModal({
               <p className="mt-3 text-[10px] leading-relaxed text-muted">
                 Persona mengubah urutan dan penekanan bagian, bukan angkanya.
                 Metadata keyakinan selalu ikut di semua versi. Dokumennya terbuka
-                di tab baru sebagai halaman web — cetak jadi PDF lewat Ctrl+P.
+                di tab baru sebagai halaman web, cetak jadi PDF lewat Ctrl+P.
               </p>
             </>
           )}

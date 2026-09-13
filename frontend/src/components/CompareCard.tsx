@@ -101,7 +101,7 @@ export default function CompareCard({ stationIds, names, onOpen, onClose }: Prop
                     #{s.rank}
                     {s.sensitivity && (
                       <span className="block text-[10px] text-muted">
-                        {s.sensitivity.peringkat_min}–{s.sensitivity.peringkat_maks}
+                        {s.sensitivity.peringkat_min}, {s.sensitivity.peringkat_maks}
                       </span>
                     )}
                   </td>
@@ -109,7 +109,7 @@ export default function CompareCard({ stationIds, names, onOpen, onClose }: Prop
                     const v = s.components[c.key];
                     return (
                       <td key={c.key} className="data-num px-1 py-1.5 text-right text-ink-soft">
-                        {v === null ? <span className="text-muted">—</span> : v.toFixed(2)}
+                        {v === null ? <span className="text-muted">-</span> : v.toFixed(2)}
                       </td>
                     );
                   })}
@@ -118,7 +118,7 @@ export default function CompareCard({ stationIds, names, onOpen, onClose }: Prop
             </tbody>
           </table>
           <p className="border-t border-hair px-3 py-2 text-[10px] leading-relaxed text-muted">
-            Angka di bawah peringkat adalah rentangnya di lima skema bobot. Tanda — berarti
+            Angka di bawah peringkat adalah rentangnya di lima skema bobot. Tanda, berarti
             variabel itu belum terukur di stasiun tersebut.
           </p>
         </div>

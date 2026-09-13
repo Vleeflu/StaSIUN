@@ -11,14 +11,14 @@ Keduanya punya titik buta yang berlawanan, dan itulah alasan digabung:
 
   Entropy  membaca "apa yang benar-benar bervariasi di data ini". Buta terhadap
            makna. Kalau seluruh stasiun DKI kebetulan punya Permeability Index
-           mirip, variabel Aksesibilitas akan diberi bobot NOL — padahal
+           mirip, variabel Aksesibilitas akan diberi bobot NOL, padahal
            seluruh argumen PRD berdiri di atas pentingnya isochrone.
 
   AHP      membaca "apa yang menurut ahli penting". Buta terhadap data. Bisa
            memberi bobot besar pada variabel yang di wilayah studi ini
            ternyata tidak membedakan apa pun.
 
-Menggabungkan keduanya bukan basa-basi metodologis — itu menambal dua kegagalan
+Menggabungkan keduanya bukan basa-basi metodologis, itu menambal dua kegagalan
 yang arahnya berlawanan.
 """
 
@@ -31,7 +31,7 @@ import numpy as np
 RANDOM_INDEX = {1: 0.0, 2: 0.0, 3: 0.58, 4: 0.90, 5: 1.12, 6: 1.24, 7: 1.32, 8: 1.41, 9: 1.45, 10: 1.49}
 
 # Ambang PRD. Di atas ini, penilaian ahli dianggap terlalu saling bertentangan
-# untuk dipakai, dan matriksnya harus diperbaiki — bukan hasilnya dipaksakan.
+# untuk dipakai, dan matriksnya harus diperbaiki, bukan hasilnya dipaksakan.
 AMBANG_CR = 0.10
 
 
@@ -47,11 +47,11 @@ def bobot_entropy(matriks: np.ndarray) -> np.ndarray:
         d_j  = 1 - e_j                     derajat divergensi
         w_j  = d_j / sum_j d_j             bobot ternormalisasi
 
-    PERHATIKAN ARAHNYA — ini kebalikan dari entropi Shannon pada keberagaman
+    PERHATIKAN ARAHNYA, ini kebalikan dari entropi Shannon pada keberagaman
     fungsi lahan, walau rumusnya sama persis. Di sana indeksnya berjalan atas
     KATEGORI dalam satu stasiun dan entropi tinggi berarti beragam (bagus).
     Di sini indeksnya berjalan atas STASIUN dalam satu kriteria, dan entropi
-    tinggi berarti semua stasiun bernilai mirip — kriteria itu tidak membantu
+    tinggi berarti semua stasiun bernilai mirip, kriteria itu tidak membantu
     membedakan apa pun, jadi bobotnya kecil.
 
     Periksa kasus batasnya:
@@ -78,7 +78,7 @@ def bobot_entropy(matriks: np.ndarray) -> np.ndarray:
         p = p[p > 0]
         e = -np.sum(p * np.log(p)) / np.log(ada.size)
 
-        # PENSKALAAN CAKUPAN — tanpa ini bobot entropi antar-kolom tidak
+        # PENSKALAAN CAKUPAN, tanpa ini bobot entropi antar-kolom tidak
         # sebanding, dan akibatnya parah.
         #
         # Entropi di atas dinormalkan dengan ln(jumlah pengamatan KOLOM ITU),
@@ -109,20 +109,19 @@ def bobot_ahp(perbandingan: np.ndarray, paksa: bool = False) -> tuple[np.ndarray
 
     Kalau penilaiannya konsisten sempurna, ada vektor bobot w dengan
     a_ij = w_i/w_j, sehingga A = w (1/w)^T berperingkat 1 dan nilai eigennya
-    (n, 0, ..., 0). Vektor eigen utamanya tepat w. Penilaian manusia tidak
-    pernah sekonsisten itu, jadi A adalah perturbasi matriks peringkat-1 —
-    Perron-Frobenius menjamin masih ada lambda_max real positif tunggal.
+    (n, 0..., 0). Vektor eigen utamanya tepat w. Penilaian manusia tidak
+    pernah sekonsisten itu, jadi A adalah perturbasi matriks peringkat-1, Perron-Frobenius menjamin masih ada lambda_max real positif tunggal.
 
         CI = (lambda_max - n) / (n - 1)
         CR = CI / RI(n)
 
     Asal CI: karena diagonal A semuanya 1, tr(A) = n = jumlah seluruh nilai
     eigen. Maka rata-rata nilai eigen non-utama = (n - lambda_max)/(n - 1),
-    yaitu -CI. Jadi CI adalah negatif rata-rata nilai eigen non-utama — ukuran
+    yaitu -CI. Jadi CI adalah negatif rata-rata nilai eigen non-utama, ukuran
     seberapa banyak "massa" yang bocor keluar dari struktur peringkat-1.
 
     Mengembalikan (bobot, CR). Melempar AHPTidakKonsisten kalau CR >= 0,10,
-    kecuali `paksa` dinyalakan — dan itu hanya untuk keperluan uji, tidak boleh
+    kecuali `paksa` dinyalakan, dan itu hanya untuk keperluan uji, tidak boleh
     dipakai di jalur produksi.
     """
     a = np.asarray(perbandingan, dtype=float)

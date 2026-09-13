@@ -27,7 +27,7 @@ export function poiLabel(category: string): string {
  * komersial adalah pesaing, sisanya calon pelanggan.
  *
  * Bedanya ditandai lewat isian bulatan, bukan rona baru. Peta sudah memikul
- * tiga peran warna — merah skor, kuning pilihan, magenta jangkauan — plus enam
+ * tiga peran warna, merah skor, kuning pilihan, magenta jangkauan, plus enam
  * warna line KRL; empat rona tambahan akan membuat semuanya tidak terbaca.
  */
 /**

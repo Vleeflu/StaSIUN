@@ -16,7 +16,7 @@ Ada tiga cara memperlakukan variabel kosong, dan dua di antaranya salah:
   bobot dinormalisasi ulang atas variabel yang ADA  -> yang dipakai di sini.
 
 Cara ketiga menjawab pertanyaan yang jujur: "berdasarkan yang kita tahu
-sekarang, seberapa besar potensinya" — bukan berpura-pura tahu yang belum
+sekarang, seberapa besar potensinya", bukan berpura-pura tahu yang belum
 diketahui. Konsekuensinya harus ikut dilaporkan: skor yang disusun dari dua
 variabel tidak sebanding dengan skor lima variabel, dan itulah yang dicatat
 kolom `variabel_terpakai` serta `confidence`.
@@ -54,22 +54,18 @@ KELAS = (
         40,
         "Low Potential",
         "Hindari investasi tenant menetap. Cocok untuk vending machine atau "
-        "iklan luar ruang informatif berbiaya rendah.",
-    ),
+        "iklan luar ruang informatif berbiaya rendah."),
     (
         40,
         70,
         "Moderate Potential",
-        "Layak untuk ekspansi UMKM tipe grab-and-go dengan harga sewa standar pasar.",
-    ),
+        "Layak untuk ekspansi UMKM tipe grab-and-go dengan harga sewa standar pasar."),
     (
         70,
         100,
         "Premium Transit Hub",
         "Target Naming Rights, penempatan brand korporat besar, dan justifikasi "
-        "sewa kelas premium.",
-    ),
-)
+        "sewa kelas premium."))
 
 
 @dataclass
@@ -131,8 +127,7 @@ def hitung_sepi(
     terukur: np.ndarray | None = None,
     penalti: list[float] | None = None,
     batas_modifier: float = 0.15,
-    sebaran: np.ndarray | None = None,
-) -> list[SkorSepi]:
+    sebaran: np.ndarray | None = None) -> list[SkorSepi]:
     """Susun skor SEPI dari matriks variabel yang sudah ternormalisasi.
 
     `matriks` berukuran (jumlah stasiun x 5), kolomnya mengikuti urutan
@@ -152,7 +147,7 @@ def hitung_sepi(
     NaN di `matriks` seperti sebelumnya.
 
     `penalti` (opsional, 0..1 per stasiun) adalah modifier dari model berbasis
-    teks — saat ini polaritas sentimen keluhan fasilitas. PRD hal. 16 membatasi
+    teks, saat ini polaritas sentimen keluhan fasilitas. PRD hal. 16 membatasi
     kontribusinya "maksimal 15 persen terhadap skor akhir", jadi diterapkan
     sebagai pengali:
 
@@ -230,7 +225,6 @@ def hitung_sepi(
                 confidence=confidence_dari_kelengkapan(terpakai),
                 nilai_dasar=min(max(dasar, 0.0), 100.0),
                 nilai_bawah=nilai_bawah,
-                penalti_teks=p,
-            )
+                penalti_teks=p)
         )
     return hasil

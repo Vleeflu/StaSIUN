@@ -7,11 +7,11 @@ stasiun).
 
 Tiga catatan yang menentukan bentuk modul ini:
 
-1. Overpass menolak permintaan dengan User-Agent bawaan pustaka HTTP — jawaban
+1. Overpass menolak permintaan dengan User-Agent bawaan pustaka HTTP, jawaban
    yang keluar 406 Not Acceptable, bukan pesan yang menjelaskan. Karena itu
    USER_AGENT di bawah wajib dikirim.
 2. Yang diambil `nwr` (node, way, relation), bukan `node` saja. Pengamatan di
-   tiga stasiun contoh: 916 dari 1.487 elemen bertipe `way` — mal, rumah sakit,
+   tiga stasiun contoh: 916 dari 1.487 elemen bertipe `way`, mal, rumah sakit,
    dan sekolah di OSM digambar sebagai poligon bangunan, bukan titik. Mengambil
    node saja membuang justru pembangkit perjalanan terbesar.
 3. Dua kategori TIDAK mewakili fungsi lahan dan karena itu dikecualikan dari
@@ -31,7 +31,7 @@ from typing import Any
 
 import httpx
 
-# Modul layanan tidak mencetak langsung ke layar — dia melapor lewat logging,
+# Modul layanan tidak mencetak langsung ke layar, dia melapor lewat logging,
 # dan skrip pemanggilnya yang memutuskan apakah laporan itu ditampilkan.
 log = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class OverpassError(RuntimeError):
 # bukan dari daftar teoretis. Urutan pemeriksaannya penting dan sengaja
 # ditulis eksplisit di kategori(): satu objek bisa membawa beberapa kunci
 # sekaligus (misal amenity=pharmacy + healthcare=pharmacy), jadi harus ada
-# aturan yang menentukan mana yang menang — kalau tidak, hasilnya berubah-ubah
+# aturan yang menentukan mana yang menang, kalau tidak, hasilnya berubah-ubah
 # mengikuti urutan tag yang kebetulan dikirim server.
 
 AMENITY_KATEGORI = {
@@ -133,7 +133,7 @@ AMENITY_KATEGORI = {
 # Perabot jalan: ADA di lapangan, tetapi BUKAN fungsi lahan. Bangku, tempat
 # sampah, dan pintu masuk parkir tidak menarik siapa pun datang ke sebuah
 # kawasan, jadi memasukkannya ke perhitungan keberagaman fungsi lahan itu
-# keliru — dan keliru yang tidak merata, karena banyaknya bangku yang
+# keliru, dan keliru yang tidak merata, karena banyaknya bangku yang
 # terpetakan lebih mencerminkan kerajinan pemeta OpenStreetMap di daerah itu
 # daripada keadaan kawasannya.
 #
@@ -186,7 +186,7 @@ def kategori(tags: dict[str, str]) -> str:
 
     Urutan pemeriksaan menentukan hasil, jadi ditulis dari yang paling khusus
     ke yang paling umum. Nilai amenity yang tidak dikenali sengaja jatuh ke
-    "lainnya", bukan dipaksa masuk kategori terdekat — kategori palsu lebih
+    "lainnya", bukan dipaksa masuk kategori terdekat, kategori palsu lebih
     berbahaya daripada kategori "lainnya" yang jujur.
     """
     amenity = tags.get("amenity")
@@ -247,22 +247,20 @@ def fetch(
                     url,
                     data={"data": query},
                     headers={"User-Agent": USER_AGENT},
-                    timeout=timeout,
-                )
+                    timeout=timeout)
                 response.raise_for_status()
 
                 # Berhasil, tetapi kalau sempat gagal sebelumnya, itu WAJIB
                 # terdengar. Percobaan ulang yang diam-diam berhasil membuat
                 # "Overpass sehat" dan "Overpass hampir tumbang" terlihat
-                # sama persis dari luar — padahal keduanya menuntut tindakan
+                # sama persis dari luar, padahal keduanya menuntut tindakan
                 # berbeda. Sebelum ini, satu-satunya petunjuk cuma waktu
                 # penarikan yang janggal.
                 if kesalahan:
                     log.warning(
                         "Overpass berhasil setelah %d kegagalan: %s",
                         len(kesalahan),
-                        " | ".join(kesalahan),
-                    )
+                        " | ".join(kesalahan))
                 return response.json().get("elements", [])
             except httpx.HTTPError as exc:
                 kesalahan.append(f"putaran {putaran + 1} {url}: {exc}")
@@ -274,8 +272,7 @@ def fetch(
             log.warning(
                 "Overpass gagal di putaran %d, menunggu %d detik lalu mengulang.",
                 putaran + 1,
-                jeda,
-            )
+                jeda)
             time.sleep(jeda)
 
     raise OverpassError("Overpass gagal setelah semua percobaan -> " + " | ".join(kesalahan))
@@ -285,7 +282,7 @@ def element_to_poi(element: dict[str, Any]) -> dict | None:
     """Ubah satu elemen Overpass jadi baris siap-simpan, atau None kalau dilewati.
 
     Node membawa lat/lon langsung; way dan relation membawa `center` hasil
-    permintaan `out center`. Elemen tanpa keduanya dilewati — tanpa koordinat,
+    permintaan `out center`. Elemen tanpa keduanya dilewati, tanpa koordinat,
     sebuah titik minat tidak berguna untuk analisis spasial apa pun.
     """
     tags = element.get("tags") or {}

@@ -10,7 +10,7 @@ Pakai:
 --reset menghapus isi stations, isochrones, pois, station_scores, dan
 tenant_scores. Ketiganya bisa diisi
 ulang penuh dari MAPID lewat scripts.ingest_layers, jadi tidak ada yang
-hilang permanen — tapi tetap perlu diketik sendiri, bukan jalan diam-diam.
+hilang permanen, tapi tetap perlu diketik sendiri, bukan jalan diam-diam.
 """
 
 import argparse
@@ -26,8 +26,7 @@ from app.models import (  # noqa: F401
     Poi,
     Station,
     StationScore,
-    TenantScore,
-)
+    TenantScore)
 
 # Urutannya penting saat --reset: yang mengacu ke tabel lain dihapus dulu.
 PROJECT_TABLES = (
@@ -35,8 +34,7 @@ PROJECT_TABLES = (
     StationScore.__table__,
     Isochrone.__table__,
     Poi.__table__,
-    Station.__table__,
-)
+    Station.__table__)
 
 
 def main() -> int:
@@ -44,8 +42,7 @@ def main() -> int:
     parser.add_argument(
         "--reset",
         action="store_true",
-        help="hapus dulu tabel proyek sebelum dibuat ulang",
-    )
+        help="hapus dulu tabel proyek sebelum dibuat ulang")
     args = parser.parse_args()
 
     with engine.begin() as conn:

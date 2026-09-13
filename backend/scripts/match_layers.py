@@ -1,7 +1,7 @@
 """Cocokkan layer POI di MAPID dengan katalog, lalu isi layers.yml.
 
-Nama layer di GEO MAPID berpola tetap — "<KATEGORI> DI KOTA ADMINISTRASI
-<WILAYAH> TAHUN <n> IMPORTED AT <tanggal>" — jadi id-nya bisa dijodohkan
+Nama layer di GEO MAPID berpola tetap, "<KATEGORI> DI KOTA ADMINISTRASI
+<WILAYAH> TAHUN <n> IMPORTED AT <tanggal>", jadi id-nya bisa dijodohkan
 sendiri ke kategori dan wilayah di katalog. Jauh lebih cepat daripada menyalin
 70 id satu per satu, dan tidak bisa salah tempel.
 
@@ -49,7 +49,7 @@ def match_category(name: str, hints: dict[str, str]) -> str | None:
     """Cari kategori yang petunjuknya cocok di awal nama layer.
 
     Diurut dari petunjuk terpanjang supaya "KANTOR SWASTA" menang atas
-    "KANTOR" — kalau tidak, keduanya jatuh ke kategori yang sama.
+    "KANTOR", kalau tidak, keduanya jatuh ke kategori yang sama.
     """
     for hint, category in sorted(hints.items(), key=lambda kv: -len(kv[0])):
         if name.startswith(hint):
@@ -60,7 +60,7 @@ def match_category(name: str, hints: dict[str, str]) -> str | None:
 def layer_rank(layer: dict, name: str) -> tuple:
     """Urutan menang kalau satu slot diperebutkan beberapa layer.
 
-    Satu kategori sering punya beberapa terbitan — misalnya halte edisi 2024
+    Satu kategori sering punya beberapa terbitan, misalnya halte edisi 2024
     dan 2025. Yang tahunnya paling baru menang; kalau seri, yang diunggah
     belakangan. Tanpa aturan ini pemenangnya ikut urutan balasan API, jadi
     hasilnya bisa berubah-ubah tiap dijalankan.

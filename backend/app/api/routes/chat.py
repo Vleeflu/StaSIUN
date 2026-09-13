@@ -17,7 +17,7 @@ async def chat(req: ChatRequest, db: Session = Depends(get_db)):
 
     try:
         # `db` diteruskan supaya model boleh memanggil alat hitung di
-        # `ai_tools` — MCDA dengan bobot pilihan pengguna, penyaringan stasiun,
+        # `ai_tools`, MCDA dengan bobot pilihan pengguna, penyaringan stasiun,
         # peringkat tenant, perbandingan. Tanpa argumen ini asisten kembali jadi
         # tanya-jawab biasa yang hanya membaca konteks.
         reply, log = await llm_service.chat(

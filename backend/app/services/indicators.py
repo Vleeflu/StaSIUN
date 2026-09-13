@@ -1,7 +1,7 @@
 """Perhitungan indikator penyusun SEPI dari data yang sudah ada di database.
 
 Satu berkas ini menjawab pertanyaan "berapa nilai T, E, A, U, C untuk tiap
-stasiun" — tetapi hanya untuk bagian yang datanya sudah tersedia. Bagian yang
+stasiun", tetapi hanya untuk bagian yang datanya sudah tersedia. Bagian yang
 datanya belum masuk sengaja mengembalikan None, bukan angka asumsi, supaya
 ketiadaan data terlihat jelas dan ikut menurunkan confidence, bukan menyamar
 jadi nilai nol yang tampak sah.
@@ -24,7 +24,7 @@ lapak, dan indeks sentimen. Titik minat di luar stasiun menyuapi U, dan halte
 menyuapi T. Penjagaannya ada di scripts/ingest_layers.py lewat VARIABEL_SAH.
 
 Perhitungan dijalankan sebagai SQL, bukan Python, karena jaraknya dihitung
-antara 19 ribu titik minat dan 78 stasiun — hampir 1,5 juta pemeriksaan. Itu
+antara 19 ribu titik minat dan 78 stasiun, hampir 1,5 juta pemeriksaan. Itu
 pekerjaan indeks GiST, dan memindahkannya ke Python berarti membuang gunanya
 indeks itu dibuat.
 """
@@ -39,7 +39,7 @@ from app.core.geo import SRID_METRIC
 # Cincin isochrone yang dipakai sebagai batas kawasan variabel U.
 #
 # PRD hal. 12 menetapkan tiga cincin: 5, 10, dan 15 menit. Untuk variabel U
-# dipilih 10 menit sebagai bawaan, tapi ini KEPUTUSAN, bukan keharusan — dan
+# dipilih 10 menit sebagai bawaan, tapi ini KEPUTUSAN, bukan keharusan, dan
 # ketiganya harus diuji terhadap korelasi dengan volume penumpang sebelum
 # dikunci. Parameternya dibiarkan terbuka supaya pengujian itu tinggal
 # mengganti argumen, bukan menyunting SQL.
@@ -79,15 +79,15 @@ JUMLAH_KATEGORI = {"overpass": 11, "mapid": 8}
 #                    variabel T, bukan U, jadi tidak boleh dihitung dua kali.
 #
 # fasilitas_jalan juga dikeluarkan dari hitungan KEPADATAN, karena bangku bukan
-# "titik minat". `lainnya` tetap dihitung sebagai kepadatan — dia titik minat
+# "titik minat". `lainnya` tetap dihitung sebagai kepadatan, dia titik minat
 # sungguhan, hanya belum tergolongkan.
 BUKAN_FUNGSI_LAHAN = {
     "overpass": ("fasilitas_jalan", "lainnya"),
-    "mapid": ("transportasi",),
+    "mapid": ("transportasi"),
 }
 TIDAK_DIHITUNG_SEBAGAI_POI = {
-    "overpass": ("fasilitas_jalan",),
-    "mapid": ("transportasi",),
+    "overpass": ("fasilitas_jalan"),
+    "mapid": ("transportasi"),
 }
 
 # Titik minat yang menarik perjalanan dalam jumlah besar, bukan sekadar
@@ -172,10 +172,10 @@ SELECT pk.station_id,
        -- Dibagi ln(jumlah fungsi yang MUNGKIN, bukan yang teramati) supaya
        -- nilai tinggi hanya didapat stasiun yang fungsinya banyak sekaligus
        -- merata. Kalau dibagi jumlah teramati, stasiun berfungsi dua yang
-       -- terbagi 50/50 akan dapat nilai sempurna — jelas bukan "beragam".
+       -- terbagi 50/50 akan dapat nilai sempurna, jelas bukan "beragam".
        -- Hanya kategori yang mewakili fungsi lahan yang ikut. Proporsinya
        -- dihitung ulang terhadap total fungsi lahan saja (t.total_fungsi),
-       -- bukan terhadap seluruh titik — kalau tidak, jumlah p_i tidak sama
+       -- bukan terhadap seluruh titik, kalau tidak, jumlah p_i tidak sama
        -- dengan 1 dan hasilnya bukan entropi lagi.
        (-sum(
             CASE WHEN pk.fungsi <> ALL(:bukan_fungsi)
@@ -215,7 +215,7 @@ class IsochroneBelumSiap(RuntimeError):
 
     Ada supaya kegagalannya berbunyi. Tanpa penjagaan ini, JOIN ke tabel kosong
     hanya mengembalikan nol baris, dan nol baris terlihat persis seperti "belum
-    dijalankan" — bukan seperti kesalahan. Pola itu sudah tujuh kali muncul di
+    dijalankan", bukan seperti kesalahan. Pola itu sudah tujuh kali muncul di
     proyek ini dalam bentuk angka yang masuk akal tapi keliru.
     """
 
@@ -223,8 +223,7 @@ class IsochroneBelumSiap(RuntimeError):
 def hitung_urban(
     session: Session,
     menit: int = MENIT_CATCHMENT,
-    sumber: str = "overpass",
-) -> list[IndikatorUrban]:
+    sumber: str = "overpass") -> list[IndikatorUrban]:
     """Hitung bahan variabel U untuk seluruh stasiun, dibatasi isochrone.
 
     `sumber` memilih lajur data, dan dua lajur TIDAK boleh dijumlahkan:
@@ -233,7 +232,7 @@ def hitung_urban(
     Satu keterbatasan lajur "mapid" yang harus disadari sebelum memakainya:
     pembangkit_perjalanan akan selalu 0. Penanda pembangkit dibaca dari tag OSM
     mentah (shop=mall, amenity=hospital, amenity=university, leisure=stadium),
-    dan layer MAPID tidak membawa tag mentah sama sekali — 15 kategorinya juga
+    dan layer MAPID tidak membawa tag mentah sama sekali, 15 kategorinya juga
     tidak memuat mal, rumah sakit, universitas, maupun stadion sebagai kategori
     tersendiri. Padahal PRD Tabel 6 menyebut "jumlah pembangkit perjalanan
     berskala besar" sebagai bagian variabel U. Artinya lajur MAPID sendirian
@@ -262,7 +261,7 @@ def hitung_urban(
     if cek.tersambung == 0:
         raise IsochroneBelumSiap(
             f"{cek.n} poligon {menit} menit ada, tapi tidak satu pun tersambung "
-            "ke stasiun. Kemungkinan stations.osm_id belum terisi — seed ulang stasiun."
+            "ke stasiun. Kemungkinan stations.osm_id belum terisi, seed ulang stasiun."
         )
     if cek.tanpa_luas:
         raise IsochroneBelumSiap(
@@ -278,8 +277,7 @@ def hitung_urban(
             "jumlah_kategori": JUMLAH_KATEGORI[sumber],
             "bukan_fungsi": list(BUKAN_FUNGSI_LAHAN[sumber]),
             "bukan_poi": list(TIDAK_DIHITUNG_SEBAGAI_POI[sumber]),
-        },
-    ).all()
+        }).all()
 
     return [
         IndikatorUrban(
@@ -295,8 +293,7 @@ def hitung_urban(
             kepadatan_per_km2=r.jumlah_poi / (float(r.area_m2) / 1_000_000.0),
             keberagaman=float(r.keberagaman),
             jumlah_kategori=r.jumlah_kategori,
-            pembangkit_perjalanan=r.pembangkit_perjalanan,
-        )
+            pembangkit_perjalanan=r.pembangkit_perjalanan)
         for r in baris
     ]
 
@@ -307,7 +304,7 @@ class IndikatorTransportasi:
 
     volume_penumpang sengaja tidak ada di sini. Selama N4 belum masuk, satu
     dari empat indikator T memang hilang, dan itu harus terlihat sebagai
-    ketiadaan — bukan ditambal angka rata-rata yang membuat stasiun sepi dan
+    ketiadaan, bukan ditambal angka rata-rata yang membuat stasiun sepi dan
     stasiun ramai jadi tampak sama.
     """
 
@@ -324,7 +321,7 @@ class IndikatorTransportasi:
 
         KOREKSI 8 SEP. Versi sebelumnya hanya menghitung stasiun REL lain dari
         tabel `stations`, sehingga halte bus, TransJakarta, taksi, dan parkir
-        motor tidak pernah ikut — hasilnya cuma 8 dari 78 stasiun yang tercatat
+        motor tidak pernah ikut, hasilnya cuma 8 dari 78 stasiun yang tercatat
         punya moda terhubung, padahal pengamatan lapangan menunjukkan hampir
         semua stasiun punya. Namanya menjanjikan lebih daripada yang diukur.
 
@@ -344,7 +341,7 @@ class IndikatorTransportasi:
 RADIUS_ANTARMODA_M = 500
 
 # Moda yang dihitung sebagai konektivitas antarmoda. Dikenali dari tag OSM
-# mentah, bukan dari tabel stations — inilah koreksi 8 Sep.
+# mentah, bukan dari tabel stations, inilah koreksi 8 Sep.
 MODA_LAIN = """(
     p.osm_tags->>'amenity' IN ('bus_station', 'bus_stop', 'taxi', 'car_rental',
                                'car_pooling', 'bicycle_rental', 'motorcycle_parking')
@@ -400,8 +397,7 @@ def hitung_transportasi(
     """Hitung bagian variabel T yang tidak bergantung pada data sekunder."""
     baris = session.execute(
         text(SQL_TRANSPORTASI),
-        {"srid_metric": SRID_METRIC, "radius": radius_m},
-    ).all()
+        {"srid_metric": SRID_METRIC, "radius": radius_m}).all()
 
     return [
         IndikatorTransportasi(
@@ -410,14 +406,13 @@ def hitung_transportasi(
             jumlah_line=r.jumlah_line,
             interchange=r.interchange,
             moda_rel=r.moda_rel,
-            moda_jalan=r.moda_jalan,
-        )
+            moda_jalan=r.moda_jalan)
         for r in baris
     ]
 
 
 # ---------------------------------------------------------------------------
-# Variabel E (Ekonomi) dan C (Komersial) — kerangka untuk data Activity
+# Variabel E (Ekonomi) dan C (Komersial), kerangka untuk data Activity
 # ---------------------------------------------------------------------------
 #
 # PRD Tabel 6 menetapkan keduanya bersumber dari survey Activity DI DALAM
@@ -430,7 +425,7 @@ def hitung_transportasi(
 #
 # Per 11 Sep tabel Activity masih kosong: cara menarik data Activity dari API
 # GEO MAPID belum diketahui dan sedang ditanyakan ke mentor MAPID. Fungsi di
-# bawah SENGAJA tidak melempar error kalau tabelnya kosong — berbeda dari
+# bawah SENGAJA tidak melempar error kalau tabelnya kosong, berbeda dari
 # `hitung_urban`, yang melempar karena isochrone kosong memang berarti ada
 # langkah yang terlewat. Di sini nol baris adalah keadaan yang DIHARAPKAN.
 #
@@ -472,7 +467,7 @@ class IndikatorEkonomi:
 
 # `media_iklan` SENGAJA tanpa COALESCE(..., 0). Stasiun yang hanya tercatat
 # punya keluhan fasilitas, tanpa satu pun baris ad_spots, iklannya TIDAK
-# DIAMATI — bukan tidak ada. Versi sebelumnya mengisinya 0, dan Jakarta Kota
+# DIAMATI, bukan tidak ada. Versi sebelumnya mengisinya 0, dan Jakarta Kota
 # (0 baris ad_spots, 2 keluhan) karena itu tercatat "nol media iklan" lalu
 # jatuh dari peringkat 1 ke 16 (ADJUSTMENT 9.28). SUM atas nol baris memberi
 # NULL, dan NULL itu yang benar.
@@ -597,8 +592,7 @@ def hitung_komersial(session: Session) -> list[IndikatorKomersial]:
                 ad_spot_terisi=r.ad_spot_terisi,
                 keterisian_lapak=(terisi / total) if total else None,
                 sentimen_fasilitas=float(r.sentimen) if r.sentimen is not None else None,
-                jumlah_keluhan=r.jumlah_keluhan,
-            )
+                jumlah_keluhan=r.jumlah_keluhan)
         )
     return hasil
 
@@ -622,7 +616,7 @@ def hitung_ekonomi(session: Session) -> list[IndikatorEkonomi]:
     """Bahan variabel E dari hasil survey Activity. Kosong sampai N1 tertutup."""
     hasil = []
     for r in session.execute(text(SQL_EKONOMI),
-        {"min_tenant": MIN_TENANT_UNTUK_E, "min_harga": MIN_HARGA_UNTUK_E},).all():
+        {"min_tenant": MIN_TENANT_UNTUK_E, "min_harga": MIN_HARGA_UNTUK_E}).all():
         hasil.append(
             IndikatorEkonomi(
                 station_id=r.station_id,
@@ -638,14 +632,13 @@ def hitung_ekonomi(session: Session) -> list[IndikatorEkonomi]:
                 ),
                 harga_median_idr=(
                     float(r.harga_median) if r.harga_median is not None else None
-                ),
-            )
+                ))
         )
     return hasil
 
 
 # ---------------------------------------------------------------------------
-# Skala keramaian narasumber — indikator keempat variabel T
+# Skala keramaian narasumber, indikator keempat variabel T
 # ---------------------------------------------------------------------------
 #
 # PRD Tabel 6 mendaftarkan empat indikator untuk T: volume penumpang, jumlah
@@ -657,10 +650,10 @@ def hitung_ekonomi(session: Session) -> list[IndikatorEkonomi]:
 #
 # Nilai gabungan per stasiun lintas rentang waktu memakai MEDIAN, bukan
 # puncaknya. Puncak hampir selalu 5 di stasiun mana pun yang punya jam sibuk,
-# sehingga ia tidak memisahkan apa-apa — diuji 11 Sep, kelima stasiun berdata
+# sehingga ia tidak memisahkan apa-apa, diuji 11 Sep, kelima stasiun berdata
 # puncaknya 5 semua.
 #
-# KENAPA MEDIAN, DAN KENAPA (median - 1) / 4 — PRD HAL. 10
+# KENAPA MEDIAN, DAN KENAPA (median - 1) / 4, PRD HAL. 10
 # Skala 1-5 adalah data ORDINAL: urutannya bermakna, jaraknya tidak. Tingkat 4
 # tidak berarti "dua kali" tingkat 2. PRD hal. 10 menetapkan dua hal:
 #   1. "nilai gabungan dihitung menggunakan median, yang merupakan operasi yang
@@ -732,8 +725,7 @@ def hitung_keramaian(session: Session) -> list[IndikatorKeramaian]:
             skala_median=setara_lima(float(r.skala_normal)),
             skala_rata=setara_lima(float(r.rata_normal)),
             jumlah_penilaian=r.jumlah_penilaian,
-            rentang_terisi=r.rentang_terisi,
-        )
+            rentang_terisi=r.rentang_terisi)
         for r in session.execute(text(SQL_KERAMAIAN)).all()
     ]
 
@@ -751,6 +743,6 @@ def hitung_volume_penumpang(session: Session) -> dict[int, float]:
 
     Indikator pertama variabel T menurut PRD Tabel 6. Cakupannya baru 10 dari
     45 stasiun; yang tidak punya TIDAK diberi nol, melainkan tidak muncul di
-    hasil — supaya pemakainya bisa membedakan "sepi" dari "belum diukur".
+    hasil, supaya pemakainya bisa membedakan "sepi" dari "belum diukur".
     """
     return {r.station_id: float(r.per_hari) for r in session.execute(text(SQL_VOLUME)).all()}

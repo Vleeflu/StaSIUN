@@ -220,6 +220,7 @@ class HasilSponsorship:
 SQL_KELUHAN = """
 SELECT f.id, f.station_id, s.name AS station_name, f.issue_type, f.description,
        f.sentiment_score, ap.id AS point_id, ap.name AS point_name,
+       ap.photo_urls AS foto,
        ST_X(ap.location) AS lon, ST_Y(ap.location) AS lat,
        round(ST_Distance(ST_Transform(ap.location, 32748),
                          ST_Transform(s.location, 32748))::numeric) AS jarak_m
@@ -311,6 +312,18 @@ def _validasi(db: Session, baris, teks: str, menit: int) -> dict:
     }
 
 
+def _foto(mentah) -> list[str]:
+    """Ambil URL foto yang benar-benar berupa teks alamat.
+
+    `photo_urls` datang dari lajur Activity dan isinya tidak dijamin: pernah
+    berupa daftar string, pernah daftar objek. Yang bukan string dibuang diam-
+    diam daripada meloloskan nilai yang akan gagal dimuat di peramban.
+    """
+    if not isinstance(mentah, list):
+        return []
+    return [u for u in mentah if isinstance(u, str) and u.startswith("http")]
+
+
 def peluang_sponsorship(
     db: Session, station_id: int | None = None, menit: int = MENIT_BAWAAN
 ) -> HasilSponsorship:
@@ -368,6 +381,11 @@ def peluang_sponsorship(
                     "jarak_m": int(baris.jarak_m) if baris.jarak_m is not None else None,
                     "nama_titik": baris.point_name,
                 },
+                # Foto lapangan ikut dikirim kalau ada. Keluhan fasilitas adalah
+                # klaim tentang keadaan fisik - "trotoar rusak", "toilet bau" -
+                # dan calon sponsor yang menimbang membiayai perbaikan berhak
+                # melihat buktinya, bukan cuma membaca kalimatnya.
+                "foto": _foto(baris.foto),
                 "validasi": validasi,
                 "usulan": {
                     "bentuk": bentuk,
@@ -409,6 +427,11 @@ def _gabung_berdekatan(hasil: HasilSponsorship) -> HasilSponsorship:
         # Keluhan yang lebih panjang biasanya yang lebih menjelaskan.
         if len(p["keluhan"] or "") > len(kembar["keluhan"] or ""):
             kembar["keluhan"] = p["keluhan"]
+        # Foto laporan kembar ikut dibawa: dua orang memotret keluhan yang sama
+        # dari sudut berbeda justru memperkuat buktinya.
+        for url in p.get("foto") or []:
+            if url not in kembar["foto"]:
+                kembar["foto"].append(url)
 
     hasil.peluang = disimpan
     return hasil

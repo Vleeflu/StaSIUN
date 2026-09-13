@@ -33,7 +33,7 @@ from app.services.osm import DEFAULT_RADIUS_M, OverpassError, build_query, eleme
 # laju. Angka ini jalan tengahnya.
 CHUNK = 10
 
-# Jeda antar permintaan. Overpass layanan gratis bersama — memberi jeda itu
+# Jeda antar permintaan. Overpass layanan gratis bersama, memberi jeda itu
 # etika pemakaian, sekaligus menurunkan peluang kena pembatasan laju.
 # Dinaikkan dari 2 ke 5 detik setelah penarikan pertama kena 429 Too Many
 # Requests di rombongan keenam.
@@ -47,8 +47,7 @@ def ambil_pusat(session) -> list[tuple[int, str, float, float]]:
             Station.id,
             Station.name,
             func.ST_Y(Station.location).label("lat"),
-            func.ST_X(Station.location).label("lon"),
-        ).order_by(Station.id)
+            func.ST_X(Station.location).label("lon")).order_by(Station.id)
     ).all()
     return [(r.id, r.name, r.lat, r.lon) for r in rows]
 
@@ -57,7 +56,7 @@ def simpan(session, baris: list[dict], waktu: datetime) -> None:
     """Upsert berdasarkan (osm_type, osm_id).
 
     ON CONFLICT DO UPDATE dipakai, bukan hapus-lalu-isi-ulang, supaya kolom
-    created_at baris lama tetap utuh — itu jejak kapan sebuah titik minat
+    created_at baris lama tetap utuh, itu jejak kapan sebuah titik minat
     pertama kali terlihat, dan hilang kalau barisnya dibuat ulang.
     """
     if not baris:
@@ -90,8 +89,7 @@ def simpan(session, baris: list[dict], waktu: datetime) -> None:
             "location": stmt.excluded.location,
             "fetched_at": stmt.excluded.fetched_at,
             "updated_at": func.now(),
-        },
-    )
+        })
     session.execute(stmt)
 
 

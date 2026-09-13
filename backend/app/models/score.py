@@ -9,7 +9,7 @@ class StationScore(Base):
     """Skor SEPI satu stasiun pada satu pita waktu isochrone.
 
     Angka mentah tiap variabel ikut disimpan, bukan cuma skor akhirnya. Tanpa
-    itu skornya tidak bisa dijelaskan ke siapa pun — dan seluruh gunanya SEPI
+    itu skornya tidak bisa dijelaskan ke siapa pun, dan seluruh gunanya SEPI
     justru ada di penjelasan kenapa satu stasiun menang.
     """
 
@@ -27,6 +27,11 @@ class StationScore(Base):
     # pun yang lain, jadi menambah stasiun ke lingkup tidak mengubahnya. Karena
     # itu hanya angka INI yang boleh diklasifikasikan ke tiga rentang PRD.
     sepi: Mapped[float] = mapped_column(Float)
+    # Skor seandainya tiap variabel yang diestimasi meleset satu simpangan
+    # ke arah merugikan. INILAH yang dipakai mengurutkan peringkat, jadi ia
+    # wajib ikut tersimpan - tanpa itu daftar peringkat menampilkan satu angka
+    # tetapi diurutkan oleh angka lain, dan terbaca kacau.
+    sepi_bawah: Mapped[float] = mapped_column(Float)
     kelas: Mapped[str] = mapped_column(String)
     keputusan: Mapped[str] = mapped_column(String)
 

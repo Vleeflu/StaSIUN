@@ -2,7 +2,7 @@
 
 Kelimanya berasal dari survey lapangan lewat Activity, kecuali zona indoor yang
 didigitasi manual. Semuanya menunjuk balik ke `activity_points` supaya setiap
-baris bisa ditelusuri ke entri survey asalnya — tanpa itu, angka di panel tidak
+baris bisa ditelusuri ke entri survey asalnya, tanpa itu, angka di panel tidak
 bisa dipertanggungjawabkan saat ditanya "dari mana ini".
 """
 
@@ -20,7 +20,7 @@ class StationZone(TimestampMixin, Base):
 
     PRD menaruh indoor mapping penuh dan routing di dalam gedung DI LUAR
     lingkup. Yang dipetakan hanya batas zona dan keberadaan tenant, bukan jalur
-    berjalan — jadi tabel ini sengaja tidak punya kolom topologi atau tetangga.
+    berjalan, jadi tabel ini sengaja tidak punya kolom topologi atau tetangga.
     """
 
     __tablename__ = "station_zones"
@@ -48,8 +48,7 @@ class TenantCluster(TimestampMixin, Base):
     """Klaster tenant, satuan analisis ekonomi mikro.
 
     PRD hal. 12 tegas: analisis dilakukan pada tingkat klaster, bukan pada
-    tenant satuan maupun stasiun. Kriteria pembentukannya harus eksplisit —
-    kedekatan spasial dalam radius tertentu ditambah kesamaan kategori — dan
+    tenant satuan maupun stasiun. Kriteria pembentukannya harus eksplisit, kedekatan spasial dalam radius tertentu ditambah kesamaan kategori, dan
     disimpan di kolom radius_m serta criteria_note supaya bisa diaudit, bukan
     jadi keputusan tak tercatat.
     """
@@ -84,13 +83,13 @@ class Tenant(TimestampMixin, Base):
     """Tenant yang sudah beroperasi di dalam stasiun.
 
     Dua fungsi sekaligus: sisi permintaan untuk profil pembeli, dan sisi
-    penawaran pada GapScore — PRD hal. 13 mewajibkan komponen supply mencakup
+    penawaran pada GapScore, PRD hal. 13 mewajibkan komponen supply mencakup
     tenant di dalam stasiun, supaya kategori yang sebenarnya sudah tersedia
     tidak muncul sebagai kesenjangan semu.
 
     Rentang harga sengaja TIDAK ada di sini. PRD hal. 9 menyatakan harga tidak
     dicatat di lapangan, melainkan dilengkapi lewat riset sumber terbuka pada
-    tahap pengolahan — tempatnya tabel price_references.
+    tahap pengolahan, tempatnya tabel price_references.
     """
 
     __tablename__ = "tenants"
@@ -206,7 +205,7 @@ class FacilityIssue(TimestampMixin, Base):
     validation_note: Mapped[str | None] = mapped_column(Text)
 
     # Hasil pemeriksaan ulang ke pengamatan terkini. None berarti belum
-    # diperiksa — dan itu berbeda dari False, yang berarti sudah diperiksa dan
+    # diperiksa, dan itu berbeda dari False, yang berarti sudah diperiksa dan
     # ternyata fasilitasnya sudah diperbaiki.
     still_present: Mapped[bool | None]
 

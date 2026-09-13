@@ -16,8 +16,7 @@ const EMPTY: Fetched = { key: "", data: null };
 /**
  * Ambil titik minat yang jatuh di dalam isochrone satu stasiun.
  *
- * Mengembalikan null kalau layernya dimatikan atau belum ada stasiun terpilih —
- * peta memakai null itu sebagai penanda untuk menyembunyikan layernya, jadi
+ * Mengembalikan null kalau layernya dimatikan atau belum ada stasiun terpilih, * peta memakai null itu sebagai penanda untuk menyembunyikan layernya, jadi
  * tidak perlu bendera terpisah.
  */
 export function useStationPois(

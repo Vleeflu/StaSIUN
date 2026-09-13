@@ -66,17 +66,17 @@ const SUMBER_DATA: { nama: string; untuk: string; url: string }[] = [
     url: "https://www.openstreetmap.org/",
   },
   {
-    nama: "Statistik Transportasi DKI Jakarta — BPS",
+    nama: "Statistik Transportasi DKI Jakarta, BPS",
     untuk: "volume penumpang stasiun",
     url: "https://jakarta.bps.go.id/",
   },
   {
-    nama: "Colliers Indonesia — laporan pasar ritel",
+    nama: "Colliers Indonesia, laporan pasar ritel",
     untuk: "pembanding harga sewa ruang komersial",
     url: "https://www.colliers.com/id-id/research",
   },
   {
-    nama: "Lestari Ads — benchmark tarif iklan luar ruang",
+    nama: "Lestari Ads, benchmark tarif iklan luar ruang",
     untuk: "acuan tarif per seribu paparan",
     url: "https://www.lestariads.com/en/blog/marketing/expected-cpm-cpc-and-roi-benchmarks-for-ooh-advertising-in-indonesia-2025-data.html",
   },
@@ -89,6 +89,8 @@ type Props = {
   onTabChange: (tab: Tab) => void;
   /** Bobot kiriman asisten; `nonce` baru membuka simulasi dan menjalankannya. */
   simulasiPreset: { bobot: Record<string, number>; nonce: number } | null;
+  /** Menyorot satu titik katalog di peta; null menghapus sorotannya. */
+  onSorot: (titik: { lon: number; lat: number; nama: string } | null) => void;
   onClose: () => void;
 };
 
@@ -97,6 +99,7 @@ export default function StationPanel({
   tab,
   onTabChange,
   simulasiPreset,
+  onSorot,
   onClose,
 }: Props) {
   const setTab = onTabChange;
@@ -147,11 +150,23 @@ export default function StationPanel({
           )}
         </div>
 
-        {(codes.length > 1 || !props.served) && (
+        {(codes.length > 1 || !props.served || props.survei_tim) && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {codes.length > 1 && (
               <span className="label-caps border border-ink px-2 py-1 text-ink">
                 Interchange
+              </span>
+            )}
+            {/*
+              Lencana survei lapangan. Sengaja TIDAK berbunyi "data lengkap"
+              maupun "premium": dari sembilan stasiun yang didatangi tim, hanya
+              satu yang variabel skornya benar-benar lengkap. Yang dijanjikan
+              lencana ini persis yang dibawa pulang surveyor - catatan, foto,
+              inventaris media iklan, dan penilaian keramaian dari narasumber.
+            */}
+            {props.survei_tim && (
+              <span className="label-caps border border-accent bg-accent px-2 py-1 text-white">
+                Disurvei langsung
               </span>
             )}
             {!props.served && (
@@ -160,6 +175,27 @@ export default function StationPanel({
               </span>
             )}
           </div>
+        )}
+
+        {props.survei_tim && (
+          <p className="mt-2 border-l-2 border-accent pl-2 text-[11px] leading-relaxed text-muted">
+            Stasiun ini termasuk lokasi yang disurvei langsung oleh tim, dengan{" "}
+            <strong className="text-ink">{props.survei_titik ?? 0} titik pengamatan</strong>
+            {(props.survei_skala ?? 0) > 0 && (
+              <>
+                {" "}
+                dan{" "}
+                <strong className="text-ink">
+                  {props.survei_skala} penilaian keramaian
+                </strong>{" "}
+                yang diperoleh dari petugas serta pelaku usaha di lokasi
+              </>
+            )}
+            . Katalog media iklan, foto lapangan, dan pola keramaian pada halaman
+            ini karena itu bersumber dari pengamatan langsung. Tingkat kelengkapan
+            variabel skornya disajikan terpisah melalui indikator keyakinan di
+            bawah.
+          </p>
         )}
       </div>
 
@@ -200,9 +236,12 @@ export default function StationPanel({
             laporan={areas.laporan}
             loading={areas.loading}
             error={areas.error}
+            onSorot={onSorot}
           />
         )}
-        {tab === "Tenant" && <TenantTab station={station} laporan={areas.laporan} />}
+        {tab === "Tenant" && (
+          <TenantTab station={station} laporan={areas.laporan} onSorot={onSorot} />
+        )}
         {tab === "Naming" && <NamingTab stationId={stationId} />}
       </div>
     </aside>
@@ -228,6 +267,11 @@ function Overview({
   const { score, loading } = useStationScore(stationId, SCORE_MINUTES);
 
   const shares = score ? componentShares(score.components) : null;
+  // Variabel yang nilainya identik di SELURUH stasiun. Ia tetap ditampilkan -
+  // menyembunyikannya justru menyembunyikan keterbatasan datanya - tetapi
+  // labelnya harus berbeda dari "estimasi" biasa. Estimasi yang berbeda-beda
+  // per stasiun masih membedakan sesuatu; yang seragam tidak membedakan apa pun.
+  const seragam: string[] = score?.seragam_di_semua_stasiun ?? [];
   // Daftar peringkat mana yang sedang dibuka. Null berarti tertutup.
   const [peringkat, setPeringkat] = useState<string | null>(null);
 
@@ -250,7 +294,7 @@ function Overview({
                   >
                     #{score.rank}
                   </button>{" "}
-                  dari {score.rank_total} stasiun KRL — lebih tinggi daripada{" "}
+                  dari {score.rank_total} stasiun KRL, berada di atas{" "}
                   <span className="data-num">{score.persentil}%</span> stasiun
                   lainnya.
                 </p>
@@ -271,7 +315,7 @@ function Overview({
             className="data-num shrink-0 text-4xl font-semibold leading-none"
             style={{ color: score ? sepiColor(score.sepi) : undefined }}
           >
-            {score ? score.sepi.toFixed(1) : "—"}
+            {score ? score.sepi.toFixed(1) : "-"}
             <span className="text-base font-medium text-muted">/100</span>
           </p>
         </div>
@@ -283,7 +327,7 @@ function Overview({
             </p>
 
             {/*
-              TRIASE — inti gunanya klasifikasi SEPI, dan selama ini tidak
+              TRIASE, inti gunanya klasifikasi SEPI, dan selama ini tidak
               pernah sampai ke layar. Pembaca melihat angka 67,5 tanpa tahu
               angka itu menyarankan fitur mana yang masuk akal dikejar.
             */}
@@ -336,8 +380,7 @@ function Overview({
                 </button>
                 <p className="mt-1.5 text-[11px] leading-relaxed text-ink-soft">
                   {score.paparan.kelas}. Dihitung terpisah dari SEPI, dengan
-                  keramaian dan jangkauan transportasi diberi bobot separuh —
-                  karena yang dibeli pengiklan adalah orang yang lewat.
+                  keramaian dan jangkauan transportasi diberi bobot separuh, karena yang dibeli pengiklan adalah orang yang lewat.
                 </p>
               </div>
             )}
@@ -368,7 +411,7 @@ function Overview({
             {/*
               Metodologi disembunyikan, bukan dihapus. Pembaca B2B perlu yakin
               angkanya berdasar, tetapi tidak perlu membaca rumusnya untuk itu.
-              Yang ingin menggali tetap bisa — dan yang tidak, tidak dipaksa
+              Yang ingin menggali tetap bisa, dan yang tidak, tidak dipaksa
               melewati dinding istilah sebelum sampai ke angkanya.
             */}
             <details className="mt-3 border-t border-canvas pt-3">
@@ -400,7 +443,7 @@ function Overview({
       </Section>
 
       {/*
-        Judulnya dulu berbunyi "Komponen SEPI — w₁T + w₂E + w₃A + w₄U + w₅C".
+        Judulnya dulu berbunyi "Komponen SEPI, w₁T + w₂E + w₃A + w₄U + w₅C".
         Rumus itu benar, tetapi ia menyapa pembaca dengan notasi sebelum sempat
         memberi tahu apa yang sedang dilihat. Rumusnya tetap ada, satu klik di
         bawah, buat yang memang mencarinya.
@@ -426,7 +469,11 @@ function Overview({
                   <span className="block text-xs text-ink-soft">
                     {c.label}
                     {estimasi && (
-                      <span className="ml-1 text-[10px] text-muted">· estimasi</span>
+                      <span className="ml-1 text-[10px] text-muted">
+                        {seragam.includes(c.key)
+                          ? "· sama di semua stasiun"
+                          : "· estimasi"}
+                      </span>
                     )}
                   </span>
                   <span
@@ -441,7 +488,7 @@ function Overview({
                   </span>
                 </span>
                 <span className="data-num w-20 shrink-0 text-right text-xs text-ink-soft">
-                  {score ? formatKomponen(value) : "—"}
+                  {score ? formatKomponen(value) : "-"}
                 </span>
               </li>
             );
@@ -462,7 +509,7 @@ function Overview({
               </div>
             ))}
             <p className="mt-1 text-[10px] leading-relaxed text-muted">
-              Kelimanya dijumlahkan dengan bobot berbeda — variabel yang lebih
+              Kelimanya dijumlahkan dengan bobot berbeda, variabel yang lebih
               menentukan diberi porsi lebih besar. Nilainya 0 sampai 1: makin
               tinggi, makin kuat sisi itu di stasiun ini.
             </p>
@@ -471,12 +518,24 @@ function Overview({
                 {score.catatan_estimasi}
               </p>
             )}
+            {seragam.length > 0 && (
+              <p className="mt-1 border-l-2 border-hair pl-2 text-[10px] leading-relaxed text-muted">
+                Variabel <strong className="text-ink">{seragam.join(" dan ")}</strong>{" "}
+                saat ini bernilai sama pada seluruh stasiun. Pengukuran
+                langsungnya baru tersedia di satu stasiun, sehingga belum ada
+                kelompok pembanding yang bervariasi untuk dijadikan acuan
+                estimasi. Nilai yang seragam menggeser skor seluruh stasiun dalam
+                besaran yang sama, sehingga urutan peringkat tidak terpengaruh.
+                Yang belum tersedia adalah daya bedanya, bukan ketepatan
+                peringkatnya.
+              </p>
+            )}
           </dl>
         </details>
       </Section>
 
       {score && (
-        <Section title={`Di sekitar stasiun — jalan kaki ${score.minutes} menit`}>
+        <Section title={`Di sekitar stasiun, jalan kaki ${score.minutes} menit`}>
           <p className="mb-2 text-xs leading-relaxed text-ink-soft">
             Yang bisa dijangkau calon pembeli dan pengunjung tanpa naik kendaraan
             lagi. Angka-angka ini ikut membentuk skor di atas.
@@ -505,7 +564,7 @@ function Overview({
           </dl>
           <p className="mt-2 text-[10px] leading-relaxed text-muted">
             Luasnya dihitung mengikuti jalan yang benar-benar bisa dilewati
-            pejalan kaki, bukan lingkaran di peta — jadi kawasan yang terpotong
+            pejalan kaki, bukan lingkaran di peta, jadi kawasan yang terpotong
             rel atau jalan besar tidak ikut terhitung.
           </p>
         </Section>
@@ -515,7 +574,7 @@ function Overview({
         Volume penumpang sengaja ditaruh di bagian TERPISAH, bukan digabung ke
         "Isi jangkauan jalan kaki". Angka di bagian itu semuanya ikut menghitung
         skor; angka ini tidak. Cakupannya baru 10 dari 46 stasiun, di bawah
-        ambang 70%, jadi ia konteks yang jujur ditampilkan — bukan komponen.
+        ambang 70%, jadi ia konteks yang jujur ditampilkan, bukan komponen.
       */}
       {score?.passenger_volume && (
         <Section title="Volume penumpang">
@@ -652,7 +711,7 @@ function Overview({
               >
                 {s.nama} ↗
               </a>
-              <span className="text-muted"> — {s.untuk}</span>
+              <span className="text-muted">, {s.untuk}</span>
             </li>
           ))}
         </ul>
@@ -679,9 +738,11 @@ function Overview({
 function TenantTab({
   station,
   laporan,
+  onSorot,
 }: {
   station: StationFeature;
   laporan: LaporanArea | null;
+  onSorot: (titik: { lon: number; lat: number; nama: string } | null) => void;
 }) {
   const stationId = typeof station.id === "number" ? station.id : null;
   const { report, loading, error } = useStationTenants(stationId, SCORE_MINUTES);
@@ -719,17 +780,17 @@ function TenantTab({
           .
         </p>
         <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-          Indeks Kelayakan Usaha membandingkan calon pelanggan yang dapat
-          menjangkau stasiun ini dengan jalan kaki {report.minutes} menit
-          terhadap pesaing sejenis yang sudah beroperasi. Semakin tinggi,
-          semakin lapang peluangnya.
+          Indeks Kelayakan Usaha membandingkan jumlah calon pelanggan yang
+          dapat menjangkau stasiun ini dalam {report.minutes} menit berjalan kaki
+          dengan jumlah pesaing sejenis yang telah beroperasi. Nilai yang lebih
+          tinggi menunjukkan pasar yang lebih lapang.
         </p>
         {terurut[0] && (
           <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-            Basis pelanggannya sama untuk semua kategori:{" "}
+            Basis pelanggan bernilai sama untuk seluruh kategori, yaitu{" "}
             <span className="data-num text-ink-soft">{terurut[0].demand}</span>{" "}
-            titik aktivitas dalam jangkauan. Yang membedakan antarkategori adalah
-            berapa banyak pesaing sejenis yang sudah ada di sana.
+            titik aktivitas dalam jangkauan. Perbedaan antarkategori berasal dari
+            jumlah pesaing sejenis yang telah beroperasi.
           </p>
         )}
       </Section>
@@ -769,20 +830,26 @@ function TenantTab({
               <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
                 <span className="data-num text-ink-soft">{c.supply_luar}</span>{" "}
                 pesaing terpetakan di sekitar stasiun
+                {/*
+                  Sisi dalam SELALU dibulatkan. Nilainya memang pecahan - ia
+                  hasil shrinkage, bukan cacahan - tetapi "27,2 pesaing di dalam
+                  stasiun" terbaca sebagai kesalahan hitung, bukan sebagai
+                  taksiran. Kata "sekitar" yang menyampaikan ketidakpastiannya,
+                  bukan angka di belakang koma. Pecahannya tetap dipakai utuh di
+                  perhitungan; yang dibulatkan hanya tampilannya.
+                */}
                 {c.dalam_terukur ? (
-                  <>
-                    {" "}
-                    dan{" "}
+                  <>, ditambah sekitar{" "}
                     <span className="data-num text-ink-soft">
-                      {c.supply_dalam.toFixed(1)}
+                      {Math.round(c.supply_dalam)}
                     </span>{" "}
-                    di dalam stasiun
+                    di dalam stasiun menurut survei lapangan
                   </>
                 ) : (
                   <>
-                    ; yang di dalam stasiun belum disurvei, ditaksir{" "}
+                    ; yang di dalam stasiun belum disurvei, ditaksir sekitar{" "}
                     <span className="data-num text-ink-soft">
-                      {c.supply_dalam.toFixed(1)}
+                      {Math.round(c.supply_dalam)}
                     </span>{" "}
                     dari stasiun sejenis
                   </>
@@ -799,8 +866,7 @@ function TenantTab({
                 </button>{" "}
                 dari {report.station_count} stasiun untuk kategori ini
                 {!c.dalam_terukur && (
-                  <>
-                    , sesudah dipotong ketidakpastian taksiran (skor tanpa
+                  <>, sesudah dipotong ketidakpastian taksiran (skor tanpa
                     potongan{" "}
                     <span className="data-num">{c.tsi.toFixed(0)}</span>, dipakai
                     mengurutkan{" "}
@@ -813,19 +879,24 @@ function TenantTab({
           ))}
         </ul>
         <p className="mt-3 border-t border-canvas pt-2 text-[10px] leading-relaxed text-muted">
-          Peringkat dihitung terpisah untuk tiap kategori, sehingga dibaca
-          sebagai &ldquo;stasiun ini urutan ke berapa untuk usaha jenis
-          itu&rdquo; — bukan perbandingan antarkategori. Urutannya memakai skor
-          SESUDAH dipotong ketidakpastian, bukan skor mentahnya: stasiun yang
-          pesaing dalam-stasiunnya belum pernah disurvei turun lebih jauh,
-          sehingga tidak bisa unggul hanya karena pesaingnya belum sempat
-          dihitung. Begitu survei masuk, potongannya mengecil dan peringkatnya
-          naik sendiri. Yang diukur adalah
-          peluang di <strong className="text-ink">kawasan</strong> stasiun, bukan
-          lapak di dalam gedung stasiunnya: baik calon pelanggan maupun pesaing
-          dihitung dari titik usaha yang terpetakan di dalam jangkauan jalan
-          kaki, dan sebagian besar di antaranya berdiri lebih dari 300 meter dari
-          peron.
+          Peringkat disusun terpisah untuk setiap kategori, sehingga angkanya
+          menyatakan posisi stasiun ini pada satu jenis usaha tertentu, bukan
+          perbandingan antarkategori.
+        </p>
+        <p className="mt-1.5 text-[10px] leading-relaxed text-muted">
+          Urutan menggunakan skor yang telah dikurangi ketidakpastian data, bukan
+          skor perhitungan langsung. Stasiun yang pesaing di dalam stasiunnya
+          belum disurvei memperoleh pengurangan lebih besar, sehingga keunggulan
+          peringkat tidak muncul semata-mata karena datanya belum lengkap.
+          Pengurangan tersebut mengecil dengan sendirinya ketika data survei
+          bertambah.
+        </p>
+        <p className="mt-1.5 text-[10px] leading-relaxed text-muted">
+          Lingkup penilaian adalah peluang usaha di{" "}
+          <strong className="text-ink">kawasan</strong> stasiun, bukan lapak di
+          dalam gedung stasiun. Calon pelanggan maupun pesaing sama-sama dihitung
+          dari titik usaha yang terpetakan dalam jangkauan berjalan kaki, dan
+          sebagian besar di antaranya berjarak lebih dari 300 meter dari peron.
         </p>
       </Section>
 
@@ -862,7 +933,11 @@ function TenantTab({
           stasiun={station.properties.name}
           areas={laporan?.areas ?? []}
           kategori={report.categories}
-          onClose={() => setKatalogTenant(false)}
+          onSorot={onSorot}
+          onClose={() => {
+            setKatalogTenant(false);
+            onSorot(null);
+          }}
         />
       )}
     </div>
@@ -906,29 +981,45 @@ function Kekokohan({ sens, rank, total }: { sens: Sensitivitas; rank: number; to
         penyusun modelnya tidak punya pijakan untuk satu pun di antaranya.
       */}
       <p className="mt-1.5 text-[10px] leading-relaxed text-muted">
-        Peringkat stasiun bergantung pada seberapa berat tiap variabel dihitung.
-        Kami mencoba {sens.jumlah_skema} cara pembagian bobot yang berbeda:
-        peringkat stasiun ini bergerak antara{" "}
+        Skor stasiun bergantung pada besar bobot yang diberikan kepada setiap
+        variabel, dan penetapan bobot itu sendiri merupakan pilihan metode. Untuk
+        menguji apakah peringkat ini bertahan pada pilihan bobot yang lain,
+        perhitungan diulang melalui dua cara: dengan{" "}
+        <span className="data-num text-ink-soft">{sens.jumlah_skema}</span>{" "}
+        susunan bobot yang disusun sengaja, dan dengan{" "}
         <span className="data-num text-ink-soft">
-          #{sens.peringkat_min} dan #{sens.peringkat_maks}
-        </span>
-        , dan bertahan di {sens.n_besar} besar pada{" "}
+          {sens.jumlah_undian.toLocaleString("id-ID")}
+        </span>{" "}
+        pengacakan bobot dalam rentang yang wajar. Pada {sens.jumlah_skema}{" "}
+        susunan bobot tersebut, peringkat stasiun ini berada antara{" "}
+        <span className="data-num text-ink-soft">#{sens.peringkat_min}</span> dan{" "}
+        <span className="data-num text-ink-soft">#{sens.peringkat_maks}</span>,
+        yang berarti posisinya bergeser paling jauh{" "}
+        <span className="data-num text-ink-soft">
+          {sens.peringkat_maks - sens.peringkat_min}
+        </span>{" "}
+        tingkat mengikuti susunan bobot yang dipakai. Adapun dari seluruh
+        pengacakan, stasiun ini menempati {sens.n_besar} besar sebanyak{" "}
         <span className="data-num text-ink-soft">
           {Math.round(sens.peluang_n_besar * 100)}%
-        </span>{" "}
-        percobaan.{" "}
+        </span>
+        {sens.peluang_n_besar === 0
+          ? `, yang berarti tidak ada satu pun susunan bobot yang menempatkannya pada ${sens.n_besar} teratas.`
+          : sens.peluang_n_besar === 1
+            ? `, yang berarti seluruh susunan bobot menempatkannya pada ${sens.n_besar} teratas.`
+            : `, yang berarti sebagian susunan bobot menempatkannya pada ${sens.n_besar} teratas dan sebagian lainnya tidak.`}{" "}
         {kokoh
-          ? "Artinya peringkat ini bukan hasil pilihan bobot tertentu."
-          : "Artinya peringkat ini ikut berubah kalau bobotnya diubah, jadi bacalah sebagai perkiraan kasar."}
+          ? "Dengan demikian peringkat ini tidak bergantung pada satu pilihan bobot tertentu."
+          : "Dengan demikian peringkat ini sebaiknya dibaca sebagai kisaran, bukan sebagai satu angka pasti."}
       </p>
     </div>
   );
 }
 
 const JENDELA: Array<{ key: keyof ProfilKeramaian; label: string; jam: string }> = [
-  { key: "pagi", label: "Pagi", jam: "06–09" },
-  { key: "siang", label: "Siang", jam: "09–16" },
-  { key: "sore", label: "Sore", jam: "16–19" },
+  { key: "pagi", label: "Pagi", jam: "06-09" },
+  { key: "siang", label: "Siang", jam: "09-16" },
+  { key: "sore", label: "Sore", jam: "16-19" },
 ];
 
 /** Profil keramaian tiga rentang PRD; rentang tanpa penilaian tampil putus-putus. */
@@ -943,7 +1034,7 @@ function ProfilBar({ profil }: { profil: ProfilKeramaian }) {
               <span>
                 {j.label} <span className="data-num">{j.jam}</span>
               </span>
-              <span className="data-num text-ink-soft">{p ? p.setara_1_5.toFixed(0) : "—"}</span>
+              <span className="data-num text-ink-soft">{p ? p.setara_1_5.toFixed(0) : "-"}</span>
             </div>
             <span
               className={`mt-1 block h-1.5 w-full ${p ? "bg-canvas" : "border border-dashed border-muted/60"}`}
@@ -970,14 +1061,14 @@ function NamingTab({ stationId }: { stationId: number | null }) {
     return <EmptyTab name="Naming" reason={error ?? "Data belum bisa dimuat."} />;
   }
 
-  const { status, pembanding, potensi, peluang_pasar, kandidat_sponsor } = naming;
+  const { status, potensi, kandidat_sponsor, cara_hitung } = naming;
 
   return (
     <div className="flex flex-col">
       {/*
-        Untuk stasiun KRL, yang menarik BUKAN statusnya - hampir semuanya belum
-        terjual - melainkan potensinya. Justru kelangkaan itu peluangnya, dan
-        itulah yang ditampilkan lebih dulu.
+        Potensi ditampilkan lebih dulu daripada status. Hampir semua stasiun KRL
+        berstatus sama - belum terjual - sehingga status tidak membedakan satu
+        stasiun dari yang lain, sedangkan potensi membedakannya.
       */}
       {potensi?.cei != null ? (
         <Section title="Potensi hak penamaan">
@@ -1002,6 +1093,18 @@ function NamingTab({ stationId }: { stationId: number | null }) {
             </p>
           </div>
           <p className="mt-2 text-[11px] leading-relaxed text-muted">{potensi.catatan}</p>
+
+          <details className="mt-2.5 border-t border-canvas pt-2">
+            <summary className="cursor-pointer text-[11px] font-semibold text-ink-soft hover:text-ink">
+              Bagaimana angka ini dihitung?
+            </summary>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+              {cara_hitung.indeks}
+            </p>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+              {cara_hitung.kenapa_bobot}
+            </p>
+          </details>
         </Section>
       ) : (
         <Section title="Status hak penamaan">
@@ -1015,46 +1118,11 @@ function NamingTab({ stationId }: { stationId: number | null }) {
         </Section>
       )}
 
-      {peluang_pasar && (
-        <Section title="Seberapa besar peluangnya">
-          <p className="text-xs leading-relaxed text-ink-soft">
-            {peluang_pasar.catatan}
-          </p>
-          <dl className="mt-2 flex flex-col gap-2">
-            <Row
-              label="MRT & LRT yang sudah terjual"
-              value={`${peluang_pasar.mrt_lrt_terjual} dari ${peluang_pasar.mrt_lrt_total}`}
-              mono
-            />
-            <Row
-              label="KRL yang sudah terjual"
-              value={`${peluang_pasar.krl_terjual} dari ${peluang_pasar.krl_total ?? "—"}`}
-              mono
-            />
-          </dl>
-          {pembanding.sponsor.length > 0 && (
-            <>
-              <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                Merek yang sudah membeli di MRT dan LRT
-              </p>
-              <ul className="mt-1 flex flex-wrap gap-1">
-                {pembanding.sponsor.map((sp) => (
-                  <li key={sp} className="border border-hair px-2 py-0.5 text-[11px]">
-                    {sp}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </Section>
-      )}
-
       {kandidat_sponsor.length > 0 && (
         <Section title="Calon sponsor di sekitar stasiun">
           <p className="text-xs leading-relaxed text-ink-soft">
-            Merek yang kantornya atau gerainya benar-benar berada dalam jangkauan
-            jalan kaki dari stasiun ini — kelekatannya pada kawasan bisa
-            ditunjukkan, bukan ditebak.
+            Merek yang kantor atau gerainya berada dalam jangkauan jalan kaki
+            dari stasiun ini. Titiknya disorot di peta.
           </p>
           <ul className="mt-2 flex flex-col gap-1">
             {kandidat_sponsor.map((k) => (
@@ -1063,26 +1131,155 @@ function NamingTab({ stationId }: { stationId: number | null }) {
                 className="flex items-baseline justify-between gap-2 text-[11px]"
               >
                 <span className="min-w-0 text-ink-soft">{k.nama}</span>
-                <span className="data-num shrink-0 text-muted">{k.jarak_m} m</span>
+                <span className="flex shrink-0 items-baseline gap-1.5">
+                  {!k.dalam_inti && (
+                    <span className="label-caps text-[8px] text-muted">
+                      di luar inti
+                    </span>
+                  )}
+                  <span
+                    className={`data-num ${k.dalam_inti ? "text-muted" : "text-muted/70"}`}
+                  >
+                    {k.jarak_m} m
+                  </span>
+                </span>
               </li>
             ))}
           </ul>
           <p className="mt-2 text-[10px] leading-relaxed text-muted">
-            Disusun dari titik minat OpenStreetMap dan survei MAPID, diurutkan
-            dari yang terdekat. Daftar ini menunjukkan siapa yang HADIR di
-            kawasan, bukan siapa yang sudah menyatakan minat.
+            {naming.catatan_kandidat}
+          </p>
+
+          <details className="mt-2 border-t border-canvas pt-2">
+            <summary className="cursor-pointer text-[11px] font-semibold text-ink-soft hover:text-ink">
+              Bagaimana nama-nama ini dipilih?
+            </summary>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+              {cara_hitung.kandidat}
+            </p>
+          </details>
+          <p className="mt-2 text-[10px] leading-relaxed text-muted">
+            Diurutkan dari yang terdekat, bersumber dari data titik minat
+            OpenStreetMap dan survei MAPID. Mereka belum tentu tertarik menjadi
+            sponsor, daftar ini titik awal untuk dihubungi, bukan daftar peminat.
           </p>
         </Section>
       )}
 
-      <Section title="Nilai kontrak">
-        <p className="text-xs leading-relaxed text-ink-soft">Belum ditampilkan.</p>
-        <p className="mt-1 text-[10px] leading-relaxed text-muted">
-          {naming.alasan_nilai_kosong}
-        </p>
-      </Section>
+      <NilaiKontrak cei={potensi?.cei ?? null} alasan={naming.alasan_nilai_kosong} />
     </div>
   );
+}
+
+/**
+ * Nilai kontrak: kalkulator proporsi, bukan angka yang kami karang.
+ *
+ * PRD mewajibkan valuasi diacu pada transaksi pembanding NYATA lalu diskalakan
+ * dengan indeks paparan. Bagian pertamanya belum kami punya - tidak ada data
+ * transaksi hak penamaan di Indonesia yang bisa dikutip - dan menebaknya berarti
+ * mengarang angka yang akan dipakai orang untuk bernegosiasi.
+ *
+ * Tetapi bagian KEDUANYA sudah lengkap: indeks paparan tiap stasiun sudah
+ * dihitung, jadi perbandingan antar stasiun bisa dilakukan sekarang juga. Maka
+ * angkanya diminta dari pengguna. Ia yang memegang pembanding - pengelola aset
+ * tahu tarif yang pernah ditawarkan, konsultan tahu nilai transaksi sejenis -
+ * dan sistem mengerjakan bagian yang memang bisa dikerjakannya: menskalakan.
+ *
+ * Bedanya penting. Angka yang keluar tetap milik pengguna, dan halaman ini
+ * tidak pernah berpura-pura tahu harga pasar yang belum pernah diukur siapa pun.
+ */
+function NilaiKontrak({ cei, alasan }: { cei: number | null; alasan: string }) {
+  const [acuan, setAcuan] = useState("");
+
+  const angka = Number(acuan.replace(/[^\d]/g, ""));
+  const hasil = cei != null && angka > 0 ? (angka * cei) / 100 : null;
+
+  return (
+    <Section title="Nilai kontrak">
+      <p className="text-xs leading-relaxed text-ink-soft">{alasan}</p>
+
+      {cei == null ? (
+        <p className="mt-2 text-[11px] leading-relaxed text-muted">
+          Stasiun ini belum punya nilai paparan, sehingga perbandingannya pun
+          belum bisa dihitung.
+        </p>
+      ) : (
+        <>
+          <p className="mt-2.5 text-[11px] leading-relaxed text-muted">
+            Yang bisa dihitung sekarang adalah perbandingannya. Kalau Anda punya
+            angka pembanding, tarif yang pernah ditawarkan, atau nilai kontrak
+            stasiun sejenis, masukkan di bawah untuk stasiun berpaparan penuh
+            (100), dan nilainya diskalakan ke paparan stasiun ini.
+          </p>
+
+          <label className="mt-2 block">
+            <span className="label-caps mb-1 block text-[9px] text-muted">
+              Nilai acuan untuk paparan 100, per tahun
+            </span>
+            {/*
+              Angka diformat sambil diketik, dan "Rp" berdiri sebagai awalan
+              tetap di luar kotak isian.
+
+              Alasannya praktis: nilai kontrak hak penamaan berada di kisaran
+              miliaran, dan deretan sembilan angka tanpa pemisah hampir mustahil
+              dibaca ulang untuk memastikan tidak ada digit yang kelebihan.
+              Yang disimpan di state tetap angka murni; pemisah titik hanya
+              lapisan tampilan, dan dibuang lagi sebelum dihitung.
+            */}
+            <div className="flex items-stretch border border-hair bg-panel focus-within:border-ink">
+              <span className="flex select-none items-center px-2 text-xs text-muted">
+                Rp
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={angka > 0 ? angka.toLocaleString("id-ID") : acuan}
+                onChange={(e) => setAcuan(e.target.value.replace(/[^\d]/g, ""))}
+                placeholder="5.000.000.000"
+                aria-label="Nilai acuan rupiah per tahun untuk stasiun berpaparan 100"
+                className="data-num w-full bg-transparent py-1.5 pr-2 text-xs text-ink outline-none"
+              />
+            </div>
+          </label>
+
+          {hasil != null && (
+            <div className="mt-2 border border-ink bg-canvas p-2.5">
+              <p className="data-num text-lg font-semibold leading-tight text-ink">
+                Rp {Math.round(hasil).toLocaleString("id-ID")}
+                <span className="text-[11px] font-medium text-muted"> / tahun</span>
+              </p>
+              <p className="mt-1 text-[10px] leading-relaxed text-muted">
+                Perhitungan: Rp {angka.toLocaleString("id-ID")} x{" "}
+                {cei.toFixed(1)} / 100. Nilai acuan berasal dari Anda, bukan dari
+                sistem; yang dihitung di sini hanya proporsi paparannya.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * Petik bukti terpendek dari kalimat dasar sebuah kelompok pengunjung.
+ *
+ * Kalimat dasarnya panjang dan lengkap - itu tetap dipertahankan untuk pembaca
+ * yang ingin menelusuri. Tetapi calon pengiklan yang membandingkan beberapa
+ * stasiun butuh satu angka yang bisa dipindai sekilas, dan angka itu sudah ada
+ * di dalam kalimatnya: "76%", "12 sekolah", "2 pasar".
+ */
+function ringkasBukti(dasar: string): string {
+  const persen = dasar.match(/(\d+)%/);
+  if (persen) return `${persen[1]}% kawasan`;
+
+  const cacah = dasar.match(/terdapat (\d+) ([a-z ]+?) dalam/i);
+  if (cacah) {
+    const benda = cacah[2].trim().split(" ").slice(0, 2).join(" ");
+    return `${cacah[1]} ${benda}`;
+  }
+
+  return "";
 }
 
 function labelKelas(kelas: string | null | undefined): string {
@@ -1093,7 +1290,7 @@ function labelKelas(kelas: string | null | undefined): string {
     wisata: "tempat wisata",
     industri: "kawasan industri",
   };
-  return kelas ? peta[kelas] ?? kelas : "—";
+  return kelas ? peta[kelas] ?? kelas : "-";
 }
 
 /** Warna per fungsi ruang. Sengaja tetap, supaya satu warna berarti satu hal. */
@@ -1191,7 +1388,7 @@ function PaparanSection({ stationId }: { stationId: number | null }) {
                 <BatangKomposisi porsi={lantai.porsi} />
                 <p className="mt-1 text-[10px] leading-relaxed text-muted">
                   Perhitungan di atas berdasarkan luas wilayah, sedangkan yang
-                  ini berdasarkan luas lantai bangunan — sehingga gedung
+                  ini berdasarkan luas lantai bangunan, sehingga gedung
                   bertingkat memperoleh bobot lebih besar. Permukiman padat yang
                   tidak terpetakan per bangunan cenderung terhitung lebih kecil.
                 </p>
@@ -1242,21 +1439,40 @@ function PaparanSection({ stationId }: { stationId: number | null }) {
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
             Profil pengunjung
           </p>
-          <ul className="mt-1.5 flex flex-wrap gap-1">
+          {/*
+            Tiap kelompok membawa BUKTINYA, dalam satuannya sendiri.
+            Sengaja BUKAN persentase pengunjung. Kelompok di sini datang dari dua
+            sistem ukur yang berbeda - sebagian dari porsi luas kawasan, sebagian
+            dari cacahan titik minat - dan keduanya tidak punya penyebut bersama.
+            Memaksanya jadi satu set persentase berarti mengarang angka, dan lebih
+            buruk lagi: porsi luas BUKAN porsi orang. Kawasan yang 76% ruangnya
+            perkantoran tidak berarti 76% orang yang melintas adalah pekerja
+            kantor - siapa yang melintas tidak pernah kami hitung.
+          */}
+          <ul className="mt-1.5 flex flex-col gap-1.5">
             {audiens.map((a) => (
               <li
                 key={a.kelompok}
-                title={a.dasar}
-                className="border border-hair px-2 py-0.5 text-[11px]"
+                className="flex items-baseline justify-between gap-2 border border-hair px-2 py-1"
               >
-                {a.kelompok}
+                <span className="min-w-0 text-[11px] text-ink">{a.kelompok}</span>
+                <span className="data-num shrink-0 text-[10px] text-muted">
+                  {ringkasBukti(a.dasar)}
+                </span>
               </li>
             ))}
           </ul>
           <p className="mt-1.5 text-[10px] leading-relaxed text-muted">
-            Disimpulkan dari peruntukan lahan di sekitar stasiun yang disilangkan
-            dengan pola keramaian per rentang waktu — bukan dari penilaian
-            terhadap pengunjung yang melintas.
+            Angka di sebelah kanan menunjukkan dasar penarikan tiap kelompok, dan
+            satuannya berbeda-beda: sebagian berupa porsi luas kawasan, sebagian
+            berupa jumlah tempat. Karena satuannya tidak sama, angka-angka
+            tersebut tidak dapat dijumlahkan menjadi 100 persen.
+          </p>
+          <p className="mt-1 text-[10px] leading-relaxed text-muted">
+            Komposisi pengunjung belum disajikan dalam bentuk persentase karena
+            jumlah orang yang melintas belum diukur secara langsung. Persentase
+            yang diturunkan dari luas kawasan akan menyiratkan ketelitian yang
+            belum dimiliki datanya.
           </p>
         </div>
       )}
@@ -1266,7 +1482,7 @@ function PaparanSection({ stationId }: { stationId: number | null }) {
           Format iklan yang disarankan
         </p>
         <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
-          Waktu singgah di stasiun ini <strong>{waktu_singgah.label}</strong> —{" "}
+          Waktu singgah di stasiun ini <strong>{waktu_singgah.label}</strong>, {" "}
           {waktu_singgah.alasan}.
         </p>
         {format_iklan_disarankan.bentuk && (
@@ -1295,7 +1511,7 @@ function PaparanSection({ stationId }: { stationId: number | null }) {
           </p>
           <p>
             Kelompok pengunjung disimpulkan dari peruntukan lahan di sekitar
-            stasiun yang disilangkan dengan pola keramaian antar-waktu — dua hal
+            stasiun yang disilangkan dengan pola keramaian antar-waktu, dua hal
             yang sama-sama terukur. Kami tidak menghitung jumlah orang, tidak
             merekam identitas siapa pun, dan tidak menilai pengunjung dari
             penampilannya.
@@ -1303,7 +1519,7 @@ function PaparanSection({ stationId }: { stationId: number | null }) {
           <p>
             Perlu diingat, peruntukan lahan menggambarkan fungsi bangunan di
             kawasan itu, bukan pekerjaan orang yang tinggal di sana. Kawasan
-            permukiman tetap dihuni pekerja kantor — bedanya, permukiman adalah
+            permukiman tetap dihuni pekerja kantor, bedanya, permukiman adalah
             titik asal perjalanan, sedangkan kawasan perkantoran titik tujuannya.
           </p>
         </div>
@@ -1318,12 +1534,14 @@ function AdSpaceTab({
   laporan,
   loading,
   error,
+  onSorot,
 }: {
   stationId: number | null;
   stationName: string;
   laporan: LaporanArea | null;
   loading: boolean;
   error: string | null;
+  onSorot: (titik: { lon: number; lat: number; nama: string } | null) => void;
 }) {
   const { laporan: sponsorship } = useSponsorship(stationId);
   const [katalog, setKatalog] = useState<"iklan" | "fasilitas" | null>(null);
@@ -1437,7 +1655,11 @@ function AdSpaceTab({
           areas={laporan.areas}
           sponsorship={sponsorship}
           segmenAwal={katalog}
-          onClose={() => setKatalog(null)}
+          onSorot={onSorot}
+          onClose={() => {
+            setKatalog(null);
+            onSorot(null);
+          }}
         />
       )}
     </div>
@@ -1446,7 +1668,7 @@ function AdSpaceTab({
 
 // SponsorshipSection, Penyaringan, dan judulPendek DIHAPUS dari sini.
 // Katalog sponsorship kini hidup di KatalogModal, satu halaman bersama katalog
-// ruang iklan — dua daftar yang tujuannya berbeda, dipisahkan segmen, alih-alih
+// ruang iklan, dua daftar yang tujuannya berbeda, dipisahkan segmen, alih-alih
 // ditumpuk di panel samping selebar 400 px.
 
 function EmptyTab({ name, reason }: { name: string; reason: string }) {
@@ -1466,7 +1688,7 @@ function EmptyTab({ name, reason }: { name: string; reason: string }) {
  * Menampilkan berapa dari lima variabel SEPI yang benar-benar terukur. Ini
  * bukan hiasan: skor yang disusun dari tiga variabel tidak sebanding dengan
  * skor lima variabel, dan pembaca tidak punya cara lain untuk mengetahuinya.
- * Karena itu ia selalu tampil, bukan hanya ketika datanya kurang — angka
+ * Karena itu ia selalu tampil, bukan hanya ketika datanya kurang, angka
  * "5 dari 5" sama informatifnya dengan "3 dari 5".
  */
 function ConfidenceBar({
@@ -1571,7 +1793,7 @@ function Row({
           value ? "text-ink" : "text-muted"
         }`}
       >
-        {value || "—"}
+        {value || ", "}
       </dd>
     </div>
   );

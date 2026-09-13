@@ -1,19 +1,36 @@
 import type { StationScore } from "@/types/station";
 
+// Titik henti ramp DIPADATKAN ke rentang yang benar-benar ditempati data.
+//
+// Seluruh 45 stasiun jatuh di 30-68, dan 21 di antaranya berdesakan di pita
+// 50-60. Ramp lama membentang 0-100, jadi seluruh data cuma memakai sepertiga
+// tengah skala dan dua pertiganya menumpuk di satu warna - stasiun terbaik dan
+// stasiun rata-rata tampak nyaris sama. Itu bukan kekurangan mata pembaca,
+// melainkan aritmetika: beda 5 poin pada skala 100 memang hampir tak berwarna.
+//
+// Sekarang ramp membentang 30-70, mendekati rentang sesungguhnya, sehingga
+// selisih yang ada memakai seluruh jangkauan warna. Konsekuensinya harus
+// disebut di legenda: warnanya menyatakan posisi RELATIF di antara stasiun
+// KRL DKI, bukan nilai mutlak 0-100.
+const RENTANG_NYATA = { bawah: 30, atas: 70 };
+
 const RAMP: Array<{ stop: number; color: string }> = [
-  { stop: 0, color: "#e8e4e2" },
-  { stop: 25, color: "#f6c3b6" },
+  { stop: 30, color: "#e8e4e2" },
+  { stop: 40, color: "#f6c3b6" },
   { stop: 50, color: "#f2846b" },
-  { stop: 75, color: "#ec3013" },
-  { stop: 100, color: "#a41c07" },
+  { stop: 60, color: "#ec3013" },
+  { stop: 70, color: "#a41c07" },
 ];
 
 export const SEPI_RAMP_EXPRESSION = RAMP.flatMap((s) => [s.stop, s.color]);
 
+/** Batas skala warna, buat keterangan legenda. */
+export const SEPI_SKALA = RENTANG_NYATA;
+
 export function sepiColor(score: number | null): string {
   if (score === null) return "#c9c4c1";
 
-  const clamped = Math.min(100, Math.max(0, score));
+  const clamped = Math.min(RENTANG_NYATA.atas, Math.max(RENTANG_NYATA.bawah, score));
   let lower = RAMP[0];
   let upper = RAMP[RAMP.length - 1];
 
@@ -61,12 +78,12 @@ type Component = {
 };
 
 /**
- * Kelima nilai komponen sudah TERNORMALISASI 0–1, bukan satuan aslinya.
+ * Kelima nilai komponen sudah TERNORMALISASI 0-1, bukan satuan aslinya.
  *
  * Versi sebelumnya memformat A sebagai `km²` dan U sebagai `titik`. Itu keliru
  * sejak variabelnya jadi gabungan beberapa indikator: A = luas + Permeability
  * Index, U = cacah + keberagaman + pembangkit perjalanan. Akibatnya nilai 0,87
- * tampil sebagai "0.87 km²" dan 0,92 tampil sebagai "1 titik" — angka benar,
+ * tampil sebagai "0.87 km²" dan 0,92 tampil sebagai "1 titik", angka benar,
  * satuan mengarang. Angka mentahnya tetap bisa dilihat di bagian "Isi jangkauan
  * jalan kaki"; di sini yang ditampilkan proporsinya.
  */
@@ -116,7 +133,7 @@ export const SEPI_COMPONENTS: Component[] = [
   },
 ];
 
-/** Tampilkan nilai komponen apa adanya: 0–1 dua desimal, atau tanda belum diukur. */
+/** Tampilkan nilai komponen apa adanya: 0-1 dua desimal, atau tanda belum diukur. */
 export function formatKomponen(value: number | null | undefined): string {
   if (value === null || value === undefined) return "belum diukur";
   return value.toFixed(2);
@@ -127,7 +144,7 @@ export function formatKomponen(value: number | null | undefined): string {
  *
  * Variabel yang belum diukur dikembalikan `null`, bukan 0. Bedanya menentukan:
  * bar sepanjang nol berarti "nilainya rendah", sedangkan yang kita maksud
- * adalah "belum ada datanya" — dua hal yang tidak boleh terlihat sama.
+ * adalah "belum ada datanya", dua hal yang tidak boleh terlihat sama.
  *
  * Versi sebelumnya memanggil `Math.max` atas nilai yang kini bisa `null`,
  * menghasilkan `NaN` dan membuat seluruh diagram lenyap tanpa pesan apa pun.

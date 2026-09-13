@@ -38,7 +38,7 @@ type Props = {
  *
  * Bobot resmi berasal dari Entropy + AHP, dan itu tetap angka yang dilaporkan.
  * Panel ini menjawab pertanyaan yang berbeda: seandainya prioritas bisnisnya
- * lain — misalnya yang dicari murni arus penumpang — stasiun mana yang naik.
+ * lain, misalnya yang dicari murni arus penumpang, stasiun mana yang naik.
  *
  * Hasilnya sengaja tidak disimpan dan selalu diberi label "simulasi". Kalau ia
  * bisa menimpa skor resmi, angka yang dilaporkan akan bergantung pada siapa
@@ -72,7 +72,7 @@ export default function SimulasiSepi({
 
   const total = Object.values(bobot).reduce((a, b) => a + b, 0);
   // Dinormalisasi saat dikirim, jadi pengguna tidak perlu membuat jumlahnya
-  // tepat 1 — yang penting perbandingan antar variabelnya.
+  // tepat 1, yang penting perbandingan antar variabelnya.
   const terkirim = Object.fromEntries(
     VARIABEL.map((v) => [v.key, total > 0 ? bobot[v.key] / total : 0.2])
   ) as unknown as BobotSepi;
@@ -113,7 +113,7 @@ export default function SimulasiSepi({
       </div>
 
       <p className="mt-1 text-[10px] leading-relaxed text-muted">
-        Seandainya prioritasnya berbeda dari bobot resmi — stasiun mana yang
+        Seandainya prioritasnya berbeda dari bobot resmi, stasiun mana yang
         naik? Hasilnya tidak menggantikan skor resmi.
       </p>
 
@@ -198,10 +198,10 @@ export default function SimulasiSepi({
           <p className="mt-1 text-[11px] text-muted">
             Peringkat #{dipilih.peringkat}{" "}
             {geser === 0
-              ? "— tidak bergeser"
+              ? ", tidak bergeser"
               : geser > 0
-                ? `— naik ${geser} tingkat`
-                : `— turun ${Math.abs(geser)} tingkat`}{" "}
+                ? `, naik ${geser} tingkat`
+                : `, turun ${Math.abs(geser)} tingkat`}{" "}
             · {dipilih.kelas}
           </p>
 

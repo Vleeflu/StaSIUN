@@ -6,7 +6,7 @@ dengan data kita.
 
 Konteksnya berlapis. Semua stasiun selalu ikut sebagai daftar ringkas, tapi
 rincian isi isochrone cuma disertakan untuk stasiun yang sedang dibuka atau yang
-namanya disebut di pertanyaan — kalau semuanya ikut, konteksnya jadi ribuan
+namanya disebut di pertanyaan, kalau semuanya ikut, konteksnya jadi ribuan
 baris dan yang penting malah tenggelam.
 """
 
@@ -282,8 +282,7 @@ def build_station_digest(db: Session) -> str:
             Station.types,
             Station.lines,
             Station.served,
-            Station.kecamatan,
-        ).order_by(Station.name)
+            Station.kecamatan).order_by(Station.name)
     ).all()
 
     if not rows:
@@ -403,7 +402,7 @@ def build_station_detail(db: Session, station: Station) -> str:
     )
 
     # Kategori yang tidak muncul sama sekali di hasil query berarti nol di semua
-    # pita, jadi tetap harus ditulis nol — bukan dilewati.
+    # pita, jadi tetap harus ditulis nol, bukan dilewati.
     grid: dict[str, dict[int, int]] = defaultdict(dict)
     for row in counts:
         if row.category is not None:

@@ -9,7 +9,7 @@ Pemisahan mentah dan bersih itu disengaja. Aturan pengambilan data di
 ADJUSTMENT.md bagian 7.3 melarang kurasi manual: entri tidak dipilih satu per
 satu, melainkan disaring oleh aturan yang dieksekusi kode. Supaya penyaringan
 itu bisa diaudit dan dihitung, entri yang gugur harus tetap tersimpan beserta
-alasan gugurnya — itulah gunanya activity_raw.
+alasan gugurnya, itulah gunanya activity_raw.
 """
 
 from datetime import datetime
@@ -21,8 +21,7 @@ from sqlalchemy import (
     ForeignKey,
     Text,
     UniqueConstraint,
-    text,
-)
+    text)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -34,7 +33,7 @@ from app.models.mixins import TimestampMixin
 class ActivityRaw(TimestampMixin, Base):
     """Entri Activity apa adanya, sebelum disaring dan ditata.
 
-    Payload disimpan sebagai JSONB — tipe kolom PostgreSQL untuk menampung JSON
+    Payload disimpan sebagai JSONB, tipe kolom PostgreSQL untuk menampung JSON
     tanpa struktur tetap. Ini bukan kemalasan: bentuk persis ekspor Activity
     belum diketahui, dan memaksakan struktur sekarang berarti merombak seluruh
     tabel begitu bentuk aslinya ternyata berbeda. Semua ketidakpastian bentuk
@@ -60,7 +59,7 @@ class ActivityRaw(TimestampMixin, Base):
     payload_hash: Mapped[str]
 
     # Hasil penyaringan. "pending" sebelum diperiksa, "passed" kalau lolos
-    # seluruh gate, "rejected" kalau gugur. Yang gugur TIDAK dihapus — jumlah
+    # seluruh gate, "rejected" kalau gugur. Yang gugur TIDAK dihapus, jumlah
     # lolos dan gugur per gate itulah bukti bahwa penyaringnya aturan, bukan
     # pilihan tangan.
     gate_status: Mapped[str] = mapped_column(default="pending", server_default="pending")
@@ -73,8 +72,7 @@ class ActivityRaw(TimestampMixin, Base):
         UniqueConstraint("payload_hash", name="uq_activity_raw_hash"),
         CheckConstraint(
             "gate_status IN ('pending', 'passed', 'rejected')",
-            name="ck_activity_raw_gate_status",
-        ),
+            name="ck_activity_raw_gate_status"),
     )
 
 
@@ -122,7 +120,7 @@ class ActivityPoint(TimestampMixin, Base):
     provenance: Mapped[str | None]
 
     # Apakah entri ini memuat pola penilaian narasumber. Menentukan ia masuk
-    # lapis 2 atau tidak — bukan menentukan ia dipakai atau dibuang.
+    # lapis 2 atau tidak, bukan menentukan ia dipakai atau dibuang.
     has_interviewer_pattern: Mapped[bool] = mapped_column(
         default=False, server_default=text("false")
     )
@@ -223,7 +221,7 @@ class CrowdRating(TimestampMixin, Base):
     scale_min: Mapped[int] = mapped_column(default=1, server_default=text("1"))
     scale_max: Mapped[int] = mapped_column(default=5, server_default=text("5"))
 
-    # Atribusi narasumber sebagai PERAN, bukan identitas — misalnya
+    # Atribusi narasumber sebagai PERAN, bukan identitas, misalnya
     # "petugas kebersihan peron 2". PRD menaruh pengolahan data pribadi di luar
     # lingkup, dan kolom inilah tempat aturan itu paling gampang bocor.
     respondent_ref: Mapped[str | None]
@@ -233,13 +231,11 @@ class CrowdRating(TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint(
             "time_window IN ('pagi', 'siang', 'sore')",
-            name="ck_crowd_rating_time_window",
-        ),
+            name="ck_crowd_rating_time_window"),
         CheckConstraint(
             "rating BETWEEN scale_min AND scale_max", name="ck_crowd_rating_range"
         ),
         CheckConstraint(
             "scale_min IN (0, 1) AND scale_max BETWEEN 3 AND 10",
-            name="ck_crowd_rating_scale",
-        ),
+            name="ck_crowd_rating_scale"),
     )

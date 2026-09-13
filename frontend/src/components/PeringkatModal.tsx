@@ -138,59 +138,94 @@ export default function PeringkatModal({
               <p className="mb-3 text-[11px] leading-relaxed text-muted">
                 {data.catatan}
               </p>
-              <p className="mb-3 border-l-2 border-hair pl-2 text-[10px] leading-relaxed text-muted">
-                Urutannya memakai skor SESUDAH dipotong ketidakpastian, bukan
-                skor mentahnya. Stasiun yang sebagian bahannya masih taksiran
-                dipotong lebih dalam, sehingga tidak bisa unggul hanya karena
-                datanya belum lengkap — dan peringkatnya naik sendiri begitu
-                data barunya masuk.
-              </p>
+
+              {/*
+                Penjelasan dua angka, ditulis sebagai sebab-akibat.
+                Versi sebelumnya menuliskan yang mentah dengan coretan - dan
+                coretan berarti "salah" atau "dihapus" di mana-mana, padahal
+                angka itu benar dan justru penting. Sekarang keduanya berdiri
+                setara sebagai dua kolom bernama.
+              */}
+              <div className="mb-3 border border-hair bg-canvas p-2.5">
+                <p className="text-[10px] leading-relaxed text-ink-soft">
+                  Setiap stasiun disajikan dengan dua nilai.{" "}
+                  <strong>Skor hitung</strong> merupakan hasil perhitungan
+                  langsung, sedangkan <strong>skor aman</strong> merupakan skor
+                  tersebut setelah dikurangi rentang ketidakpastian datanya.
+                </p>
+                <p className="mt-1.5 text-[10px] leading-relaxed text-ink-soft">
+                  Urutan peringkat disusun berdasarkan <strong>skor aman</strong>.
+                  Karena itu stasiun dengan skor hitung lebih tinggi dapat berada
+                  pada posisi yang lebih rendah apabila kelengkapan datanya belum
+                  setara. Pengurangan tersebut menyusut seiring bertambahnya data
+                  survei, sehingga peringkat menyesuaikan dengan sendirinya.
+                </p>
+              </div>
+
+              {/* Kepala kolom, menempel saat daftar digulir. */}
+              <div className="sticky top-0 z-10 flex items-baseline gap-3 border-b border-ink bg-panel py-1.5">
+                <span className="label-caps w-8 shrink-0 text-right text-[9px] text-muted">
+                  No
+                </span>
+                <span className="label-caps min-w-0 flex-1 text-[9px] text-muted">
+                  Stasiun
+                </span>
+                {baris.some((b) => b.pesaing !== undefined) && (
+                  <span className="label-caps w-16 shrink-0 text-right text-[9px] text-muted">
+                    Pesaing
+                  </span>
+                )}
+                {baris.some((b) => b.confidence !== undefined) && (
+                  <span className="label-caps w-14 shrink-0 text-right text-[9px] text-muted">
+                    Yakin
+                  </span>
+                )}
+                <span className="label-caps w-14 shrink-0 text-right text-[9px] text-muted">
+                  Skor hitung
+                </span>
+                <span className="label-caps w-14 shrink-0 text-right text-[9px] text-ink">
+                  Skor aman
+                </span>
+              </div>
+
               <ol className="flex flex-col">
                 {baris.map((b) => {
                   const sorot = b.stasiun === stasiunSorot;
+                  const taksiran = (b.confidence ?? 1) < 0.8;
                   return (
                     <li
                       key={`${pilih}-${b.stasiun}`}
                       className={`flex items-baseline gap-3 border-b border-canvas py-1.5 text-xs last:border-b-0 ${
-                        sorot ? "bg-canvas px-2 font-semibold text-ink" : "text-ink-soft"
+                        sorot ? "bg-canvas font-semibold text-ink" : "text-ink-soft"
                       }`}
                     >
                       <span className="data-num w-8 shrink-0 text-right text-muted">
                         #{b.peringkat}
                       </span>
                       <span className="min-w-0 flex-1">{b.stasiun}</span>
-                      {b.pesaing !== undefined && (
-                        <span className="shrink-0 text-[10px] text-muted">
-                          {b.pesaing} pesaing
+                      {baris.some((x) => x.pesaing !== undefined) && (
+                        <span className="data-num w-16 shrink-0 text-right text-[10px] text-muted">
+                          {b.pesaing ?? "-"}
                         </span>
                       )}
-                      {b.confidence !== undefined && (
+                      {baris.some((x) => x.confidence !== undefined) && (
                         <span
-                          className={`data-num shrink-0 text-[10px] ${
-                            b.confidence < 0.8 ? "text-accent" : "text-muted"
+                          className={`data-num w-14 shrink-0 text-right text-[10px] ${
+                            taksiran ? "text-accent" : "text-muted"
                           }`}
                           title={
-                            b.confidence < 0.8
-                              ? "Sebagian bahannya masih taksiran, jadi skornya dipotong sebelum diurutkan"
+                            taksiran
+                              ? "Sebagian bahannya masih taksiran, jadi potongannya lebih dalam"
                               : "Seluruh bahannya terukur"
                           }
                         >
-                          yakin {b.confidence.toFixed(2)}
+                          {b.confidence?.toFixed(2) ?? "-"}
                         </span>
                       )}
-                      {/*
-                        Dua angka, bukan satu. Yang tipis di kiri adalah skor
-                        mentah, yang tebal di kanan skor sesudah dipotong
-                        ketidakpastian - dan yang kedua itulah dasar urutannya.
-                        Menampilkan skor mentah saja membuat daftarnya tampak
-                        tidak urut.
-                      */}
-                      {b.nilai_bawah !== undefined && (
-                        <span className="data-num w-10 shrink-0 text-right text-[10px] text-muted line-through decoration-hair">
-                          {b.nilai.toFixed(1)}
-                        </span>
-                      )}
-                      <span className="data-num w-12 shrink-0 text-right">
+                      <span className="data-num w-14 shrink-0 text-right text-[10px] text-muted">
+                        {b.nilai.toFixed(1)}
+                      </span>
+                      <span className="data-num w-14 shrink-0 text-right font-semibold text-ink">
                         {(b.nilai_bawah ?? b.nilai).toFixed(1)}
                       </span>
                     </li>

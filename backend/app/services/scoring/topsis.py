@@ -1,12 +1,12 @@
-"""TOPSIS — perankingan menurut kedekatan ke solusi ideal.
+"""TOPSIS, perankingan menurut kedekatan ke solusi ideal.
 
     v_ij = w_j * x_ij                      matriks ternormalisasi berbobot
-    A+   = (max_i v_i1, ..., max_i v_in)   sudut ideal
-    A-   = (min_i v_i1, ..., min_i v_in)   sudut terburuk
+    A+   = (max_i v_i1..., max_i v_in)   sudut ideal
+    A-   = (min_i v_i1..., min_i v_in)   sudut terburuk
     S+   = ||v_i - A+||,  S- = ||v_i - A-||
     C_i  = S- / (S+ + S-)                  0..1, makin besar makin baik
 
-A+ hampir selalu BUKAN stasiun yang benar-benar ada — dia sudut hipotetis yang
+A+ hampir selalu BUKAN stasiun yang benar-benar ada, dia sudut hipotetis yang
 menggabungkan nilai terbaik tiap dimensi, yang bisa saja berasal dari stasiun
 yang berbeda-beda.
 
@@ -34,7 +34,7 @@ AKIBATNYA UNTUK PRODUK INI:
     cakupan diperluas ke Jabodetabek, peringkat lama bisa berubah walau datanya
     tidak.
 
-Struktur PRD — SEPI untuk klasifikasi, TOPSIS untuk peringkat — karena itu
+Struktur PRD, SEPI untuk klasifikasi, TOPSIS untuk peringkat, karena itu
 memang benar secara matematis, bukan kebetulan.
 """
 
@@ -61,7 +61,7 @@ def topsis(matriks: np.ndarray, bobot: np.ndarray) -> HasilTopsis:
 
     Nilai kosong diperlakukan sebagai "tidak menyumbang jarak", bukan nol.
     Memperlakukannya nol akan menempatkan stasiun berdata belum lengkap tepat
-    di sudut terburuk — menghukumnya karena datanya belum masuk, bukan karena
+    di sudut terburuk, menghukumnya karena datanya belum masuk, bukan karena
     kondisinya memang buruk.
     """
     x = np.asarray(matriks, dtype=float)
