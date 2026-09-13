@@ -39,6 +39,9 @@ from dataclasses import dataclass
 PERSONA: dict[str, dict] = {
     "pengelola": {
         "label": "Pengelola aset stasiun",
+        "aksen": "#14532d",
+        "judul_font": "Georgia, 'Times New Roman', serif",
+        "sifat": "dokumen negosiasi: angka rapat, tabel padat, nada resmi",
         "fokus": ["skor", "paparan", "iklan", "sponsorship", "tenant"],
         "nada": (
             "pengelola aset komersial stasiun yang perlu justifikasi terukur "
@@ -47,6 +50,9 @@ PERSONA: dict[str, dict] = {
     },
     "pengiklan": {
         "label": "Pengiklan dan pemilik merek",
+        "aksen": "#b91c1c",
+        "judul_font": "system-ui, -apple-system, 'Segoe UI', sans-serif",
+        "sifat": "materi penawaran: angka besar, kontras tinggi",
         "fokus": ["paparan", "iklan", "skor", "tenant", "sponsorship"],
         "nada": (
             "pengiklan yang menimbang membeli ruang iklan dan perlu tahu siapa "
@@ -55,6 +61,9 @@ PERSONA: dict[str, dict] = {
     },
     "umkm": {
         "label": "Pelaku UMKM dan calon tenant",
+        "aksen": "#9a3412",
+        "judul_font": "system-ui, -apple-system, 'Segoe UI', sans-serif",
+        "sifat": "dibaca orang yang bukan analis: huruf lebih besar, jarak lebih lega",
         "fokus": ["tenant", "skor", "paparan", "iklan", "sponsorship"],
         "nada": (
             "pelaku UMKM yang menimbang menyewa lapak dan perlu tahu risiko "
@@ -63,6 +72,9 @@ PERSONA: dict[str, dict] = {
     },
     "regulator": {
         "label": "Perencana kawasan dan regulator",
+        "aksen": "#1e3a5f",
+        "judul_font": "Georgia, 'Times New Roman', serif",
+        "sifat": "dokumen kebijakan: serif, catatan metodologi menonjol",
         "fokus": ["skor", "tenant", "paparan", "sponsorship", "iklan"],
         "nada": (
             "perencana kawasan yang menilai metodologi dan keterbatasan data "
@@ -71,6 +83,9 @@ PERSONA: dict[str, dict] = {
     },
     "investor": {
         "label": "Investor dan mitra",
+        "aksen": "#312e81",
+        "judul_font": "Georgia, 'Times New Roman', serif",
+        "sifat": "materi due diligence: angka menonjol, keterbatasan disebut terang",
         "fokus": ["skor", "paparan", "tenant", "sponsorship", "iklan"],
         "nada": (
             "calon mitra atau investor yang menilai besaran peluang dan "
@@ -211,21 +226,77 @@ def susun_bagian(data: dict) -> dict[str, Bagian]:
     return bagian
 
 
-GAYA = """
-body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:760px;
-margin:0 auto;padding:40px 24px;color:#1a1a1a;line-height:1.55}
-h1{font-size:26px;margin:0 0 4px;letter-spacing:-.02em}
-h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:#666;
-margin:28px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}
-p{margin:0 0 10px;font-size:14px}
-table{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 8px}
-th,td{text-align:left;padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top}
-th{color:#555;font-weight:600;width:38%}
-table tr th:only-of-type{width:auto}
-.nota{font-size:12px;color:#666}
-.kop{color:#666;font-size:13px;margin-bottom:24px}
-.kaki{margin-top:32px;border-top:1px solid #ddd;padding-top:12px;font-size:11px;color:#777}
-@media print{body{padding:0}}
+# Ukuran huruf dasar per persona. UMKM dibesarkan karena pembacanya bukan
+# analis yang terbiasa memindai tabel rapat; investor dan pengelola dirapatkan
+# karena keduanya membaca banyak angka sekaligus dan ruang kosong justru
+# memperpanjang dokumen tanpa menambah kejelasan.
+UKURAN_DASAR = {"umkm": 15, "pengiklan": 14, "regulator": 14}
+
+
+def gaya(persona: str) -> str:
+    """Lembar gaya dokumen, disesuaikan persona pembacanya.
+
+    Yang berubah hanya RUPA, bukan isi maupun urutan angka. Warna aksen, jenis
+    huruf judul, dan kerapatan tabel mengikuti kebiasaan baca tiap pembaca:
+    dokumen negosiasi aset tidak pantas berwarna semarak, dan lembar penawaran
+    untuk pengiklan tidak pantas sekaku dokumen kebijakan.
+
+    Aturan cetaknya dipasang di sini juga, bukan diserahkan ke bawaan browser.
+    Tanpa `break-inside`, satu tabel bisa terbelah dua halaman tepat di tengah
+    baris, dan tanpa `@page` marginnya mengikuti setelan printer masing-masing
+    orang sehingga hasil cetak tiap pembaca berbeda-beda.
+    """
+    p = PERSONA.get(persona, PERSONA["pengelola"])
+    aksen = p.get("aksen", "#1e3a5f")
+    judul_font = p.get("judul_font", "system-ui, sans-serif")
+    dasar = UKURAN_DASAR.get(persona, 13.5)
+    lega = 1.7 if persona == "umkm" else 1.55
+
+    return f"""
+:root{{--aksen:{aksen}}}
+*{{box-sizing:border-box}}
+body{{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;max-width:780px;
+margin:0 auto;padding:44px 28px;color:#18181b;line-height:{lega};
+font-size:{dasar}px;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+/* Kepala dokumen: satu garis aksen tebal, cukup untuk menandai identitas
+   tanpa blok warna penuh yang boros tinta saat dicetak. */
+.kepala{{border-top:5px solid var(--aksen);padding-top:14px;margin-bottom:26px}}
+h1{{font-family:{judul_font};font-size:30px;margin:0 0 4px;letter-spacing:-.015em;
+color:var(--aksen)}}
+.kop{{color:#52525b;font-size:{dasar - 1.5}px;margin:0}}
+.kop strong{{color:#18181b}}
+
+h2{{font-family:{judul_font};font-size:{dasar + 1}px;text-transform:uppercase;
+letter-spacing:.09em;color:var(--aksen);margin:30px 0 10px;
+border-bottom:2px solid var(--aksen);padding-bottom:5px;break-after:avoid}}
+
+p{{margin:0 0 11px}}
+.pembuka{{font-size:{dasar + 1}px;color:#27272a;border-left:3px solid var(--aksen);
+padding-left:14px;margin-bottom:22px}}
+
+table{{width:100%;border-collapse:collapse;font-size:{dasar - 1}px;margin:0 0 10px;
+break-inside:avoid}}
+th,td{{text-align:left;padding:7px 9px;border-bottom:1px solid #e4e4e7;
+vertical-align:top}}
+th{{color:#3f3f46;font-weight:600;width:38%;background:#fafafa}}
+table tr th:only-of-type{{width:auto}}
+/* Baris kepala tabel berkolom banyak diberi garis aksen supaya kolomnya
+   terbaca sebagai judul, bukan sebagai baris data pertama. */
+table tr:first-child th{{border-bottom:2px solid var(--aksen)}}
+td:not(:first-child){{font-variant-numeric:tabular-nums}}
+
+.nota{{font-size:{dasar - 2}px;color:#52525b;background:#fafafa;
+border-left:3px solid #d4d4d8;padding:8px 11px;margin:0 0 10px}}
+.kaki{{margin-top:36px;border-top:1px solid #d4d4d8;padding-top:14px;
+font-size:{dasar - 3}px;color:#71717a;break-inside:avoid}}
+
+@page{{margin:18mm 16mm}}
+@media print{{
+  body{{padding:0;max-width:none;font-size:{dasar - 1}px}}
+  h2{{margin-top:22px}}
+  a{{color:inherit;text-decoration:none}}
+}}
 """
 
 
@@ -245,13 +316,17 @@ def susun_dokumen(
     isi = "".join(
         f"<h2>{_e(bagian[k].judul)}</h2>{bagian[k].isi}" for k in urutan
     )
-    narasi = f"<p>{_e(pembuka)}</p>" if pembuka else ""
+    narasi = f'<p class="pembuka">{_e(pembuka)}</p>' if pembuka else ""
 
     return f"""<!doctype html>
 <html lang="id"><head><meta charset="utf-8">
-<title>StaSIUN, {_e(stasiun)}</title><style>{GAYA}</style></head><body>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StaSIUN, {_e(stasiun)}</title><style>{gaya(persona)}</style></head><body>
+<div class="kepala">
 <h1>{_e(stasiun)}</h1>
-<p class="kop">Ringkasan analisis untuk {_e(p['label'].lower())} · disusun {_e(tanggal)}</p>
+<p class="kop">Ringkasan analisis untuk <strong>{_e(p['label'].lower())}</strong>
+· disusun {_e(tanggal)}</p>
+</div>
 {narasi}
 {isi}
 <div class="kaki">

@@ -97,6 +97,19 @@ export type StationScore = {
   catatan_estimasi: string;
   /** Variabel yang nilainya identik di seluruh stasiun, jadi tidak membedakan apa pun. */
   seragam_di_semua_stasiun?: string[];
+  /** Moda yang dapat dicapai berjalan kaki, dipisah antara yang ikut skor dan yang keterangan. */
+  moda?: {
+    radius_m: number;
+    jenis_dihitung: number;
+    dihitung: Array<{
+      jenis: string;
+      jumlah: number;
+      satuan?: string;
+      nama?: string[];
+      sumber: string;
+    }>;
+    keterangan: Array<{ jenis: string; tercatat_peta: number; disebut_survei: number }>;
+  };
   detail: {
     line_count: number;
     halte_count: number;

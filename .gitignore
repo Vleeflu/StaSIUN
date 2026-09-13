@@ -33,3 +33,10 @@ backup/
 .env.bak
 backend/.env.bak
 *.env.bak
+
+# SSH / private keys — MUST NEVER enter Git.
+sshkey.txt
+sshkey.txt.pub
+id_ed25519
+id_rsa
+*.pem

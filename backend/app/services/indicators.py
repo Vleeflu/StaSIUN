@@ -312,8 +312,43 @@ class IndikatorTransportasi:
     station_name: str
     jumlah_line: int
     interchange: bool
-    moda_rel: int    # MRT / LRT / kereta cepat dalam radius pertukaran
-    moda_jalan: int  # halte bus, TransJakarta, taksi, parkir motor
+    moda_rel: int    # JENIS rel lain dalam radius: MRT, LRT, kereta cepat
+    moda_jalan: int  # jumlah titik transportasi OSM, dipertahankan untuk panel
+    ada_brt: bool = False        # halte TransJakarta BRT (Bina Marga)
+    ada_bus_non_brt: bool = False  # halte bus reguler, Mikrotrans, JakLingko
+    ada_terminal: bool = False   # terminal bus
+
+    @property
+    def keragaman_moda(self) -> int:
+        """Jumlah JENIS moda berbeda yang bisa dicapai berjalan kaki.
+
+        KOREKSI 13 SEP, dan ini mengubah variabel T. Versi sebelumnya
+        menjumlahkan dua besaran yang satuannya berbeda: `moda_rel` menghitung
+        jenis rel lain (0 sampai 3), sedangkan `moda_jalan` menghitung jumlah
+        TITIK transportasi OSM (bisa puluhan). Hasilnya indikator yang
+        didominasi kerapatan halte, sehingga stasiun dengan dua puluh halte bus
+        berjejer di satu jalan terbaca lebih terhubung daripada stasiun yang
+        benar-benar menjadi simpul MRT, BRT, dan terminal sekaligus.
+
+        PRD menyebut indikator ini "jumlah moda terhubung", yaitu banyaknya
+        MODA, bukan banyaknya titik pemberhentian. Maka yang dihitung jenisnya:
+        tiap jenis rel lain, BRT, bus non-BRT, dan terminal, masing-masing
+        bernilai satu kalau ada dalam radius.
+
+        Taksi dan ojek daring TIDAK ikut dihitung di sini, dan itu disengaja.
+        OpenStreetMap hanya mencatat pangkalan taksi di 1 dari 45 stasiun, dan
+        ojek daring tidak dicatat sama sekali; keduanya hanya muncul di narasi
+        survei, yang baru mencakup sebagian stasiun. Menjadikannya skor akan
+        menghukum stasiun yang pangkalannya belum sempat dipetakan atau
+        disurvei, bukan stasiun yang memang tidak punya. Keduanya tetap tampil
+        di panel sebagai keterangan beserta sumbernya.
+        """
+        return (
+            self.moda_rel
+            + int(self.ada_brt)
+            + int(self.ada_bus_non_brt)
+            + int(self.ada_terminal)
+        )
 
     @property
     def moda_terhubung(self) -> int:
@@ -332,13 +367,19 @@ class IndikatorTransportasi:
         justru mencatat persis yang OSM lewatkan, jadi indikator ini akan
         diperbaiki lagi begitu data Activity masuk.
         """
-        return self.moda_rel + self.moda_jalan
+        return self.keragaman_moda
 
 
 # Jarak yang masih masuk akal ditempuh jalan kaki saat berpindah moda. Dipakai
 # untuk menghitung konektivitas antarmoda, yaitu alasan titik MRT, LRT, dan
 # kereta cepat ikut disimpan di tabel stations walau bukan unit analisis.
-RADIUS_ANTARMODA_M = 500
+#
+# Sempat 500 m, dinaikkan ke 600 m 13 Sep setelah kasus nyata: Halte APTB
+# Tanah Abang - persis di gerbang Gedung Baru Tanah Abang yang disebut
+# Villyan - berjarak 555 m dari titik stasiun, terpotong 500 m tanpa alasan
+# metodologis yang kuat selain kebulatan angka. 600 m tetap dalam rentang
+# yang lazim dipakai untuk walkshed transit (5-8 menit jalan kaki wajar).
+RADIUS_ANTARMODA_M = 600
 
 # Moda yang dihitung sebagai konektivitas antarmoda. Dikenali dari tag OSM
 # mentah, bukan dari tabel stations, inilah koreksi 8 Sep.
@@ -385,7 +426,78 @@ SELECT s.id   AS station_id,
                    ST_Transform(s.location, :srid_metric),
                    :radius
                )
-       )::int AS moda_jalan
+       )::int AS moda_jalan,
+       -- BRT: TIGA sumber digabung, dan ketiganya ternyata perlu.
+       --
+       -- Bina Marga (121 halte busway) saja melewatkan Manggarai, karena halte
+       -- terdekatnya 552 m. OSM (164 halte network=Transjakarta) menutup itu
+       -- dengan halte 312 m. Tetapi keduanya SAMA-SAMA melewatkan Tanah Abang -
+       -- diperiksa penuh satu kecamatan, nol hasil di kedua sumber - padahal ada
+       -- Halte APTB Tanah Abang 555 m, tercatat di lajur MAPID (612 halte,
+       -- terpisah dari lajur `overpass`). APTB berjalan di jalur busway dan
+       -- terintegrasi TransJakarta, jadi ikut dihitung BRT. Ketahuan dari
+       -- laporan Villyan yang tahu ada halte di gerbang Gedung Baru Tanah
+       -- Abang - dua sumber pertama sama-sama tidak mencatatnya.
+       --
+       -- Lajur MAPID tidak berkolom tipe rute, jadi klasifikasinya dari NAMA:
+       -- mengandung "transjakarta", "busway", atau "aptb" -> BRT.
+       (EXISTS (
+          SELECT 1 FROM transit_nodes n
+          WHERE n.jenis = 'halte_brt'
+            AND ST_DWithin(ST_Transform(n.location, :srid_metric),
+                           ST_Transform(s.location, :srid_metric), :radius))
+        OR EXISTS (
+          SELECT 1 FROM poi p
+          WHERE p.source = 'overpass'
+            AND p.osm_tags->>'network' ILIKE '%%transjakarta%%'
+            AND ST_DWithin(ST_Transform(p.location, :srid_metric),
+                           ST_Transform(s.location, :srid_metric), :radius))
+        OR EXISTS (
+          SELECT 1 FROM poi p
+          WHERE p.source = 'mapid' AND p.category = 'halte'
+            AND p.name ~* 'transjakarta|busway|aptb'
+            AND ST_DWithin(ST_Transform(p.location, :srid_metric),
+                           ST_Transform(s.location, :srid_metric), :radius))
+       ) AS ada_brt,
+       -- Bus non-BRT: halte reguler Bina Marga, ATAU halte bus OpenStreetMap.
+       -- Dua sumber digabung sebagai PENANDA ada/tidak, bukan dijumlahkan, jadi
+       -- satu halte yang tercatat di keduanya tidak terhitung dua kali.
+       -- Halte MAPID yang TIDAK cocok kata kunci BRT masuk sini (JakLingko
+       -- feeder, Mikrotrans, halte reguler bernama lokasi) - bukan diam-diam
+       -- terlewat karena hanya diperiksa untuk BRT di atas.
+       (EXISTS (
+          SELECT 1 FROM transit_nodes n
+          WHERE n.jenis = 'halte_non_brt'
+            AND ST_DWithin(ST_Transform(n.location, :srid_metric),
+                           ST_Transform(s.location, :srid_metric), :radius))
+        OR EXISTS (
+          SELECT 1 FROM poi p
+          WHERE p.source = 'overpass'
+            AND (p.osm_tags->>'highway' = 'bus_stop' OR p.osm_tags->>'amenity' = 'bus_stop')
+            AND ST_DWithin(ST_Transform(p.location, :srid_metric),
+                           ST_Transform(s.location, :srid_metric), :radius))
+        OR EXISTS (
+          SELECT 1 FROM poi p
+          WHERE p.source = 'mapid' AND p.category = 'halte'
+            AND p.name !~* 'transjakarta|busway|aptb'
+            AND ST_DWithin(ST_Transform(p.location, :srid_metric),
+                           ST_Transform(s.location, :srid_metric), :radius))
+       ) AS ada_bus_non_brt,
+       (EXISTS (
+          SELECT 1 FROM transit_nodes n
+          WHERE n.jenis = 'terminal_bus'
+            AND ST_DWithin(ST_Transform(n.location, :srid_metric),
+                           ST_Transform(s.location, :srid_metric), :radius))
+        -- `amenity=bus_station` di OSM TIDAK selalu terminal: halte TransJakarta
+        -- juga memakai tag itu. Tanpa pengecualian jaringan di bawah, halte BRT
+        -- terhitung dua kali, sekali sebagai BRT dan sekali sebagai terminal.
+        OR EXISTS (
+          SELECT 1 FROM poi p
+          WHERE p.source = 'overpass' AND p.osm_tags->>'amenity' = 'bus_station'
+            AND COALESCE(p.osm_tags->>'network', '') NOT ILIKE '%%transjakarta%%'
+            AND ST_DWithin(ST_Transform(p.location, :srid_metric),
+                           ST_Transform(s.location, :srid_metric), :radius))
+       ) AS ada_terminal
 FROM stations s
 ORDER BY s.name
 """
@@ -406,7 +518,10 @@ def hitung_transportasi(
             jumlah_line=r.jumlah_line,
             interchange=r.interchange,
             moda_rel=r.moda_rel,
-            moda_jalan=r.moda_jalan)
+            moda_jalan=r.moda_jalan,
+            ada_brt=bool(r.ada_brt),
+            ada_bus_non_brt=bool(r.ada_bus_non_brt),
+            ada_terminal=bool(r.ada_terminal))
         for r in baris
     ]
 
@@ -478,10 +593,15 @@ SELECT s.id   AS station_id,
          WHERE a.station_id = s.id)                                AS media_iklan,
        (SELECT SUM(a.media_count) FROM ad_spots a
          WHERE a.station_id = s.id AND a.status <> 'kosong')       AS ad_spot_terisi,
+       -- `unit_filled IS NOT NULL` WAJIB di KEDUA subkueri, bukan cuma yang
+       -- kedua. Tanpa itu `unit_total` menjumlahkan SEMUA klaster (termasuk
+       -- yang keterisiannya tidak disebutkan narasinya) sementara
+       -- `unit_filled` cuma menjumlahkan yang diketahui - pasangan yang tidak
+       -- sepadan, dan rasionya jadi merendahkan keterisian yang sebenarnya.
        (SELECT SUM(c.unit_total) FROM tenant_clusters c
-         WHERE c.station_id = s.id)                                AS unit_total,
+         WHERE c.station_id = s.id AND c.unit_filled IS NOT NULL)   AS unit_total,
        (SELECT SUM(c.unit_filled) FROM tenant_clusters c
-         WHERE c.station_id = s.id)                                AS unit_filled,
+         WHERE c.station_id = s.id AND c.unit_filled IS NOT NULL)   AS unit_filled,
        (SELECT AVG(f.sentiment_score) FROM facility_issues f
          WHERE f.station_id = s.id AND f.sentiment_score IS NOT NULL)
                                                                    AS sentimen,
@@ -511,6 +631,37 @@ keberagaman AS (
                    SUM(n) OVER (PARTITION BY station_id) AS total
               FROM per_kategori) x
      GROUP BY station_id
+),
+-- Keterisian dari DUA sumber yang digabung: tenant bernama satu per satu
+-- (tabel tenants) DAN laporan area lewat field "lapak" (tenant_clusters).
+--
+-- Ditambahkan 13 Sep. Sebelumnya keterisian_komersial hanya membaca tabel
+-- tenants, sehingga narasi survei berbentuk laporan area - "dari sepuluh
+-- unit, dua minimarket, satu restoran, sisanya makanan" - tidak pernah
+-- terpakai walau sudah tersimpan lengkap di tenant_clusters. Jakarta Kota dan
+-- Kalideres persis kasus ini: nol tenant bernama, tetapi masing-masing punya
+-- satu laporan area yang menyebutkan komposisi dan keterisiannya.
+--
+-- Klaster dengan unit_filled NULL (keterisian tidak disebutkan narasinya)
+-- sengaja tidak ikut dijumlahkan - menyertakannya berarti menghitung unit
+-- yang statusnya tidak diketahui seolah diketahui.
+keterisian_gabungan AS (
+    SELECT
+        COALESCE(tn.station_id, kl.station_id) AS station_id,
+        COALESCE(tn.total, 0) + COALESCE(kl.total, 0)   AS n_total,
+        COALESCE(tn.terisi, 0) + COALESCE(kl.terisi, 0) AS n_terisi
+      FROM (
+            SELECT station_id, COUNT(*) AS total,
+                   COUNT(*) FILTER (WHERE status = 'aktif') AS terisi
+              FROM tenants
+             GROUP BY station_id
+           ) tn
+      FULL OUTER JOIN (
+            SELECT station_id, SUM(unit_total) AS total, SUM(unit_filled) AS terisi
+              FROM tenant_clusters
+             WHERE unit_filled IS NOT NULL
+             GROUP BY station_id
+           ) kl ON kl.station_id = tn.station_id
 )
 SELECT s.id   AS station_id,
        s.name AS station_name,
@@ -540,11 +691,16 @@ SELECT s.id   AS station_id,
                THEN 0
            ELSE NULL
        END                                             AS komposisi_usaha,
-       (SELECT CASE WHEN COUNT(*) >= :min_tenant
-                    THEN COUNT(*) FILTER (WHERE t.status = 'aktif')::float
-                         / NULLIF(COUNT(*), 0)
+       -- Ambang keterisian TERPISAH dari ambang keberagaman (:min_tenant).
+       -- Rasio keterisian tidak punya masalah degenerasi entropi - "3 dari 3
+       -- unit terisi" tetap sinyal yang sah, bukan artefak statistik seperti
+       -- keberagaman sempurna pada n kecil. Karena itu ambangnya boleh lebih
+       -- rendah, disamakan dengan ambang harga (:min_harga) yang menganut
+       -- logika sama: sedikit pengamatan asalkan bukan cuma satu-dua.
+       (SELECT CASE WHEN kg.n_total >= :min_harga
+                    THEN kg.n_terisi::float / NULLIF(kg.n_total, 0)
                END
-          FROM tenants t WHERE t.station_id = s.id)     AS keterisian_komersial,
+          FROM keterisian_gabungan kg WHERE kg.station_id = s.id) AS keterisian_komersial,
        -- `kind = 'menu'` WAJIB. Tabel price_references menampung dua jenis
        -- harga sekaligus: menu (rupiah per porsi, puluhan ribu) dan sewa
        -- (rupiah per m2 per bulan, ratusan ribu). Tanpa penyaring ini
@@ -571,6 +727,12 @@ SELECT s.id   AS station_id,
  WHERE EXISTS (SELECT 1 FROM tenants          t WHERE t.station_id = s.id)
     OR EXISTS (SELECT 1 FROM price_references p
                 WHERE p.station_id = s.id AND p.kind = 'menu')
+    -- Stasiun yang HANYA punya laporan area (tenant_clusters), nol tenant
+    -- bernama, wajib tetap masuk baris hasil - kalau tidak, perbaikan
+    -- keterisian_komersial di atas tidak pernah sampai ke stasiun itu.
+    -- Jakarta Kota persis kasus ini.
+    OR EXISTS (SELECT 1 FROM tenant_clusters c
+                WHERE c.station_id = s.id AND c.unit_filled IS NOT NULL)
  ORDER BY s.name
 """
 
@@ -590,7 +752,7 @@ def hitung_komersial(session: Session) -> list[IndikatorKomersial]:
                 station_name=r.station_name,
                 media_iklan=r.media_iklan,
                 ad_spot_terisi=r.ad_spot_terisi,
-                keterisian_lapak=(terisi / total) if total else None,
+                keterisian_lapak=(terisi / total) if total and terisi is not None else None,
                 sentimen_fasilitas=float(r.sentimen) if r.sentimen is not None else None,
                 jumlah_keluhan=r.jumlah_keluhan)
         )

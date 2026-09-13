@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +37,20 @@ class Settings(BaseSettings):
     # Semua penyedia berbicara protokol OpenAI-compatible, jadi yang berbeda
     # hanya ketiga nilai itu. Lihat services/llm_penyedia.py.
     LLM_FALLBACKS: str | None = None
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def _use_psycopg_driver(cls, v: str | None) -> str | None:
+        # Managed Postgres platforms (Render, Railway, Neon, …) hand out a plain
+        # postgres:// URL, but SQLAlchemy needs an explicit driver and this
+        # project uses psycopg 3. Coerce the scheme so one env var works both
+        # locally and in the cloud. An already-correct URL passes through.
+        if not v:
+            return v
+        for prefix in ("postgresql://", "postgres://"):
+            if v.startswith(prefix):
+                return "postgresql+psycopg://" + v[len(prefix):]
+        return v
 
 
 settings = Settings()

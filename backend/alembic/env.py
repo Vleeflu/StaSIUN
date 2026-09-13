@@ -125,6 +125,9 @@ def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        # Match app engine: disable psycopg prepared statements so migrations
+        # run over transaction-mode poolers (Supabase Supavisor, PgBouncer).
+        connect_args={"prepare_threshold": None},
     )
 
     with connectable.connect() as connection:

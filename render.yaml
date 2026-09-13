@@ -1,0 +1,68 @@
+# Render blueprint for the StaSIUN stack: PostGIS + FastAPI backend + Next.js
+# frontend. Deploy at https://dashboard.render.com -> New -> Blueprint, pointing
+# at this repository. Free-plan notes: web services sleep after ~15 min idle
+# (first request cold-starts ~50s) and the free database expires after 30 days —
+# fine for a demo, upgrade the plans for anything longer-lived.
+
+databases:
+  - name: stasiun-db
+    plan: free
+    # Render's managed Postgres supports the PostGIS extension; the backend
+    # entrypoint runs CREATE EXTENSION IF NOT EXISTS postgis on first boot.
+
+services:
+  # ---- FastAPI backend (built from backend/Dockerfile) ----
+  - type: web
+    name: stasiun-backend
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stasiun-db
+          property: connectionString
+      # Must match the frontend's public URL below (JSON list).
+      - key: CORS_ORIGINS
+        value: '["https://stasiun-frontend.onrender.com"]'
+      # Seed the bundled GeoJSON on first boot — no MAPID credentials required.
+      - key: SEED_ON_START
+        value: "1"
+      - key: SEED_SOURCE
+        value: local
+      # Optional secrets — set in the dashboard (sync:false keeps them out of git).
+      # LLM_API_KEY powers the AI Insight panel; without it the map/API still work.
+      - key: LLM_API_KEY
+        sync: false
+      # Backup LLM provider chain (used when the primary provider's daily quota
+      # runs out). Format: name|base_url|model|key, entries separated by ';'.
+      - key: LLM_FALLBACKS
+        sync: false
+      - key: MAPID_API_KEY
+        sync: false
+      - key: MAPID_PROJECT_ID
+        sync: false
+      # Key the Activity (Community MAPS) endpoint actually uses — see config.py.
+      - key: MAPID_BASEMAP_KEY
+        sync: false
+
+  # ---- Next.js frontend (built from frontend/Dockerfile) ----
+  - type: web
+    name: stasiun-frontend
+    runtime: docker
+    plan: free
+    rootDir: frontend
+    dockerfilePath: ./Dockerfile
+    envVars:
+      # NEXT_PUBLIC_* are inlined into the browser bundle AT BUILD TIME, so these
+      # must resolve during the Docker build. This is the backend's public URL —
+      # it assumes the backend service keeps the name below. If Render appends a
+      # suffix (name taken), update this value and redeploy.
+      - key: NEXT_PUBLIC_API_URL
+        value: https://stasiun-backend.onrender.com
+      # MAPID basemap key — set it in the dashboard, then trigger a redeploy so
+      # the new value is baked into the build.
+      - key: NEXT_PUBLIC_MAPID_KEY
+        sync: false

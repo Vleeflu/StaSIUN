@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { apiGet } from "@/lib/api";
+import { apiGet, urlApi } from "@/lib/api";
 
 type Persona = { id: string; label: string };
 
@@ -57,7 +57,7 @@ export default function EksporModal({
   const alamat =
     stationId === null
       ? null
-      : `${process.env.NEXT_PUBLIC_API_URL ?? ""}/stations/${stationId}/ekspor?persona=${persona}`;
+      : urlApi(`/stations/${stationId}/ekspor?persona=${persona}`);
 
   return (
     <div
@@ -130,10 +130,38 @@ export default function EksporModal({
                 Buka dokumen laporan →
               </a>
 
-              <p className="mt-3 text-[10px] leading-relaxed text-muted">
-                Persona mengubah urutan dan penekanan bagian, bukan angkanya.
-                Metadata keyakinan selalu ikut di semua versi. Dokumennya terbuka
-                di tab baru sebagai halaman web, cetak jadi PDF lewat Ctrl+P.
+              {/*
+                Petunjuk menyimpan PDF sengaja ditaruh DI SINI, bukan di dalam
+                dokumennya. Petunjuk yang ditulis di dalam dokumen akan ikut
+                tercetak, dan pembaca laporan akan menerima lembar berisi
+                instruksi untuk dirinya sendiri yang sama sekali tidak relevan.
+              */}
+              <div className="mt-3 border border-hair bg-canvas p-2.5">
+                <p className="label-caps mb-1 text-[9px] text-muted">
+                  Cara menyimpan sebagai PDF
+                </p>
+                <ol className="flex list-decimal flex-col gap-0.5 pl-4 text-[10px] leading-relaxed text-ink-soft">
+                  <li>Dokumen terbuka di tab baru.</li>
+                  <li>
+                    Tekan <strong>Ctrl + P</strong> (Windows) atau{" "}
+                    <strong>Cmd + P</strong> (Mac).
+                  </li>
+                  <li>
+                    Pada pilihan <em>Destination</em> atau <em>Printer</em>,
+                    pilih <strong>Save as PDF</strong>.
+                  </li>
+                  <li>
+                    Aktifkan <em>Background graphics</em> agar garis dan warna
+                    judulnya ikut tercetak.
+                  </li>
+                  <li>Klik <strong>Save</strong>, lalu pilih lokasi berkasnya.</li>
+                </ol>
+              </div>
+
+              <p className="mt-2 text-[10px] leading-relaxed text-muted">
+                Persona mengubah urutan bagian, penekanan, dan tampilan dokumen,
+                tetapi tidak mengubah angkanya. Metadata keyakinan selalu
+                disertakan pada seluruh versi.
               </p>
             </>
           )}
