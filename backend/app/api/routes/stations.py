@@ -20,7 +20,6 @@ from app.services.sponsorship import (
 from app.services.naming_rights import klasifikasi, periksa_daftar, ringkas
 from app.services.scoring.exposure import BOBOT_CEI, hitung_cei, kelas_paparan
 from app.services.profil_paparan import profil_paparan
-from app.services.station_import import KAI_NETWORKS, LINE_ROSTER, normalize
 from app.services.station_areas import area_stasiun
 
 # Apa yang masuk akal dikejar di tiap kelas SEPI (PRD hal. 12).
@@ -147,6 +146,124 @@ def list_stations(
             }
             for r in rows
         ],
+    }
+
+
+RADIUS_MODA_M = 600  # harus sama dengan indicators.RADIUS_ANTARMODA_M
+
+SQL_RINCIAN_MODA = r"""
+WITH st AS (
+  SELECT id, types[1] AS jenis, ST_Transform(location, 32748) AS g
+  FROM stations WHERE id = :sid
+)
+SELECT
+  (SELECT array_agg(DISTINCT l.types[1] ORDER BY l.types[1])
+     FROM stations l, st
+    WHERE l.types[1] <> st.jenis
+      AND ST_DWithin(ST_Transform(l.location, 32748), st.g, :r)) AS rel_lain,
+  -- TIGA sumber, harus sama persis dengan indicators.SQL_TRANSPORTASI.
+  -- Kalau berbeda, panel menyebut BRT yang tidak ikut skor atau sebaliknya -
+  -- persis cara bug "Tanah Abang tidak punya BRT" pertama kali lolos.
+  (SELECT COUNT(*) FROM transit_nodes n, st
+    WHERE n.jenis = 'halte_brt'
+      AND ST_DWithin(ST_Transform(n.location, 32748), st.g, :r))
+  + (SELECT COUNT(*) FROM poi p, st
+    WHERE p.source = 'overpass' AND p.osm_tags->>'network' ILIKE '%transjakarta%'
+      AND ST_DWithin(ST_Transform(p.location, 32748), st.g, :r))
+  + (SELECT COUNT(*) FROM poi p, st
+    WHERE p.source = 'mapid' AND p.category = 'halte'
+      AND p.name ~* 'transjakarta|busway|aptb'
+      AND ST_DWithin(ST_Transform(p.location, 32748), st.g, :r)) AS brt,
+  (SELECT COUNT(*) FROM transit_nodes n, st
+    WHERE n.jenis = 'halte_non_brt'
+      AND ST_DWithin(ST_Transform(n.location, 32748), st.g, :r))
+  + (SELECT COUNT(*) FROM poi p, st
+    WHERE p.source = 'mapid' AND p.category = 'halte'
+      AND p.name !~* 'transjakarta|busway|aptb'
+      AND ST_DWithin(ST_Transform(p.location, 32748), st.g, :r)) AS bus_non_brt,
+  (SELECT array_agg(DISTINCT x.nama) FROM (
+      SELECT n.nama FROM transit_nodes n, st
+       WHERE n.jenis = 'terminal_bus'
+         AND ST_DWithin(ST_Transform(n.location, 32748), st.g, :r)
+      UNION ALL
+      SELECT COALESCE(p.name, 'Terminal bus') FROM poi p, st
+       WHERE p.source = 'overpass' AND p.osm_tags->>'amenity' = 'bus_station'
+         AND COALESCE(p.osm_tags->>'network', '') NOT ILIKE '%transjakarta%'
+         AND ST_DWithin(ST_Transform(p.location, 32748), st.g, :r)
+    ) x) AS terminal,
+  (SELECT COUNT(*) FROM poi p, st
+    WHERE p.source = 'overpass' AND p.osm_tags->>'amenity' = 'taxi'
+      AND ST_DWithin(ST_Transform(p.location, 32748), st.g, :r)) AS taksi_peta,
+  (SELECT COUNT(*) FROM activity_points ap
+    WHERE ap.station_id = :sid
+      AND ap.narrative ~* '\y(taksi|taxi|bluebird)\y') AS taksi_survei,
+  (SELECT COUNT(*) FROM activity_points ap
+    WHERE ap.station_id = :sid
+      AND ap.narrative ~* '\y(ojol|ojek|gojek|grab|maxim|shelter jemput|titik jemput)\y') AS ojol_survei
+"""
+
+
+def rincian_moda(db: Session, station_id: int) -> dict:
+    """Moda yang bisa dicapai berjalan kaki, dipisahkan menurut perannya.
+
+    Dihitung saat diminta, bukan disimpan, supaya panel selalu mengikuti data
+    transit terbaru tanpa perlu menghitung ulang skor.
+
+    DUA KELOMPOK YANG DIBEDAKAN TEGAS:
+
+    - `dihitung`: moda yang ikut membentuk variabel T. Sumbernya punya cakupan
+      penuh untuk seluruh stasiun (data Bina Marga, tabel stasiun, dan OSM).
+    - `keterangan`: taksi dan ojek daring. Tampil supaya pembaca tahu keduanya
+      ada, tetapi TIDAK ikut skor, karena sumbernya belum mencakup semua
+      stasiun. Menyatukannya ke skor akan menghukum stasiun yang pangkalannya
+      belum sempat dipetakan atau disurvei, bukan yang memang tidak punya.
+    """
+    r = db.execute(
+        text(SQL_RINCIAN_MODA), {"sid": station_id, "r": RADIUS_MODA_M}
+    ).mappings().first()
+    if r is None:
+        return {}
+
+    rel = list(r["rel_lain"] or [])
+    terminal = [t for t in (r["terminal"] or []) if t]
+
+    dihitung = [
+        {"jenis": nama, "jumlah": 1, "sumber": "Tabel stasiun"} for nama in rel
+    ]
+    if r["brt"]:
+        dihitung.append(
+            {"jenis": "TransJakarta BRT", "jumlah": r["brt"],
+             "satuan": "halte", "sumber": "Dinas Bina Marga dan OpenStreetMap"}
+        )
+    if r["bus_non_brt"]:
+        dihitung.append(
+            {"jenis": "Bus non-BRT (reguler, Mikrotrans, JakLingko)",
+             "jumlah": r["bus_non_brt"], "satuan": "halte",
+             "sumber": "Dinas Bina Marga"}
+        )
+    if terminal:
+        dihitung.append(
+            {"jenis": "Terminal bus", "jumlah": len(terminal), "satuan": "terminal",
+             "nama": terminal, "sumber": "Data terminal DKI dan OpenStreetMap"}
+        )
+
+    keterangan = []
+    if r["taksi_peta"] or r["taksi_survei"]:
+        keterangan.append(
+            {"jenis": "Taksi", "tercatat_peta": r["taksi_peta"],
+             "disebut_survei": r["taksi_survei"]}
+        )
+    if r["ojol_survei"]:
+        keterangan.append(
+            {"jenis": "Ojek daring (Gojek, Grab)", "tercatat_peta": 0,
+             "disebut_survei": r["ojol_survei"]}
+        )
+
+    return {
+        "radius_m": RADIUS_MODA_M,
+        "jenis_dihitung": len(dihitung),
+        "dihitung": dihitung,
+        "keterangan": keterangan,
     }
 
 
@@ -304,6 +421,7 @@ def station_score(
             "other_mode_count": row.other_mode_count,
             "area_km2": row.area_km2,
         },
+        "moda": rincian_moda(db, station_id),
         # Volume penumpang adalah angka paling nyata yang kita punya, tetapi
         # baru tersedia untuk 10 dari 46 stasiun (22%). Karena di bawah ambang
         # 70%, ia BELUM dipakai sebagai indikator variabel T - jadi dikirim
@@ -584,7 +702,7 @@ JENIS_KANDIDAT = {
 # situ, dan Fatmawati Indomaret mengikuti pola yang sama. Kedai kopi dan
 # minimarket adalah merek yang benar-benar membeli hak penamaan di Jakarta,
 # sedangkan mesin ATM tidak pernah.
-SQL_KANDIDAT_SPONSOR = """
+SQL_KANDIDAT_SPONSOR = r"""
 SELECT p.name,
        p.category,
        ST_X(p.location) AS lon,
@@ -911,58 +1029,26 @@ def sponsorship(
 
 
 @router.get("/lines")
-def rute_line(db: Session = Depends(get_db)):
-    """Garis rute tiap line KRL, disusun dari urutan stasiun pada roster.
+def rute_line():
+    """Geometri jalur rel KRL sungguhan, dari data Pak Fabian.
 
-    KENAPA DARI ROSTER, BUKAN GEOMETRI REL. Kita tidak punya data rel; yang ada
-    hanya titik stasiun. Menyambung stasiun berurutan menghasilkan garis
-    SKEMATIK - ia lurus di tempat rel sebenarnya membelok, tetapi urutan dan
-    persinggungan antar-line-nya benar, dan justru itu yang dipakai orang untuk
-    menelusuri jaringan. Jadi garisnya dilabeli skematik, bukan disamarkan
-    sebagai jalur asli.
+    KENAPA DIGANTI. Versi sebelumnya menyambung titik stasiun berurutan dengan
+    ruas lurus, karena waktu itu kami tidak punya geometri rel. Garis skematik
+    semacam itu memotong tikungan dan tampak seperti jalur yang tidak pernah ada
+    di lapangan. Shapefile `Jalur KRL` memuat rel yang sebenarnya.
 
-    Stasiun di luar DKI tidak ada di basis data, jadi ruas menuju Bogor atau
-    Cikarang berhenti di batas wilayah studi. Itu bukan data yang hilang -
-    memang cuma sejauh itu cakupan produknya.
+    Sumber aslinya berproyeksi UTM zona 48S dan sudah dikonversi sekali ke
+    WGS84 menjadi `data/jalur_krl.geojson`, jadi endpoint ini hanya membaca
+    berkas dan tidak membawa pustaka proyeksi ke dalam image.
+
+    Jalur berstatus "Rencana Pengembangan" (Inner Loopline) sengaja dibuang saat
+    konversi. Menggambar rel yang belum dibangun di samping rel yang beroperasi
+    akan membuat pembaca mengira jalur itu sudah bisa dinaiki.
     """
-    # Koordinatnya dibongkar oleh PostGIS, bukan oleh Shapely: paket itu tidak
-    # terpasang di image backend, dan menambahkannya berarti memikul GEOS hanya
-    # untuk membaca dua angka yang sudah bisa diminta lewat SQL.
-    baris = db.execute(
-        text(
-            "SELECT name, types, ST_X(location) AS lon, ST_Y(location) AS lat "
-            "FROM stations WHERE location IS NOT NULL"
-        )
-    ).mappings().all()
-
-    # Satu nama bisa muncul di beberapa moda (Cawang KRL dan Cawang LRT berjarak
-    # 1,4 km). Roster ini milik KAI, jadi hanya stasiun KAI yang boleh dipetik.
-    titik: dict[str, tuple[float, float]] = {}
-    for r in baris:
-        if not any(t.upper() in KAI_NETWORKS for t in (r["types"] or [])):
-            continue
-        titik[normalize(r["name"])] = (r["lon"], r["lat"])
-
-    fitur = []
-    for kode, blob in LINE_ROSTER.items():
-        urutan = [normalize(n) for n in blob.split(";") if normalize(n)]
-        koordinat = [titik[k] for k in urutan if k in titik]
-        if len(koordinat) < 2:
-            continue
-        fitur.append(
-            {
-                "type": "Feature",
-                "id": kode,
-                "geometry": {"type": "LineString", "coordinates": koordinat},
-                "properties": {
-                    "line": kode,
-                    "jumlah_stasiun": len(koordinat),
-                    "skematik": True,
-                },
-            }
-        )
-
-    return {"type": "FeatureCollection", "features": fitur}
+    jalur = Path(__file__).resolve().parents[3] / "data" / "jalur_krl.geojson"
+    if not jalur.exists():
+        raise HTTPException(status_code=503, detail="Data jalur KRL belum tersedia")
+    return json.loads(jalur.read_text(encoding="utf-8"))
 
 
 @router.get("/kesegaran")

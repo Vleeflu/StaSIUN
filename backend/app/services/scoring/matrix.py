@@ -310,6 +310,10 @@ def build_matrix(
                 "line_count": t.jumlah_line,
                 "moda_rel": t.moda_rel,
                 "moda_jalan": t.moda_jalan,
+                "keragaman_moda": t.keragaman_moda,
+                "ada_brt": t.ada_brt,
+                "ada_bus_non_brt": t.ada_bus_non_brt,
+                "ada_terminal": t.ada_terminal,
                 "interchange": t.interchange,
                 "area_km2": float(a.area_km2),
                 "permeability_index": float(a.permeability_index or 0.0),
@@ -339,10 +343,15 @@ def build_matrix(
     # dirata-rata terpisah. Memisahkannya membuat stasiun tanpa moda rel di
     # dekatnya kehilangan sepertiga nilai T, padahal PRD menyebutnya satu hal.
     #
-    # `moda_jalan` TETAP dipakai walau bias cakupan OSM-nya terbukti (B11),
-    # karena PRD menamai OpenStreetMap sebagai sumber indikator ini. Membuangnya
-    # justru penyimpangan dari PRD; batasnya dicatat, bukan indikatornya dibuang.
-    moda = _scale([float(d["moda_rel"] + d["moda_jalan"]) for d in details])
+    # KOREKSI 13 SEP: yang dijumlahkan kini JENIS moda, bukan titik.
+    #
+    # Versi sebelumnya `moda_rel + moda_jalan` menambahkan jenis rel (0-3)
+    # dengan jumlah titik transportasi OSM (bisa puluhan), sehingga kerapatan
+    # halte mendominasi. Alasan lengkapnya di `IndikatorTransportasi.keragaman_moda`.
+    #
+    # OpenStreetMap TETAP menjadi sumber, sesuai PRD, tetapi kini sebagai
+    # penanda jenis bersama data Bina Marga, bukan sebagai cacah titik.
+    moda = _scale([float(d["keragaman_moda"]) for d in details])
 
     # "Status interchange" di PRD bersifat boolean. Di sini dipakai jumlah line
     # yang diskalakan, karena boolean membuang perbedaan nyata antara

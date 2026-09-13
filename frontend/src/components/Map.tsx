@@ -75,7 +75,7 @@ export type FlyTarget = {
 type Props = {
   data: StationCollection | null;
   showSepi: boolean;
-  /** Garis rute skematik tiap line KRL. */
+  /** Geometri jalur rel KRL dari data Pak Fabian. */
   routes: FeatureCollection | null;
   /** Kode line yang sedang dinyalakan di panel kiri. */
   activeLines: string[];
@@ -252,9 +252,10 @@ export default function Map({
     // dasar, bukan temuan: tugasnya membantu mata menelusuri jaringan, dan
     // begitu ia menutupi lapisan analisis ia berubah jadi gangguan.
     //
-    // Garisnya SKEMATIK, menyambung stasiun berurutan dengan ruas lurus. Karena
-    // itu ia sengaja digambar tipis dan agak transparan: garis tebal pekat akan
-    // terbaca sebagai jalur rel sungguhan, padahal ia memotong tikungan.
+    // Garisnya kini REL SUNGGUHAN dari shapefile Jalur KRL Pak Fabian, bukan
+    // lagi ruas lurus antar stasiun. Karena bentuknya sudah akurat, ia boleh
+    // digambar sedikit lebih tegas daripada versi skematik dulu, tetapi tetap
+    // di bawah seluruh lapisan analisis.
     map.addLayer({
       id: "line-routes",
       type: "line",
@@ -267,8 +268,8 @@ export default function Map({
           ...Object.entries(LINE_COLOR).flatMap(([kode, warna]) => [kode, warna]),
           FALLBACK_COLOR,
         ] as never,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.6, 15, 3.5],
-        "line-opacity": 0.55,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 15, 4],
+        "line-opacity": 0.7,
       },
     });
 
@@ -774,9 +775,12 @@ export default function Map({
       routes && activeLines.length > 0 ? "visible" : "none"
     );
     map.setFilter("line-routes", [
-      "in",
-      ["get", "line"],
-      ["literal", activeLines],
+      "any",
+      // Ruas penghubung pendek tidak milik line mana pun. Tanpa cabang ini ia
+      // tersaring keluar selamanya, dan relnya tampak putus di Kampung Bandan.
+      ["!", ["has", "line"]],
+      ["==", ["get", "line"], null],
+      ["in", ["get", "line"], ["literal", activeLines]],
     ] as never);
   }, [mapReady, routes, activeLines]);
 

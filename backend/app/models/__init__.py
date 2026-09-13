@@ -29,6 +29,7 @@ from app.models.station_objects import (
     Tenant,
     TenantCluster)
 from app.models.tenant_score import TenantScore
+from app.models.transit import TransitNode
 
 __all__ = [
     "ActivityExtraction",
@@ -48,4 +49,5 @@ __all__ = [
     "Tenant",
     "TenantCluster",
     "TenantScore",
+    "TransitNode",
 ]
