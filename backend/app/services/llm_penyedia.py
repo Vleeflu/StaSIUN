@@ -37,6 +37,7 @@ kalau setengah data diekstrak model lain, itu terlihat - bukan tersembunyi.
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from dataclasses import dataclass
@@ -44,6 +45,8 @@ from dataclasses import dataclass
 from openai import APIError, AsyncOpenAI, OpenAI, RateLimitError
 
 from app.core.config import settings
+
+log = logging.getLogger(__name__)
 
 # Batas HARIAN (atau kuota habis sama sekali) - pindah penyedia.
 #
@@ -78,6 +81,19 @@ TUNGGU = re.compile(r"try again in\s+(?:(\d+)m)?\s*([\d.]+)(ms|s)", re.IGNORECAS
 PENANDA_TIDAK_COCOK = re.compile(
     r"thought_signature|function call is missing|tool[_ ]?use.*not supported|"
     r"does not support tools",
+    re.IGNORECASE,
+)
+
+# Penyedia menolak PARAMETER tambahan, bukan menolak permintaannya. Bedanya
+# menentukan: yang ini sembuh dengan membuang parameternya lalu mengulang, dan
+# penyedianya tetap bisa dipakai.
+#
+# Kejadian 13 Sep: Mistral menolak `reasoning_effort` dengan 400 pada setiap
+# permintaan ekstraksi.
+PENANDA_PARAMETER = re.compile(
+    r"reasoning_effort|extra_?body|unknown\s+(?:field|parameter|argument)|"
+    r"unsupported\s+parameter|not\s+(?:a\s+)?(?:valid|supported)\s+parameter|"
+    r"unrecognized\s+(?:field|key)",
     re.IGNORECASE,
 )
 
@@ -216,12 +232,29 @@ class Rantai:
         `model` diisi dari penyedia yang sedang dipakai - pemanggil tidak perlu
         tahu penyedia mana yang aktif.
         """
+        # Sebagian penyedia menolak parameter tambahan yang bukan bagian baku
+        # protokol OpenAI. Parameter itu dibuang lalu permintaannya diulang,
+        # BUKAN dianggap gagal.
+        #
+        # Kejadian nyata 13 Sep: Mistral menolak `reasoning_effort` dengan 400
+        # pada SETIAP permintaan. Karena galatnya tidak dikenali, `panggil`
+        # mengembalikan None, dan pemanggilnya mencatatnya sebagai "balasan
+        # tidak terbaca sebagai JSON". Hasilnya 212 dari 232 narasi gagal
+        # diekstraksi, dan laporannya menunjuk ke arah yang sama sekali keliru:
+        # seolah modelnya tidak bisa menulis JSON, padahal permintaannya bahkan
+        # tidak pernah sampai.
+        #
+        # `reasoning_effort` cuma petunjuk hemat token. Kehilangan petunjuk itu
+        # jauh lebih murah daripada kehilangan seluruh narasinya.
+        sisa = dict(kwargs)
+        tambahan_dibuang = False
+
         while True:
             self._catat()
             for _ in range(MAKS_COBA_PER_MENIT):
                 try:
                     return self.klien().chat.completions.create(
-                        model=self.sekarang.model, **kwargs
+                        model=self.sekarang.model, **sisa
                     )
                 except RateLimitError as exc:
                     pesan = str(exc)
@@ -229,9 +262,28 @@ class Rantai:
                         break  # kuota harian penyedia ini habis
                     time.sleep(_lama_tunggu(pesan))
                 except APIError as exc:
-                    if PENANDA_TIDAK_COCOK.search(str(exc)):
+                    pesan = str(exc)
+                    if (
+                        not tambahan_dibuang
+                        and sisa.get("extra_body")
+                        and PENANDA_PARAMETER.search(pesan)
+                    ):
+                        sisa.pop("extra_body", None)
+                        tambahan_dibuang = True
+                        log.warning(
+                            "%s menolak parameter tambahan, diulang tanpa itu: %s",
+                            self.sekarang.nama,
+                            pesan[:120],
+                        )
+                        continue
+                    if PENANDA_TIDAK_COCOK.search(pesan):
                         break  # bentuk permintaannya tidak didukung penyedia ini
-                    return None
+                    # Galat lain: pindah penyedia, bukan menyerah. Menyerah di
+                    # sini membuat satu penyedia bermasalah menjatuhkan seluruh
+                    # rantai yang sebenarnya sehat.
+                    break
+            # Parameter yang sudah dibuang tetap dibuang untuk penyedia
+            # berikutnya; tidak ada gunanya mengulang penolakan yang sama.
             self._pindah()
 
     async def panggil_async(self, **kwargs):
