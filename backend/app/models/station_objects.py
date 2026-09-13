@@ -67,8 +67,18 @@ class TenantCluster(TimestampMixin, Base):
     dominant_category: Mapped[str | None]
 
     unit_total: Mapped[int] = mapped_column(default=0, server_default=text("0"))
-    unit_filled: Mapped[int] = mapped_column(default=0, server_default=text("0"))
-    unit_empty: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    # `unit_filled`/`unit_empty` NULLABLE, dan itu disengaja. Narasi survei
+    # sering menyebutkan TOTAL unit tanpa menyebut berapa yang terisi -
+    # "dari sepuluh unit, dua minimarket, satu restoran, sisanya makanan"
+    # menyebut komposisi tanpa pernah menyatakan angka keterisian. NULL berarti
+    # "tidak disebutkan"; 0 berarti "disebutkan secara eksplisit bahwa kosong".
+    # Sempat memakai default 0 untuk keduanya - ditemukan 13 Sep karena Villyan
+    # menunjukkan Kalideres dan Jakarta Kota punya data tenant yang tidak
+    # terpakai. Baris lama yang terlanjur (0, 0) untuk `total` besar mustahil
+    # benar (nol terisi DAN nol kosong dari sepuluh unit tidak masuk akal) -
+    # itu default yang salah, bukan observasi, dan dibersihkan lewat migrasi.
+    unit_filled: Mapped[int | None] = mapped_column(nullable=True)
+    unit_empty: Mapped[int | None] = mapped_column(nullable=True)
 
     # Kriteria pembentukan klaster, ditulis apa adanya.
     radius_m: Mapped[float | None]

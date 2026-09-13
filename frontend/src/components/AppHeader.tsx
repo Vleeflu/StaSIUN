@@ -57,7 +57,7 @@ export default function AppHeader({
           Ekspor Laporan
         </button>
 
-        <span className="label-caps hidden text-muted lg:block">Mode demo</span>
+        <span className="label-caps hidden text-muted lg:block">Prototype</span>
       </div>
     </header>
   );

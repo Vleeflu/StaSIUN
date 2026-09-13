@@ -569,17 +569,73 @@ function Overview({
               value={String(score.detail.line_count)}
               mono
             />
-            <Row
-              label="Halte bus di sekitarnya"
-              value={String(score.detail.halte_count)}
-              mono
-            />
-            <Row
-              label="Stasiun moda lain (MRT, LRT)"
-              value={String(score.detail.other_mode_count)}
-              mono
-            />
           </dl>
+
+          {/*
+            Moda terhubung dipecah menurut JENIS, dengan sumbernya.
+            Dua baris lama ("halte bus" dan "stasiun moda lain") hanya
+            memperlihatkan jumlah titik, sehingga TransJakarta, bus reguler, dan
+            terminal tercampur jadi satu angka, sementara taksi dan ojek daring
+            tidak muncul sama sekali.
+          */}
+          {score.moda && (
+            <div className="mt-3 border-t border-canvas pt-2.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+                Moda terhubung dalam {score.moda.radius_m} m
+              </p>
+              {score.moda.dihitung.length === 0 ? (
+                <p className="mt-1 text-[11px] leading-relaxed text-muted">
+                  Belum ada moda lain yang tercatat dalam radius ini.
+                </p>
+              ) : (
+                <ul className="mt-1.5 flex flex-col gap-1.5">
+                  {score.moda.dihitung.map((m) => (
+                    <li key={m.jenis} className="flex items-baseline justify-between gap-2 text-xs">
+                      <span className="min-w-0 text-ink-soft">
+                        {m.jenis}
+                        <span className="block text-[10px] text-muted">{m.sumber}</span>
+                      </span>
+                      {m.satuan && (
+                        <span className="data-num shrink-0 text-ink">
+                          {m.jumlah} {m.satuan}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {score.moda.keterangan.length > 0 && (
+                <div className="mt-2.5 border-l-2 border-hair pl-2">
+                  <p className="text-[10px] font-semibold text-ink-soft">
+                    Juga tercatat, tetapi tidak ikut skor
+                  </p>
+                  <ul className="mt-1 flex flex-col gap-0.5">
+                    {score.moda.keterangan.map((m) => (
+                      <li key={m.jenis} className="text-[11px] text-ink-soft">
+                        {m.jenis}
+                        <span className="text-muted">
+                          {" "}
+                          ({[
+                            m.tercatat_peta > 0 ? `${m.tercatat_peta} di peta` : null,
+                            m.disebut_survei > 0 ? `${m.disebut_survei} catatan survei` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-[10px] leading-relaxed text-muted">
+                    Pangkalan taksi dan ojek daring belum terpetakan merata untuk
+                    seluruh stasiun, sehingga keduanya ditampilkan sebagai
+                    keterangan. Menjadikannya skor akan merugikan stasiun yang
+                    pangkalannya belum sempat dipetakan atau disurvei.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
           <p className="mt-2 text-[10px] leading-relaxed text-muted">
             Luasnya dihitung mengikuti jalan yang benar-benar bisa dilewati
             pejalan kaki, bukan lingkaran di peta, jadi kawasan yang terpotong

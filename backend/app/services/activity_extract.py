@@ -352,6 +352,13 @@ def _simpan(
     total, terisi = lapak.get("unit_total"), lapak.get("unit_terisi")
     if isinstance(total, int) and total > 0 and kutipan_sah(lapak.get("kutipan"), narasi):
         terisi = terisi if isinstance(terisi, int) and 0 <= terisi <= total else None
+        # KOREKSI 13 SEP. Sempat menyimpan 0 untuk keduanya saat model tidak
+        # menyebut angka terisi, sehingga "sepuluh unit, terisi tidak
+        # disebutkan" tertulis seolah "sepuluh unit, nol terisi" - kebalikan
+        # dari yang sebenarnya terjadi (narasinya justru mendeskripsikan
+        # SEMUA unit terisi sesuatu). NULL sekarang berarti tidak disebutkan,
+        # bukan nol.
+        kosong = (total - terisi) if terisi is not None else None
         session.execute(
             text(
                 """INSERT INTO tenant_clusters
@@ -364,8 +371,8 @@ def _simpan(
                 "sid": station_id,
                 "nama": f"klaster dari Activity #{point_id}",
                 "total": total,
-                "terisi": terisi if terisi is not None else 0,
-                "kosong": (total - terisi) if terisi is not None else 0,
+                "terisi": terisi,
+                "kosong": kosong,
                 "catatan": lapak.get("kutipan")[:300],
             })
         hasil.klaster += 1
