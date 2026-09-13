@@ -1,4 +1,4 @@
-from sqlalchemy import Float, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -9,7 +9,7 @@ class StationScore(Base):
     """Skor SEPI satu stasiun pada satu pita waktu isochrone.
 
     Angka mentah tiap variabel ikut disimpan, bukan cuma skor akhirnya. Tanpa
-    itu skornya tidak bisa dijelaskan ke siapa pun — dan seluruh gunanya SEPI
+    itu skornya tidak bisa dijelaskan ke siapa pun, dan seluruh gunanya SEPI
     justru ada di penjelasan kenapa satu stasiun menang.
     """
 
@@ -27,6 +27,11 @@ class StationScore(Base):
     # pun yang lain, jadi menambah stasiun ke lingkup tidak mengubahnya. Karena
     # itu hanya angka INI yang boleh diklasifikasikan ke tiga rentang PRD.
     sepi: Mapped[float] = mapped_column(Float)
+    # Skor seandainya tiap variabel yang diestimasi meleset satu simpangan
+    # ke arah merugikan. INILAH yang dipakai mengurutkan peringkat, jadi ia
+    # wajib ikut tersimpan - tanpa itu daftar peringkat menampilkan satu angka
+    # tetapi diurutkan oleh angka lain, dan terbaca kacau.
+    sepi_bawah: Mapped[float] = mapped_column(Float)
     kelas: Mapped[str] = mapped_column(String)
     keputusan: Mapped[str] = mapped_column(String)
 
@@ -59,6 +64,15 @@ class StationScore(Base):
     # yang sah sehingga akan mematahkan API saat disajikan. Terisi begitu
     # survey Activity masuk (blocker N1).
     raw_c: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Hasil UKUR, NULL kalau stasiunnya belum disurvey. Berbeda dari `raw_*` di
+    # atas yang berisi nilai setelah shrinkage - yaitu yang benar-benar dipakai
+    # menghitung skor. Keduanya disimpan supaya panel bisa menampilkan angkanya
+    # sekaligus mengakui mana yang estimasi.
+    ukur_e: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ukur_c: Mapped[float | None] = mapped_column(Float, nullable=True)
+    e_terukur: Mapped[bool] = mapped_column(Boolean, default=False)
+    c_terukur: Mapped[bool] = mapped_column(Boolean, default=False)
 
     line_count: Mapped[int] = mapped_column(Integer)
     halte_count: Mapped[int] = mapped_column(Integer)

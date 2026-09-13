@@ -1,19 +1,18 @@
 """Ubah `activity_raw` menjadi `activity_points` dan `crowd_ratings`.
 
-ARSITEKTUR DUA LAPIS — MENGIKUTI PRD HAL. 15, BUKAN KENYAMANAN KODE
+ARSITEKTUR DUA LAPIS, MENGIKUTI PRD HAL. 15, BUKAN KENYAMANAN KODE
 --------------------------------------------------------------------
 PRD menetapkan ekstraksi berjalan dalam dua lapis yang **sejajar dan saling
 tidak bergantung**:
 
   Lapis 1 (universal)  Topic Modeling (LDA), NER, dan Sentiment Analysis atas
-                       korpus naratif seluruh Activity. **BELUM DIBANGUN** —
-                       lihat F5-1, tertahan N12 (pilihan pustaka NLP Bahasa
+                       korpus naratif seluruh Activity. **BELUM DIBANGUN**, lihat F5-1, tertahan N12 (pilihan pustaka NLP Bahasa
                        Indonesia). Tabel `activity_extractions` masih kosong.
 
   Lapis 2 (opsional)   Hanya pada entri yang memuat pola penilaian narasumber,
                        yaitu skala keramaian DISERTAI atribusi ke petugas. Kalau
                        polanya tidak ada, entri **dilewati tanpa menghentikan
-                       proses** — bukan dibuang.
+                       proses**, bukan dibuang.
 
 YANG DIKERJAKAN MODUL INI: PENYIAPAN + LAPIS 2. BUKAN LAPIS 1.
 ---------------------------------------------------------------
@@ -38,7 +37,7 @@ Kalimat PRD yang paling menentukan bentuk modul ini:
      tersedia."
 
 Karena itu **tidak ada satu pun percabangan `if provenance == ...`** di sini.
-Kolom `provenance` diisi untuk pelaporan, dan berhenti di situ — persis
+Kolom `provenance` diisi untuk pelaporan, dan berhenti di situ, persis
 peringatan yang sudah tertulis di `models/activity.py`. Entri tim sendiri tidak
 mendapat jalur istimewa; ia hanya lebih sering lolos lapis 2 karena formatnya
 memang memuat atribusi.
@@ -52,7 +51,7 @@ titik, sedangkan petugas yang berjaga tiap hari punya pembanding harian.
 
 Maka angka "tingkat 4" yang muncul TANPA penyebutan narasumber sengaja tidak
 diambil. Mengambilnya akan menyelundupkan penilaian surveyor ke dalam variabel
-yang PRD nyatakan harus berasal dari narasumber — dan tidak ada yang akan tahu,
+yang PRD nyatakan harus berasal dari narasumber, dan tidak ada yang akan tahu,
 karena angkanya terlihat sama saja.
 """
 
@@ -87,8 +86,7 @@ ATRIBUSI = re.compile(
     r"penjaga|kasir|pedagang|penjual|pemilik)|"
     r"menyebutkan|menuturkan|mengatakan|dikatakan|menjelaskan|mengaku|"
     r"obrolan|wawancara|diwawancarai|narasumber|diberikan\s+oleh)\b",
-    re.IGNORECASE,
-)
+    re.IGNORECASE)
 
 # Angka skala. Narasi nyata memakai "tingkat 4 dari 5" (template Panduan) dan
 # "skala 4 dari 5" (Lampiran C PRD sendiri menyebutnya "Skala 1..5"). Versi
@@ -118,8 +116,7 @@ SKALA = re.compile(
     r"|\b(10|\d)\s*(?:dari|/)\s*(10|[3-9])\b"
     r"(?!\s*(?:unit|kios|lapak|tenant|gerai|toko|orang|layar|media|iklan|pintu|"
     r"peron|titik|spot|kursi|lampu|menit|jam|hari|kali|kereta|%))",
-    re.IGNORECASE,
-)
+    re.IGNORECASE)
 
 SKALA_MAKS_BAWAAN = 5
 PENYEBUT_SAH = range(3, 11)
@@ -154,10 +151,9 @@ def _rentang_skala(m: re.Match) -> tuple[int, int] | str:
 # `HasilParse` menurut sebabnya.
 KATA_WAKTU = re.compile(r"\b(pagi|siang|tengah\s+hari|sore|malam)\b", re.IGNORECASE)
 RENTANG_JAM = re.compile(
-    r"\b(\d{1,2})[.:](\d{2})\s*(?:-|–|sampai|hingga|s/d|sd)\s*"
+    r"\b(\d{1,2})[.:](\d{2})\s*(?:-|, |sampai|hingga|s/d|sd)\s*"
     r"(?:(?:malam|jam|pukul|sekitar)\s+)*(\d{1,2})(?:[.:](\d{2}))?\b",
-    re.IGNORECASE,
-)
+    re.IGNORECASE)
 JAM = re.compile(r"\b(\d{1,2})[.:](\d{2})\b")
 
 # Kalimat tentang akhir pekan dilewati. Profil PRD adalah "kebiasaan audiens
@@ -342,8 +338,7 @@ def _rating_kalimat(kalimat: str) -> list[tuple[int, str, int, int]]:
             label = _pilih(
                 [t for t in token if p_awal <= t[0] and t[1] <= p_akhir],
                 kalimat,
-                "mundur",
-            )
+                "mundur")
             j -= 1
 
         for nama in label or ["tidak disebut"]:
@@ -425,8 +420,7 @@ def _narasumber(narasi: str) -> str | None:
     m = re.search(
         r"(?:menurut|berdasarkan\s+(?:informasi|keterangan))\s+([a-z\s]{3,40})",
         narasi,
-        re.IGNORECASE,
-    )
+        re.IGNORECASE)
     return m.group(1).strip() if m else None
 
 
@@ -450,8 +444,7 @@ def _simpan_rating(
     station_id: int | None,
     narasi: str,
     diamati: datetime | None,
-    hasil: HasilParse,
-) -> None:
+    hasil: HasilParse) -> None:
     narasumber = _narasumber(narasi)
     for nilai, jendela, s_min, s_maks in ambil_rating(narasi):
         if jendela not in RENTANG_SAH:
@@ -478,8 +471,7 @@ def _simpan_rating(
                 "smaks": s_maks,
                 "ref": narasumber,
                 "diamati": diamati,
-            },
-        )
+            })
         hasil.rating += 1
 
 
@@ -508,8 +500,7 @@ def bangun_ulang_rating(session: Session) -> HasilParse:
         # Kolom penanda ikut diperbarui: pola "skala N" dulu tidak dikenali.
         session.execute(
             text("UPDATE activity_points SET has_interviewer_pattern = :b WHERE id = :i"),
-            {"b": berpola, "i": point_id},
-        )
+            {"b": berpola, "i": point_id})
         _simpan_rating(session, point_id, station_id, narasi, diamati, hasil)
     session.commit()
     return hasil
@@ -598,12 +589,10 @@ def parse_semua(session: Session, menit: int = 15) -> HasilParse:
                 "lat": lat,
                 "provenance": asal,
                 "berpola": berpola,
-            },
-        ).scalar()
+            }).scalar()
         hasil.titik += 1
 
-        # Lapis 2. Kalau polanya tidak ada, bagian ini sekadar tidak berjalan —
-        # titiknya sudah tersimpan dan tetap terpakai lewat lapis 1.
+        # Lapis 2. Kalau polanya tidak ada, bagian ini sekadar tidak berjalan, # titiknya sudah tersimpan dan tetap terpakai lewat lapis 1.
         _simpan_rating(session, point_id, station_id, narasi, diamati, hasil)
 
     session.commit()

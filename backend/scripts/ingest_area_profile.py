@@ -57,6 +57,36 @@ KELAS_LANDUSE = {
     "commercial": "kantor",
     "retail": "niaga",
     "industrial": "industri",
+    "education": "pendidikan",
+}
+
+# Kelas PENDIDIKAN dan penajaman kelas NIAGA, ditambahkan 13 Sep atas temuan
+# Villyan dari lapangan.
+#
+# Gejalanya: hampir semua stasiun berprofil "pekerja kantor" dan "warga sekitar"
+# saja, dan Tanah Abang - tempat berdirinya pasar tekstil terbesar di Asia
+# Tenggara - tercatat 0,0% niaga. Dua sebabnya:
+#
+#   1. Pasar tidak pernah ditanyakan ke Overpass. `amenity=marketplace` tidak
+#      ada di kueri mana pun, dan `landuse=commercial` yang menaunginya terbaca
+#      "kantor". Jadi pasarnya memang tidak pernah masuk hitungan.
+#   2. Tidak ada kelas pendidikan sama sekali, sehingga pelajar - kelompok yang
+#      jelas terlihat di Palmerah dan Tanah Abang - mustahil muncul.
+#
+# `amenity` dan `shop` diperiksa SEBELUM `landuse` karena keduanya lebih
+# spesifik: sekolah yang berdiri di dalam hamparan `landuse=residential` adalah
+# sekolah, bukan permukiman.
+KELAS_AMENITY = {
+    "marketplace": "niaga",
+    "school": "pendidikan",
+    "college": "pendidikan",
+    "university": "pendidikan",
+}
+KELAS_SHOP = {
+    "mall": "niaga",
+    "department_store": "niaga",
+    "supermarket": "niaga",
+    "wholesale": "niaga",
 }
 KELAS_BUILDING = {
     "apartments": "hunian",
@@ -67,6 +97,11 @@ KELAS_BUILDING = {
     "commercial": "kantor",
     "retail": "niaga",
     "supermarket": "niaga",
+    "mall": "niaga",
+    "kiosk": "niaga",
+    "school": "pendidikan",
+    "university": "pendidikan",
+    "college": "pendidikan",
 }
 
 # Kelas WISATA, ditambahkan atas permintaan Villyan. Stasiun Jakarta Kota
@@ -110,11 +145,15 @@ def bangun_kueri(pusat: list[tuple[float, float]], radius_m: int = RADIUS_M) -> 
     building = "|".join(KELAS_BUILDING)
     tourism = "|".join(KELAS_TOURISM)
     historic = "|".join(KELAS_HISTORIC)
+    amenity = "|".join(KELAS_AMENITY)
+    shop = "|".join(KELAS_SHOP)
     bagian = "".join(
         f'way(around:{radius_m},{lat},{lon})["landuse"~"^({landuse})$"];'
         f'way(around:{radius_m},{lat},{lon})["building"~"^({building})$"];'
         f'way(around:{radius_m},{lat},{lon})["tourism"~"^({tourism})$"];'
         f'way(around:{radius_m},{lat},{lon})["historic"~"^({historic})$"];'
+        f'way(around:{radius_m},{lat},{lon})["amenity"~"^({amenity})$"];'
+        f'way(around:{radius_m},{lat},{lon})["shop"~"^({shop})$"];'
         for lat, lon in pusat
     )
     return f"[out:json][timeout:180];({bagian});out geom;"
@@ -128,6 +167,13 @@ def kelas_elemen(tags: dict) -> str | None:
     Fatahillah bertag `building=yes` sekaligus `tourism=museum`, dan yang kita
     maksud jelas museumnya, bukan sekadar "ada bangunan di sana".
     """
+    # `amenity` dan `shop` diperiksa lebih dulu: keduanya menerangkan FUNGSI
+    # bangunannya, sedangkan `landuse` cuma menerangkan hamparan tanah yang
+    # menaunginya. Pasar yang berdiri di atas `landuse=commercial` adalah pasar.
+    if (am := tags.get("amenity")) in KELAS_AMENITY:
+        return KELAS_AMENITY[am]
+    if (sh := tags.get("shop")) in KELAS_SHOP:
+        return KELAS_SHOP[sh]
     if (lu := tags.get("landuse")) in KELAS_LANDUSE:
         return KELAS_LANDUSE[lu]
     if (tr := tags.get("tourism")) in KELAS_TOURISM:
@@ -146,6 +192,11 @@ def jenis_elemen(tags: dict) -> str:
     `building` punya tapak dan (kadang) jumlah lantai. Pembobotan lantai hanya
     masuk akal untuk yang kedua.
     """
+    # Hanya hamparan `landuse` murni yang dihitung satu lantai. Poligon yang
+    # punya `amenity`, `shop`, atau `building` adalah bangunan, dan jumlah
+    # lantainya dibaca dari tagnya.
+    if tags.get("amenity") in KELAS_AMENITY or tags.get("shop") in KELAS_SHOP:
+        return "building"
     return "landuse" if tags.get("landuse") in KELAS_LANDUSE else "building"
 
 
@@ -284,7 +335,9 @@ SELECT i.station_id,
        COALESCE(ST_Area(ST_Union(ST_Intersection(l.geom, i.geom))
                 FILTER (WHERE l.kelas = 'industri')::geography), 0) AS industri,
        COALESCE(ST_Area(ST_Union(ST_Intersection(l.geom, i.geom))
-                FILTER (WHERE l.kelas = 'wisata')::geography), 0)   AS wisata
+                FILTER (WHERE l.kelas = 'wisata')::geography), 0)   AS wisata,
+       COALESCE(ST_Area(ST_Union(ST_Intersection(l.geom, i.geom))
+                FILTER (WHERE l.kelas = 'pendidikan')::geography), 0) AS pendidikan
   FROM isochrones i
   JOIN lu_sementara l
     ON ST_Intersects(l.geom, i.geom)
@@ -393,7 +446,7 @@ ON CONFLICT (station_id, source) DO UPDATE
 # `profile` kini diisi kelas terbesar apa adanya, dan pembaca menilai sendiri
 # dari porsinya (ADJUSTMENT 9.45).
 
-KELAS_URUT = ("hunian", "kantor", "niaga", "wisata", "industri")
+KELAS_URUT = ("hunian", "kantor", "niaga", "wisata", "industri", "pendidikan")
 
 
 def susun_komposisi(luas: dict[str, float], ukuran: str, catatan: dict) -> dict:
@@ -490,6 +543,7 @@ def main() -> None:
                 "niaga": float(r.niaga),
                 "wisata": float(r.wisata),
                 "industri": float(r.industri),
+                "pendidikan": float(r.pendidikan),
             }
             total = sum(luas_kelas.values())
             if total <= 0:

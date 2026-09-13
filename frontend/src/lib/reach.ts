@@ -17,7 +17,7 @@ export function bandMinutes(band: ReachBand): number[] {
 }
 
 /**
- * Pita yang titik minatnya diambil — selalu yang terluar dari yang digambar.
+ * Pita yang titik minatnya diambil, selalu yang terluar dari yang digambar.
  *
  * Kalau "Semua" dipilih, poligonnya tampil bertiga; titik yang berhenti di 10
  * menit bikin cincin terluar kelihatan kosong seolah datanya hilang. Untuk

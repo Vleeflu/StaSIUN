@@ -2,7 +2,7 @@
 
 Sengaja tidak terikat ke satu penyedia. Yang dipakai adalah SDK OpenAI, dan SDK
 itu bisa diarahkan ke layanan mana pun yang menyediakan endpoint
-OpenAI-compatible — Groq, Gemini, OpenAI sendiri, dan lainnya. Berpindah
+OpenAI-compatible, Groq, Gemini, OpenAI sendiri, dan lainnya. Berpindah
 penyedia karena itu cukup mengubah tiga nilai di .env (LLM_API_KEY,
 LLM_BASE_URL, LLM_MODEL) tanpa menyentuh berkas ini.
 
@@ -14,7 +14,7 @@ import json
 
 from openai import APIError, AsyncOpenAI, RateLimitError  # noqa: F401
 
-from app.services.llm_penyedia import Rantai, SemuaPenyediaHabis
+from app.services.llm_penyedia import PanggilanGagal, Rantai, SemuaPenyediaHabis
 
 from app.core.config import settings
 from app.schemas.chat import Message
@@ -51,8 +51,7 @@ class LLMService:
 
             self._client = AsyncOpenAI(
                 api_key=settings.LLM_API_KEY,
-                base_url=settings.LLM_BASE_URL,
-            )
+                base_url=settings.LLM_BASE_URL)
 
         return self._client
 
@@ -70,8 +69,7 @@ class LLMService:
         message: str,
         history: list[Message],
         context: str | None = None,
-        db=None,
-    ) -> tuple[str, list[dict]]:
+        db=None) -> tuple[str, list[dict]]:
         """Jawab satu pertanyaan, dengan alat kalau `db` diberikan.
 
         Mengembalikan (jawaban, log alat). Log berisi alat yang benar-benar
@@ -108,15 +106,14 @@ class LLMService:
             raise RuntimeError(
                 "Kuota penyedia model sedang habis, coba lagi sebentar."
             ) from e
+        except PanggilanGagal as e:
+            # Penyedianya disebut dari objek galatnya sendiri, BUKAN dari
+            # settings. Versi sebelumnya membaca `settings.LLM_BASE_URL` -
+            # penyedia utama - sehingga galat dari Gemini dilaporkan sebagai
+            # galat Groq, dan penelusurannya menunjuk ke arah yang salah.
+            raise RuntimeError(f"Panggilan ke model gagal: {e}") from e
         except APIError as e:
-            # Nama model dan alamat penyedianya ikut disebut karena dua
-            # kesalahan paling sering di sini adalah id model yang keliru dan
-            # kunci yang tidak cocok dengan alamatnya. Tanpa keduanya, pesan
-            # errornya tidak menunjuk ke mana pun.
-            raise RuntimeError(
-                f"Panggilan ke model gagal (model={self._model}, "
-                f"base_url={settings.LLM_BASE_URL}): {e}"
-            ) from e
+            raise RuntimeError(f"Panggilan ke model gagal: {e}") from e
 
         reply = response.choices[0].message.content
 
@@ -208,7 +205,7 @@ class LLMService:
 
         return (
             "Maaf, saya memanggil alat hitung berulang kali tanpa sampai ke "
-            "jawaban. Coba persempit pertanyaannya — misalnya sebutkan nama "
+            "jawaban. Coba persempit pertanyaannya, misalnya sebutkan nama "
             "stasiunnya, atau satu kategori usaha saja."
         ), log
 

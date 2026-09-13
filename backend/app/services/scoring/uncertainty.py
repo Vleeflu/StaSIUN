@@ -21,15 +21,15 @@ BCa menambahkan dua koreksi:
 
     z0  bias-correction. Membaca berapa proporsi replikasi yang jatuh di bawah
         estimasi asli. Kalau tepat separuh, z0 = 0 dan tidak ada koreksi.
-    a   acceleration. Mengoreksi skewness (kemencengan) — keadaan saat ragam
+    a   acceleration. Mengoreksi skewness (kemencengan), keadaan saat ragam
         estimasi ikut berubah mengikuti nilainya sendiri. Diperkirakan lewat
         jackknife (hitung ulang estimasi sambil membuang satu pengamatan).
 
 Kalau z0 = 0 DAN a = 0, seluruh rumusnya runtuh kembali menjadi percentile
 biasa. Jadi BCa perumuman ketat dari percentile, bukan metode saingan.
 
-Dipakai scipy.stats.bootstrap dengan method="BCa" — implementasi yang sudah
-teruji luas — dibungkus penanganan kasus tepi yang khas data kita: n sangat
+Dipakai scipy.stats.bootstrap dengan method="BCa", implementasi yang sudah
+teruji luas, dibungkus penanganan kasus tepi yang khas data kita: n sangat
 kecil, dan sampel yang seluruh nilainya sama.
 """
 
@@ -64,7 +64,7 @@ def interval_bca(
     """Confidence interval BCa untuk sebuah statistik.
 
     `seed` dipatok supaya hasilnya dapat direproduksi. Bootstrap itu acak, dan
-    angka yang berubah-ubah tiap kali dijalankan mustahil diaudit — sesuatu
+    angka yang berubah-ubah tiap kali dijalankan mustahil diaudit, sesuatu
     yang tidak bisa ditawar untuk angka yang akan ditampilkan ke pengguna.
 
     Kasus tepi dikembalikan apa adanya, bukan dipaksa menghasilkan interval:
@@ -96,13 +96,12 @@ def interval_bca(
 
     try:
         hasil = stats.bootstrap(
-            (x,),
+            (x),
             statistik,
             confidence_level=keyakinan,
             n_resamples=n_resample,
             method="BCa",
-            random_state=np.random.default_rng(seed),
-        )
+            random_state=np.random.default_rng(seed))
         lo = float(hasil.confidence_interval.low)
         hi = float(hasil.confidence_interval.high)
         # Sampel yang sangat kecil kadang membuat koreksi akselerasi meledak
@@ -123,7 +122,7 @@ def shrinkage(
 
         theta_topi = w * theta_zona + (1 - w) * theta_grup,   w = n / (n + k)
 
-    Bentuk ini bukan rumus sembarangan — dia rata-rata posterior model
+    Bentuk ini bukan rumus sembarangan, dia rata-rata posterior model
     normal-normal:
 
         x_bar | theta ~ N(theta, sigma^2 / n)      sigma^2 = ragam DALAM zona
@@ -135,7 +134,7 @@ def shrinkage(
 
         k = sigma^2 / tau^2
 
-    Jadi k BUKAN konstanta yang perlu ditebak — dia rasio ragam dalam-zona
+    Jadi k BUKAN konstanta yang perlu ditebak, dia rasio ragam dalam-zona
     terhadap ragam antar-zona, dan bisa diestimasi dari data lewat
     `estimasi_k()` di bawah. Tafsirannya: pada n = k, zona dipercaya sama
     besar dengan kelompoknya.
@@ -159,8 +158,8 @@ def estimasi_k(kelompok: list[np.ndarray]) -> float:
 
     `kelompok` adalah daftar array, satu array per zona.
 
-    Kalau tau^2 hasil estimasinya nol atau negatif — mungkin terjadi saat
-    perbedaan antar-zona lebih kecil daripada derau samplingnya — artinya
+    Kalau tau^2 hasil estimasinya nol atau negatif, mungkin terjadi saat
+    perbedaan antar-zona lebih kecil daripada derau samplingnya, artinya
     tidak ada bukti zona-zona itu benar-benar berbeda. Yang dikembalikan
     k tak hingga, yang membuat w = 0: seluruh estimasi jatuh ke rata-rata
     kelompok. Itu kesimpulan yang benar, bukan kegagalan.

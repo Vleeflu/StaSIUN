@@ -1,4 +1,4 @@
-from app.api.routes import health, stations, chat, sepi
+from app.api.routes import health, stations, chat, sepi, foto, ekspor
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -21,3 +21,5 @@ app.include_router(health.router, prefix=settings.API_PREFIX)
 app.include_router(stations.router, prefix=settings.API_PREFIX)
 app.include_router(chat.router, prefix=settings.API_PREFIX)
 app.include_router(sepi.router, prefix=settings.API_PREFIX)
+app.include_router(foto.router, prefix=settings.API_PREFIX)
+app.include_router(ekspor.router, prefix=settings.API_PREFIX)

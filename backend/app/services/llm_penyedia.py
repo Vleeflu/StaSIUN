@@ -37,6 +37,7 @@ kalau setengah data diekstrak model lain, itu terlihat - bukan tersembunyi.
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from dataclasses import dataclass
@@ -45,10 +46,56 @@ from openai import APIError, AsyncOpenAI, OpenAI, RateLimitError
 
 from app.core.config import settings
 
+log = logging.getLogger(__name__)
+
 # Batas HARIAN (atau kuota habis sama sekali) - pindah penyedia.
-PENANDA_HARIAN = re.compile(r"per\s+day|\bTPD\b|\bRPD\b|quota|exhausted", re.IGNORECASE)
+#
+# "payment required" ikut di sini sejak 13 Sep. Cerebras membalas 402 untuk akun
+# yang alokasi gratisnya belum aktif, dan keadaannya sama persis dengan kuota
+# habis: menunggu tidak menyembuhkan, dan mencoba ulang ke penyedia yang sama
+# hanya mengulang galat yang sama. Tanpa penanda ini, satu penyedia yang belum
+# diaktifkan akan menghentikan seluruh rantai alih-alih dilewati begitu saja.
+PENANDA_HARIAN = re.compile(
+    r"per\s+day|\bTPD\b|\bRPD\b|quota|exhausted|payment\s+required|insufficient",
+    re.IGNORECASE,
+)
 # Batas per menit - tunggu sebentar, penyedia yang sama masih bisa dipakai.
 TUNGGU = re.compile(r"try again in\s+(?:(\d+)m)?\s*([\d.]+)(ms|s)", re.IGNORECASE)
+
+# Penyedia yang menolak BENTUK permintaannya, bukan kehabisan kuota.
+#
+# Kasus nyata 12 Sep: Gemini menolak riwayat percakapan yang memuat panggilan
+# alat dengan galat "Function call is missing a thought_signature in
+# functionCall parts". Gemini menyimpan tanda tangan penalaran pada tiap
+# panggilan alat dan menuntutnya dikirim balik pada giliran berikutnya; lapisan
+# OpenAI-compatible tidak membawa tanda itu, jadi begitu asisten memanggil alat
+# satu kali, giliran berikutnya SELALU gagal di Gemini.
+#
+# Ini bukan kegagalan sementara - menunggu tidak akan menyembuhkannya, dan
+# mencoba ulang ke penyedia yang sama hanya mengulang galat yang sama. Yang
+# benar adalah pindah ke penyedia berikutnya, persis seperti saat kuota habis.
+#
+# Penting: ini TIDAK menonaktifkan Gemini. Jalur ekstraksi tidak memakai alat
+# sama sekali, dan di sana Gemini tetap bekerja normal - ia hanya dilewati pada
+# panggilan yang bentuknya memang tidak ia dukung.
+PENANDA_TIDAK_COCOK = re.compile(
+    r"thought_signature|function call is missing|tool[_ ]?use.*not supported|"
+    r"does not support tools",
+    re.IGNORECASE,
+)
+
+# Penyedia menolak PARAMETER tambahan, bukan menolak permintaannya. Bedanya
+# menentukan: yang ini sembuh dengan membuang parameternya lalu mengulang, dan
+# penyedianya tetap bisa dipakai.
+#
+# Kejadian 13 Sep: Mistral menolak `reasoning_effort` dengan 400 pada setiap
+# permintaan ekstraksi.
+PENANDA_PARAMETER = re.compile(
+    r"reasoning_effort|extra_?body|unknown\s+(?:field|parameter|argument)|"
+    r"unsupported\s+parameter|not\s+(?:a\s+)?(?:valid|supported)\s+parameter|"
+    r"unrecognized\s+(?:field|key)",
+    re.IGNORECASE,
+)
 
 MAKS_COBA_PER_MENIT = 6
 TUNGGU_BAWAAN_DETIK = 15.0
@@ -110,6 +157,25 @@ def _lama_tunggu(pesan: str) -> float:
     return menit * 60 + detik + 1.0
 
 
+class PanggilanGagal(RuntimeError):
+    """Panggilan gagal, LENGKAP dengan penyedia mana yang menolaknya.
+
+    Tanpa ini pesan galat menyebut penyedia yang keliru: `llm_service` melapor
+    memakai `settings.LLM_BASE_URL`, yaitu penyedia UTAMA, padahal rantai bisa
+    saja sudah berpindah ke cadangan. Pada 12 Sep pesan galat menyebut Groq
+    untuk galat yang jelas-jelas datang dari Gemini, dan penelusurannya jadi
+    menunjuk ke arah yang salah.
+    """
+
+    def __init__(self, penyedia: "Penyedia", asli: Exception):
+        self.penyedia = penyedia
+        self.asli = asli
+        super().__init__(
+            f"penyedia '{penyedia.nama}' (model={penyedia.model}, "
+            f"base_url={penyedia.base_url}) menolak panggilan: {asli}"
+        )
+
+
 class Rantai:
     """Pemanggil yang berpindah penyedia saat kuota harian habis.
 
@@ -166,20 +232,58 @@ class Rantai:
         `model` diisi dari penyedia yang sedang dipakai - pemanggil tidak perlu
         tahu penyedia mana yang aktif.
         """
+        # Sebagian penyedia menolak parameter tambahan yang bukan bagian baku
+        # protokol OpenAI. Parameter itu dibuang lalu permintaannya diulang,
+        # BUKAN dianggap gagal.
+        #
+        # Kejadian nyata 13 Sep: Mistral menolak `reasoning_effort` dengan 400
+        # pada SETIAP permintaan. Karena galatnya tidak dikenali, `panggil`
+        # mengembalikan None, dan pemanggilnya mencatatnya sebagai "balasan
+        # tidak terbaca sebagai JSON". Hasilnya 212 dari 232 narasi gagal
+        # diekstraksi, dan laporannya menunjuk ke arah yang sama sekali keliru:
+        # seolah modelnya tidak bisa menulis JSON, padahal permintaannya bahkan
+        # tidak pernah sampai.
+        #
+        # `reasoning_effort` cuma petunjuk hemat token. Kehilangan petunjuk itu
+        # jauh lebih murah daripada kehilangan seluruh narasinya.
+        sisa = dict(kwargs)
+        tambahan_dibuang = False
+
         while True:
             self._catat()
             for _ in range(MAKS_COBA_PER_MENIT):
                 try:
                     return self.klien().chat.completions.create(
-                        model=self.sekarang.model, **kwargs
+                        model=self.sekarang.model, **sisa
                     )
                 except RateLimitError as exc:
                     pesan = str(exc)
                     if PENANDA_HARIAN.search(pesan):
                         break  # kuota harian penyedia ini habis
                     time.sleep(_lama_tunggu(pesan))
-                except APIError:
-                    return None
+                except APIError as exc:
+                    pesan = str(exc)
+                    if (
+                        not tambahan_dibuang
+                        and sisa.get("extra_body")
+                        and PENANDA_PARAMETER.search(pesan)
+                    ):
+                        sisa.pop("extra_body", None)
+                        tambahan_dibuang = True
+                        log.warning(
+                            "%s menolak parameter tambahan, diulang tanpa itu: %s",
+                            self.sekarang.nama,
+                            pesan[:120],
+                        )
+                        continue
+                    if PENANDA_TIDAK_COCOK.search(pesan):
+                        break  # bentuk permintaannya tidak didukung penyedia ini
+                    # Galat lain: pindah penyedia, bukan menyerah. Menyerah di
+                    # sini membuat satu penyedia bermasalah menjatuhkan seluruh
+                    # rantai yang sebenarnya sehat.
+                    break
+            # Parameter yang sudah dibuang tetap dibuang untuk penyedia
+            # berikutnya; tidak ada gunanya mengulang penolakan yang sama.
             self._pindah()
 
     async def panggil_async(self, **kwargs):
@@ -192,4 +296,10 @@ class Rantai:
             except RateLimitError as exc:
                 if not PENANDA_HARIAN.search(str(exc)):
                     raise
+                self._pindah()
+            except APIError as exc:
+                # Penyedia menolak bentuk permintaannya. Menunggu tidak
+                # menolong; yang menolong pindah penyedia.
+                if not PENANDA_TIDAK_COCOK.search(str(exc)):
+                    raise PanggilanGagal(self.sekarang, exc) from exc
                 self._pindah()

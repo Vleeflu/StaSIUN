@@ -1,7 +1,7 @@
 """Susun matriks keputusan SEPI dari isi database.
 
 Tiap baris satu stasiun, tiap kolom satu variabel. Angkanya dihitung di dalam
-poligon isochrone stasiun itu, bukan lingkaran radius — perbedaan yang penting,
+poligon isochrone stasiun itu, bukan lingkaran radius, perbedaan yang penting,
 karena rel dan sungai bikin jangkauan jalan kaki jauh dari bundar.
 
 RANCANGAN: berkas ini TIDAK menulis SQL-nya sendiri. Ia memanggil
@@ -11,14 +11,14 @@ pernah masuk (lihat ADJUSTMENT 8.2), dan menyalin logika itu ke dua tempat
 adalah cara paling pasti untuk membuatnya hidup kembali di salah satunya.
 
 E DAN C SENGAJA KOSONG (NaN). PRD Tabel 6 menetapkan keduanya bersumber dari
-survey Activity di DALAM stasiun — rentang harga tenant, keterisian lapak,
+survey Activity di DALAM stasiun, rentang harga tenant, keterisian lapak,
 media iklan terpasang, indeks sentimen fasilitas. Tidak satu pun terbaca dari
 titik minat di luar stasiun. Versi sebelumnya mengisinya dengan cacahan POI
 `variable IN ('E','C')`, dan itu memberi angka yang terlihat masuk akal untuk
 sesuatu yang belum diukur sama sekali.
 
 NaN di sini bukan kegagalan, melainkan pernyataan "belum diukur". `topsis.py`
-memperlakukannya sebagai tidak menyumbang jarak, bukan sebagai nol — sebab nol
+memperlakukannya sebagai tidak menyumbang jarak, bukan sebagai nol, sebab nol
 akan menaruh stasiun di sudut terburuk karena datanya belum masuk, bukan karena
 kondisinya memang buruk. Begitu blocker N1 tertutup, dua kolom ini terisi tanpa
 mengubah apa pun di sini selain sumbernya.
@@ -36,8 +36,7 @@ from app.services.indicators import (
     hitung_komersial,
     hitung_transportasi,
     hitung_urban,
-    hitung_volume_penumpang,
-)
+    hitung_volume_penumpang)
 from app.services.scoring.uncertainty import estimasi_k, shrinkage
 
 # Batas kontribusi output model berbasis teks terhadap skor akhir. Ditetapkan
@@ -68,8 +67,7 @@ SQL_ARKETIPE = text(
 # Pengamatan PER REKAMAN, satu baris per pengamatan. Inilah bahan `estimasi_k`,
 # yang butuh sebaran di dalam tiap stasiun (sigma^2) terpisah dari sebaran antar
 # stasiun (tau^2). Memberinya nilai per-stasiun akan membuat sigma^2 kebesaran,
-# k meledak jadi tak hingga, dan seluruh stasiun — termasuk yang disurvey —
-# ditarik penuh ke rata-rata arketipe.
+# k meledak jadi tak hingga, dan seluruh stasiun, termasuk yang disurvey, # ditarik penuh ke rata-rata arketipe.
 SQL_PENGAMATAN = text(
     """
     SELECT 'keramaian' AS ukuran, station_id,
@@ -94,7 +92,7 @@ CRITERIA = ["T", "E", "A", "U", "C"]
 # tertutup, kolomnya NaN.
 MENUNGGU_SURVEY = ("E", "C")
 
-# Jaringan yang dinilai. MRT dan LRT tidak ikut diskor — yang dijual KAI adalah
+# Jaringan yang dinilai. MRT dan LRT tidak ikut diskor, yang dijual KAI adalah
 # ruang di stasiunnya sendiri; moda lain masuk hitungan sebagai penyambung.
 SCORED_NETWORKS = ("KAI Commuter", "KAI")
 
@@ -144,9 +142,8 @@ def _susut(
     nilai: list[float | None],
     ids: list[int],
     arketipe: dict[int, str],
-    pengamatan: dict[int, list[float]],
-) -> tuple[list[float | None], dict]:
-    """Shrinkage ke rata-rata arketipe — mekanisme PRD hal. 15 untuk kelengkapan timpang.
+    pengamatan: dict[int, list[float]]) -> tuple[list[float | None], list[float], dict]:
+    """Shrinkage ke rata-rata arketipe, mekanisme PRD hal. 15 untuk kelengkapan timpang.
 
     Menyelesaikan B21: sebelum ini, stasiun yang BELUM disurvey sekadar dilewati
     untuk variabel tersebut, sehingga ia "bebas" dari nilai rendah, sementara
@@ -172,11 +169,18 @@ def _susut(
     Rata-rata arketipe dihitung dari stasiun TERUKUR saja. Arketipe tanpa satu
     pun stasiun terukur memakai rata-rata global.
 
-    Mengembalikan (nilai setelah shrinkage, keterangan untuk pelaporan).
+    Mengembalikan (nilai setelah shrinkage, SEBARAN per stasiun, keterangan).
+
+    `sebaran` adalah simpangan baku yang melekat pada tiap nilai: NOL untuk
+    stasiun yang variabelnya benar-benar diukur, dan simpangan baku kelompok
+    arketipenya untuk stasiun yang nilainya hasil estimasi. Angka itu dipakai
+    `hitung_sepi` menyusun batas bawah skor, sehingga estimasi yang kelompoknya
+    bervariasi lebar dihukum lebih dalam daripada estimasi yang kelompoknya
+    seragam - dan yang terukur tidak dihukum sama sekali.
     """
     terukur = [v is not None and v == v for v in nilai]
     if not any(terukur):
-        return list(nilai), {"k": None, "terukur": 0, "kelompok": 0}
+        return list(nilai), [0.0] * len(nilai), {"k": None, "terukur": 0, "kelompok": 0}
 
     k = estimasi_k(
         [np.asarray(pengamatan[sid]) for sid in ids if len(pengamatan.get(sid, [])) >= 2]
@@ -188,10 +192,23 @@ def _susut(
             per_kelompok.setdefault(arketipe[sid], []).append(float(nilai[i]))
     rata_global = float(np.mean([float(nilai[i]) for i in range(len(ids)) if terukur[i]]))
     rata_kelompok = {g: float(np.mean(vs)) for g, vs in per_kelompok.items()}
+    # Simpangan baku per kelompok. Kelompok berisi satu stasiun tidak punya
+    # sebaran yang berarti, jadi ia memakai sebaran global - lebih jujur
+    # daripada menyatakan ketidakpastiannya nol.
+    semua_terukur = [float(nilai[i]) for i in range(len(ids)) if terukur[i]]
+    sd_global = float(np.std(semua_terukur)) if len(semua_terukur) > 1 else 0.0
+    sd_kelompok = {
+        g: (float(np.std(vs)) if len(vs) > 1 else sd_global)
+        for g, vs in per_kelompok.items()
+    }
 
     hasil: list[float | None] = []
+    sebaran: list[float] = []
     for i, sid in enumerate(ids):
         acuan = rata_kelompok.get(arketipe.get(sid), rata_global)
+        sebaran.append(
+            0.0 if terukur[i] else sd_kelompok.get(arketipe.get(sid), sd_global)
+        )
         if terukur[i]:
             # Stasiun terukur minimal dihitung satu pengamatan. Tanpa lantai ini,
             # stasiun yang terukur lewat indikator tanpa rekaman per-baris
@@ -202,7 +219,7 @@ def _susut(
             v, _ = shrinkage(0.0, acuan, 0, k)
         hasil.append(v)
 
-    return hasil, {
+    return hasil, sebaran, {
         "k": None if math.isinf(k) else round(k, 3),
         "k_tak_hingga": math.isinf(k),
         "terukur": int(sum(terukur)),
@@ -227,7 +244,7 @@ def _scale(values: list[float]) -> list[float]:
 
     Sengaja tidak memakai min-max. Entropy kebal terhadap perkalian tapi tidak
     terhadap pergeseran, jadi menggeser nilai terendah ke nol akan menaikkan
-    sebaran kolom secara semu — dan bobotnya ikut terkerek, padahal kolom lain
+    sebaran kolom secara semu, dan bobotnya ikut terkerek, padahal kolom lain
     memakai hitungan mentah. Membagi nilai tertinggi tidak menggeser apa pun,
     sekaligus menjaga perbandingan aslinya: dua line tetap separuh dari empat.
 
@@ -242,15 +259,14 @@ def build_matrix(
 ) -> tuple[list[dict], list[list[float]]]:
     """Kembalikan (rincian per stasiun, matriks keputusan).
 
-    Rinciannya ikut dibawa supaya angka mentahnya bisa ditelusuri — tanpa itu
+    Rinciannya ikut dibawa supaya angka mentahnya bisa ditelusuri, tanpa itu
     skor akhirnya cuma angka yang tidak bisa dipertanggungjawabkan.
     """
     akses = {
         r.station_id: r
         for r in db.execute(
             SQL_AKSESIBILITAS,
-            {"minutes": minutes, "networks": list(SCORED_NETWORKS)},
-        ).all()
+            {"minutes": minutes, "networks": list(SCORED_NETWORKS)}).all()
     }
     if not akses:
         raise ValueError(
@@ -334,7 +350,7 @@ def build_matrix(
     interchange = _scale([float(d["line_count"]) for d in details])
 
     # Dua indikator berikut TIDAK dimiliki semua stasiun. Yang belum terukur
-    # dibiarkan None, bukan nol — nol berarti "paling sepi", dan menempelkannya
+    # dibiarkan None, bukan nol, nol berarti "paling sepi", dan menempelkannya
     # ke stasiun yang belum disurvey akan menghukumnya karena datanya belum ada.
     ids = [d["id"] for d in details]
     keterangan_susut: dict[str, dict] = {}
@@ -345,15 +361,15 @@ def build_matrix(
     # titik nol sungguhan (PRD hal. 10).
     keramaian_ukur = [d["keramaian"].skala_normal if d["keramaian"] else None for d in details]
     # Keramaian adalah ukuran Activity yang cakupannya timpang (hanya stasiun
-    # tersurvey), jadi di-shrink ke rata-rata arketipe — lihat `_susut`. Tanpa
+    # tersurvey), jadi di-shrink ke rata-rata arketipe, lihat `_susut`. Tanpa
     # ini stasiun berkeramaian rendah yang disurvey turun, sementara yang belum
     # disurvey lolos bebas: pola B21 yang sama, di tingkat indikator.
-    keramaian_skala, keterangan_susut["keramaian"] = _susut(
+    keramaian_skala, _, keterangan_susut["keramaian"] = _susut(
         keramaian_ukur, ids, arketipe, pengamatan.get("keramaian", {})
     )
 
     # Volume penumpang TIDAK di-shrink. Ia data sekunder, bukan Activity, dan
-    # arketipe LDA — topik narasi survey — bukan kelompok pembanding yang masuk
+    # arketipe LDA, topik narasi survey, bukan kelompok pembanding yang masuk
     # akal untuk jumlah penumpang. PRD hal. 15 membatasi mekanisme shrinkage pada
     # kelengkapan antar-titik Activity. Stasiun tanpa data volume tetap sekadar
     # tidak mendapat indikator itu.
@@ -381,7 +397,7 @@ def build_matrix(
     # Analysis adalah model berbasis teks, keluarannya "polaritas kenyamanan
     # sebagai PENALTI bagi zona bermasalah", dan output model teks dibatasi
     # "maksimal 15 persen terhadap skor akhir". Versi sebelumnya memasukkannya
-    # ke C dengan bobot penuh — melampaui batas itu.
+    # ke C dengan bobot penuh, melampaui batas itu.
     #
     # Ada alasan kedua yang lebih mendesak. `facility_issues` isinya KELUHAN,
     # jadi rata-rata sentimennya hampir pasti negatif begitu ada satu catatan.
@@ -392,7 +408,7 @@ def build_matrix(
     # Sekarang sentimen di-shrink ke rata-rata arketipe (stasiun tanpa catatan
     # tidak lagi lolos), lalu dipakai sebagai penalti berpengali di hitung_sepi:
     #     SEPI_akhir = SEPI_dasar x (1 - 0,15 x penalti),  penalti = max(0, -sentimen)
-    sentimen_susut, keterangan_susut["sentimen"] = _susut(
+    sentimen_susut, _, keterangan_susut["sentimen"] = _susut(
         sentimen_mentah, ids, arketipe, pengamatan.get("sentimen", {})
     )
 
@@ -400,7 +416,7 @@ def build_matrix(
     ragam = _scale([d["keberagaman"] for d in details])
     pembangkit = _scale([float(d["pembangkit_perjalanan"]) for d in details])
 
-    # Lintasan 1 — nilai HASIL UKUR. Inilah yang ditampilkan dan dipakai entropi.
+    # Lintasan 1, nilai HASIL UKUR. Inilah yang ditampilkan dan dipakai entropi.
     # Yang tidak terukur tetap NaN; ia tidak pernah menyamar jadi angka.
     ukur_e: list[float] = []
     ukur_c: list[float] = []
@@ -423,12 +439,12 @@ def build_matrix(
             )
         )
 
-    # Lintasan 2 — nilai SETELAH SHRINKAGE. Inilah yang dipakai menghitung skor,
+    # Lintasan 2, nilai SETELAH SHRINKAGE. Inilah yang dipakai menghitung skor,
     # supaya skor lima variabel dan skor tiga variabel sebanding.
-    susut_e, keterangan_susut["E"] = _susut(
+    susut_e, sebaran_e, keterangan_susut["E"] = _susut(
         [v if v == v else None for v in ukur_e], ids, arketipe, pengamatan.get("E", {})
     )
-    susut_c, keterangan_susut["C"] = _susut(
+    susut_c, sebaran_c, keterangan_susut["C"] = _susut(
         [v if v == v else None for v in ukur_c], ids, arketipe, pengamatan.get("C", {})
     )
 
@@ -448,7 +464,7 @@ def build_matrix(
 
         # Kelengkapan dihitung dari HASIL UKUR, bukan dari nilai hasil shrinkage.
         # Kalau dari yang kedua, semua stasiun tampil "5 dari 5" dengan confidence
-        # 1,00 — estimasi menyamar jadi pengukuran.
+        # 1,00, estimasi menyamar jadi pengukuran.
         d["terukur"] = [
             True,
             d["ukur_e"] == d["ukur_e"],
@@ -471,6 +487,10 @@ def build_matrix(
         d.pop("keramaian", None)
 
         matrix.append([d["raw_t"], d["raw_e"], d["raw_a"], d["raw_u"], d["raw_c"]])
+        # Sebaran per variabel, urutannya sama dengan VARIABEL (T, E, A, U, C).
+        # T, A, dan U selalu terukur langsung sehingga sebarannya nol; hanya E
+        # dan C yang bisa berisi estimasi.
+        d["sebaran"] = [0.0, sebaran_e[i], 0.0, 0.0, sebaran_c[i]]
 
     # Keterangan shrinkage ikut dibawa di rincian pertama supaya pemanggil bisa
     # melaporkannya tanpa mengubah bentuk nilai kembalian fungsi ini.

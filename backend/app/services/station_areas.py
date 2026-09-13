@@ -37,19 +37,72 @@ menunjukkan apa yang benar-benar dicatat di lapangan.
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from statistics import median_low
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.services.profil_paparan import waktu_singgah_narasi
+from app.services.profil_paparan import (
+    format_iklan_dari_singgah,
+    profil_paparan,
+    sektor_iklan,
+    waktu_singgah_narasi)
 
 # Titik lebih jauh dari ini dianggap "kawasan sekitar", bukan area stasiun.
 # Ad-Space dan Tenant yang dijual KAI ada di dalam dan menempel stasiun; titik
 # Activity umum 800 meter jauhnya (bazar, ruko) tetap ditampilkan, tetapi
 # dipisahkan supaya tidak terbaca sebagai inventaris stasiun.
-BATAS_AREA_STASIUN_M = 250
+#
+# Sempat 250 m, dan itu TERLALU LONGGAR. Di Sudirman, 91 dari 96 titik lolos
+# ambang itu dan semuanya berlabel "di dalam stasiun" - termasuk titik 242 m
+# yang jelas berdiri di luar gedung. Label yang benar untuk hampir semua hal
+# berhenti membedakan apa pun.
+#
+# 120 m dipilih karena stasiun disimpan sebagai SATU TITIK, biasanya di tengah
+# peron, sedangkan peron KRL rangkaian 12 kereta panjangnya sekitar 240 m. Jadi
+# setengah panjang peron - 120 m - adalah jarak terjauh yang masih masuk akal
+# disebut "di dalam stasiun" diukur dari titik tengahnya.
+#
+# Angka ini tetap perkiraan: kita tidak punya poligon gedung stasiun, hanya
+# titik. Karena itu jaraknya sekarang SELALU ikut ditampilkan di samping
+# labelnya, supaya pembaca bisa menilai sendiri dan tidak bergantung pada satu
+# ambang yang tidak bisa kami buktikan.
+BATAS_AREA_STASIUN_M = 120
+
+# Awalan dan akhiran kerja surveyor, dibuang dari judul yang dibaca pengguna.
+#
+# Nama titik ditulis surveyor untuk keperluannya sendiri, jadi banyak yang
+# berbentuk "Survei 41 - Franchise Auntie Anne's" atau "Terowongan Stasium
+# Sudirman Survei". Nomor urut dan kata "survei" itu penting saat mencatat di
+# lapangan, tetapi di katalog ia cuma kebisingan: pembaca sedang mencari tempat,
+# bukan mencari nomor catatan.
+#
+# Yang dibuang HANYA awalan dan akhirannya. Isi judulnya tidak pernah disentuh -
+# surveyor yang tahu apa yang dilihatnya, dan menyunting lebih jauh berarti
+# menebak maksud orang lain.
+_AWALAN_SURVEI = re.compile(r"^\s*surve[iy]\s*\d*\s*[-:,  ]?\s*", re.IGNORECASE)
+_AKHIRAN_SURVEI = re.compile(r"\s*[-:,  ]?\s*surve[iy]\s*$", re.IGNORECASE)
+
+
+def _judul_bersih(nama: str | None) -> str:
+    if not nama:
+        return "Tanpa judul"
+
+    bersih = _AKHIRAN_SURVEI.sub("", _AWALAN_SURVEI.sub("", nama)).strip()
+
+    # Kalau yang tersisa kosong, judul aslinya memang cuma penanda kerja -
+    # lebih baik menampilkannya apa adanya daripada baris tanpa nama.
+    if not bersih:
+        return nama.strip()
+
+    # Huruf pertama dibesarkan hanya kalau seluruh kata pertamanya huruf kecil,
+    # supaya "halte bus" jadi "Halte bus" tanpa merusak "iPhone" atau "BNI".
+    if bersih[0].islower():
+        bersih = bersih[0].upper() + bersih[1:]
+
+    return bersih
 
 SQL_TITIK = text(
     """
@@ -107,32 +160,34 @@ def _profil_keramaian(rating: list[dict]) -> dict:
 
 def area_stasiun(db: Session, station_id: int) -> dict:
     titik = db.execute(SQL_TITIK, {"sid": station_id}).mappings().all()
+
+    # Profil paparan tingkat stasiun dihitung SEKALI, lalu dipakai seluruh
+    # katalog. Kelompok pengunjung berlaku untuk kawasan, sedangkan yang
+    # berbeda antar-titik adalah pola singgahnya - dan justru perpaduan
+    # keduanya yang menentukan sektor apa yang masuk akal beriklan di sana.
+    paparan = profil_paparan(db, station_id)
     ids = [t["id"] for t in titik]
 
     iklan = _per_titik(
         db,
         "SELECT activity_point_id, media_type, media_count, status, visibility_note "
         "FROM ad_spots WHERE activity_point_id = ANY(:ids)",
-        ids,
-    )
+        ids)
     tenant = _per_titik(
         db,
         "SELECT activity_point_id, name, category, status "
         "FROM tenants WHERE activity_point_id = ANY(:ids)",
-        ids,
-    )
+        ids)
     rating = _per_titik(
         db,
         "SELECT activity_point_id, time_window, rating, scale_min, scale_max, respondent_ref "
         "FROM crowd_ratings WHERE activity_point_id = ANY(:ids)",
-        ids,
-    )
+        ids)
     fasilitas = _per_titik(
         db,
         "SELECT activity_point_id, issue_type, description, sentiment_score "
         "FROM facility_issues WHERE activity_point_id = ANY(:ids)",
-        ids,
-    )
+        ids)
 
     # SATU TITIK SURVEI = SATU KATALOG. Titik dibiarkan sebagai titik.
     kelompok: dict[int, list] = defaultdict(list)
@@ -164,10 +219,19 @@ def area_stasiun(db: Session, station_id: int) -> dict:
                     foto.append(url)
 
         jarak = min(t["jarak_m"] for t in anggota)
+        singgah = waktu_singgah_narasi([t["narrative"] for t in anggota if t["narrative"]])
+        # Kalau narasi titik ini tidak menyebut perilaku singgah sama sekali,
+        # pakai pola tingkat stasiun - DENGAN penanda, supaya pembaca tahu
+        # angkanya bukan dari titik itu sendiri. Membiarkannya kosong berarti
+        # katalognya diam justru pada hal yang paling menentukan format iklan.
+        if singgah.get("label") == "tidak terbaca" and paparan.waktu_singgah.get(
+            "label"
+        ) not in (None, "tidak terbaca"):
+            singgah = {**paparan.waktu_singgah, "dari_pola_stasiun": True}
         areas.append(
             {
                 "id": f"{station_id}-{utama['id']}",
-                "nama": utama["name"] or "Tanpa judul",
+                "nama": _judul_bersih(utama["name"]),
                 "judul_lain": sorted({t["name"] for t in anggota if t["name"]} - {utama["name"]}),
                 "jumlah_titik": len(anggota),
                 "dari_survey_tim": sum(1 for t in anggota if t["provenance"] == "survey tim"),
@@ -195,9 +259,9 @@ def area_stasiun(db: Session, station_id: int) -> dict:
                 # rekomendasi format iklan kehilangan gunanya justru di tingkat
                 # yang paling dipakai - orang memasang iklan di titik tertentu,
                 # bukan di "stasiun" sebagai satu gumpalan.
-                "waktu_singgah": waktu_singgah_narasi(
-                    [t["narrative"] for t in anggota if t["narrative"]]
-                ),
+                "waktu_singgah": singgah,
+                "format_iklan": format_iklan_dari_singgah(singgah, paparan.keramaian),
+                "sektor_iklan": sektor_iklan(paparan.audiens, singgah),
                 "narasumber": sorted(
                     {r["respondent_ref"] for r in semua_rating if r["respondent_ref"]}
                 ),
@@ -227,8 +291,7 @@ def area_stasiun(db: Session, station_id: int) -> dict:
              GROUP BY ae.archetype ORDER BY n DESC LIMIT 1
             """
         ),
-        {"sid": station_id},
-    ).mappings().first()
+        {"sid": station_id}).mappings().first()
     total_titik = db.execute(
         text("SELECT count(*) FROM activity_points WHERE station_id = :sid"), {"sid": station_id}
     ).scalar_one()

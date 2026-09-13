@@ -17,8 +17,7 @@ from app.core.database import SessionLocal
 from app.services.activity_extract import (
     ekstrak_fasilitas_ulang,
     ekstrak_harga_ulang,
-    ekstrak_semua,
-)
+    ekstrak_semua)
 
 
 def main() -> int:
@@ -27,34 +26,29 @@ def main() -> int:
         "--batas",
         type=int,
         default=None,
-        help="berhenti setelah sekian narasi diproses; berguna untuk mencoba dulu",
-    )
+        help="berhenti setelah sekian narasi diproses; berguna untuk mencoba dulu")
     p.add_argument(
         "--fasilitas-ulang",
         action="store_true",
         help="ekstrak ulang kondisi fasilitas (positif maupun negatif) untuk narasi "
-        "yang dulu diekstrak dengan skema keluhan saja",
-    )
+        "yang dulu diekstrak dengan skema keluhan saja")
     p.add_argument(
         "--harga-ulang",
         action="store_true",
         help="panen harga untuk narasi yang terlanjur diekstrak sebelum skema "
         "memuat bagian harga. Narasi tanpa angka rupiah ditandai selesai tanpa "
-        "memanggil model, jadi kuota hanya terpakai untuk yang benar-benar berharga",
-    )
+        "memanggil model, jadi kuota hanya terpakai untuk yang benar-benar berharga")
     p.add_argument(
         "--menyebut",
         default=None,
         help="hanya narasi yang ISINYA cocok pola ini (regex, tidak peka huruf besar). "
         "Contoh: --menyebut 'iklan|videotron|billboard'. Dipakai bersama --stasiun "
-        "supaya kuota yang terbatas jatuh tepat pada narasi yang dicari",
-    )
+        "supaya kuota yang terbatas jatuh tepat pada narasi yang dicari")
     p.add_argument(
         "--stasiun",
         nargs="+",
         default=None,
-        help="batasi ke stasiun tertentu (nama persis). Dipakai saat kuota harian penyedia model terbatas; mengubah urutan kerja, bukan syarat masuk",
-    )
+        help="batasi ke stasiun tertentu (nama persis). Dipakai saat kuota harian penyedia model terbatas; mengubah urutan kerja, bukan syarat masuk")
     args = p.parse_args()
 
     session = SessionLocal()
@@ -84,6 +78,11 @@ def main() -> int:
     print(f"  {hasil.tenant:5d} tenant")
     print(f"  {hasil.keluhan:5d} catatan kondisi fasilitas ({hasil.fasilitas_positif} bernada positif)")
     print(f"  {hasil.harga:5d} harga menu -> price_references")
+    if hasil.bukan_media_iklan:
+        print(
+            f"  {hasil.bukan_media_iklan:5d} fasilitas DITOLAK sebagai media iklan "
+            "(toilet, papan nama toko, dan sejenisnya)"
+        )
     if hasil.harga_luar_stasiun:
         print(
             f"  {hasil.harga_luar_stasiun:5d} harga dilewati karena lapaknya DI LUAR "
@@ -111,7 +110,7 @@ def main() -> int:
         print(
             f"\nBERHENTI: SELURUH penyedia model kehabisan kuota harian. {hasil.kena_rate_limit} "
             "narasi belum sempat diproses.\n"
-            "Ini BUKAN kegagalan metode — obatnya menunggu kuota harian pulih,\n"
+            "Ini BUKAN kegagalan metode, obatnya menunggu kuota harian pulih,\n"
             "atau menaikkan tier. Jalankan ulang perintah yang sama nanti; yang\n"
             "sudah tersimpan tidak diproses dua kali."
         )

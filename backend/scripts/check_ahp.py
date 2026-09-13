@@ -1,7 +1,7 @@
 """Baca matriks AHP dari data/ahp_sepi.yml, hitung bobotnya, periksa CR.
 
 Dijalankan setelah data/ahp_sepi.yml diisi. Tidak menyentuh database sama
-sekali — murni memeriksa apakah penilaian ahli cukup konsisten untuk dipakai.
+sekali, murni memeriksa apakah penilaian ahli cukup konsisten untuk dipakai.
 
     python -m scripts.check_ahp
 """
@@ -21,7 +21,7 @@ BERKAS = Path(__file__).resolve().parents[1] / "data" / "ahp_sepi.yml"
 def susun_matriks(perbandingan: dict) -> np.ndarray:
     """Bangun matriks 5x5 penuh dari 10 perbandingan yang diisi manusia.
 
-    Diagonalnya 1 dan separuh bawahnya kebalikan separuh atas — keduanya
+    Diagonalnya 1 dan separuh bawahnya kebalikan separuh atas, keduanya
     dihitung, tidak diminta ke pengisi. Meminta manusia menulis a_ij dan a_ji
     sekaligus membuka peluang keduanya saling bertentangan, dan pertentangan
     semacam itu bukan ketidakkonsistenan yang bermakna, cuma salah ketik.
@@ -103,7 +103,7 @@ def main() -> int:
     for i, v in enumerate(VARIABEL):
         print(f"  {v:4s} " + "".join(f"{a[i, j]:8.3f}" for j in range(len(VARIABEL))))
 
-    # paksa=True supaya CR tetap dilaporkan walau gagal — pengisi perlu tahu
+    # paksa=True supaya CR tetap dilaporkan walau gagal, pengisi perlu tahu
     # SEBERAPA jauh melesetnya untuk bisa memperbaiki, bukan cuma tahu gagal.
     w, cr = bobot_ahp(a, paksa=True)
 
@@ -126,7 +126,7 @@ def main() -> int:
         return 0
 
     print(f"\n  GAGAL. CR = {cr:.4f} >= {AMBANG_CR}.")
-    print("  Artinya jawaban-jawabannya saling bertentangan — misalnya T jauh lebih")
+    print("  Artinya jawaban-jawabannya saling bertentangan, misalnya T jauh lebih")
     print("  penting dari E, E jauh lebih penting dari A, tetapi A malah dinilai")
     print("  lebih penting dari T. Perbaiki jawabannya, jangan dipaksakan lewat:")
     print("  bobot dari matriks tidak konsisten tidak berarti apa-apa.")

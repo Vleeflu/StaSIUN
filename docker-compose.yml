@@ -67,6 +67,42 @@ services:
     ports:
       - "8000:8000"
 
+  # Penyegar data terjadwal. TIDAK ikut `docker compose up` biasa; ia hidup
+  # hanya lewat `docker compose --profile jadwal up -d scheduler`.
+  #
+  # Dipisah dari backend dengan sengaja. Menaruh penjadwal di dalam proses API
+  # berarti tiap penempatan ulang backend membunuh penyegaran yang sedang
+  # berjalan di tengah jalan, dan itu sudah terbukti terjadi: satu penarikan
+  # guna lahan yang sudah 60% selesai hilang karena container-nya dibuat ulang
+  # untuk alasan yang sama sekali tidak berhubungan.
+  #
+  # Ia memakai image backend yang sama, jadi tidak ada dependensi kedua yang
+  # harus dijaga selaras.
+  scheduler:
+    build: ./backend
+    container_name: stasiun-scheduler
+    profiles: ["jadwal"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://stasiun:stasiun@db:5432/stasiun
+      MAPID_API_KEY: ${MAPID_API_KEY:-}
+      MAPID_PROJECT_ID: ${MAPID_PROJECT_ID:-}
+      MAPID_MISSION_KEY: ${MAPID_MISSION_KEY:-}
+      MAPID_BASEMAP_KEY: ${MAPID_BASEMAP_KEY:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.groq.com/openai/v1}
+      LLM_MODEL: ${LLM_MODEL:-openai/gpt-oss-120b}
+      LLM_FALLBACKS: ${LLM_FALLBACKS:-}
+      # Jam berapa penyegaran harian dijalankan, waktu UTC. 19.00 UTC = 02.00
+      # WIB, saat Overpass paling lengang dan tidak ada yang membuka aplikasi.
+      JAM_HARIAN: ${JAM_HARIAN:-19}
+      # Hari penyegaran lambat (tarik ulang Overpass). 6 = Minggu.
+      HARI_MINGGUAN: ${HARI_MINGGUAN:-6}
+    command: ["python", "-u", "-m", "scripts.penjadwal"]
+
   frontend:
     build:
       context: ./frontend

@@ -2,7 +2,7 @@
 
 Volume penumpang adalah indikator terpenting variabel T, dan satu-satunya yang
 memberi T variasi kontinu. Tanpa data ini T hanya punya lima nilai unik dan
-seri di 38 dari 46 stasiun KAI — lihat ADJUSTMENT.md bagian 7.13.
+seri di 38 dari 46 stasiun KAI, lihat ADJUSTMENT.md bagian 7.13.
 
     python -m scripts.ingest_passenger_volume --dry-run
     python -m scripts.ingest_passenger_volume
@@ -38,7 +38,7 @@ def peta_stasiun(session) -> dict[str, list[tuple[int, str, str]]]:
     Sengaja mengembalikan DAFTAR, bukan satu id. Nama stasiun bukan kunci unik
     di proyek ini: "Cawang" ada dua (KAI Commuter dan LRT Jabodebek, terpisah
     1.437 m) dan "Halim" ada dua (Whoosh dan LRT Jabodebek). Mengembalikan satu
-    id akan diam-diam memilih salah satunya — persis jenis kesalahan yang
+    id akan diam-diam memilih salah satunya, persis jenis kesalahan yang
     tidak memunculkan error tetapi menaruh angka di stasiun yang keliru.
     """
     peta: dict[str, list[tuple[int, str, str]]] = {}
@@ -135,7 +135,7 @@ def main() -> int:
 
         print(f"{len(siap)} baris siap diimpor:")
         for sid, nama, row in siap[:15]:
-            print(f"  {nama[:28]:29s} {row['period']:8s} {row['passengers_per_day']:>12,.0f} /hari  ({row['source'][:24]})")
+            print(f"  {nama[:28]:29s} {row['period']:8s} {row['passengers_per_day']:>12.0f} /hari  ({row['source'][:24]})")
         if len(siap) > 15:
             print(f"  ... dan {len(siap) - 15} lainnya")
 
@@ -165,8 +165,7 @@ def main() -> int:
                 "source_url": stmt.excluded.source_url,
                 "accessed_at": stmt.excluded.accessed_at,
                 "updated_at": func.now(),
-            },
-        )
+            })
         session.execute(stmt)
         session.commit()
 

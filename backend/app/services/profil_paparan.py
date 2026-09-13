@@ -285,12 +285,74 @@ KELOMPOK_KAWASAN = {
     "niaga": "pengunjung pertokoan",
     "wisata": "pengunjung tempat wisata",
     "industri": "pekerja kawasan industri",
+    "pendidikan": "pelajar",
 }
 
 # Ambang 0,15: fungsi yang porsinya di bawah itu ada, tetapi terlalu kecil untuk
 # menyimpulkan kelompok pengunjung darinya.
 AMBANG_KELOMPOK = 0.15
 
+# KETERBATASAN GUNA LAHAN, dan kenapa tiga kelompok di bawah dihitung dari titik
+# minat alih-alih dari luas kawasan.
+#
+# Komposisi kawasan hanya mengenal lima kelas - hunian, kantor, niaga, wisata,
+# industri - dan dua di antaranya tersumbat:
+#
+#   1. `landuse=commercial` di OSM dipetakan ke "kantor", karena tag itu
+#      maknanya bercabang dan lebih sering berarti perkantoran. Di hub niaga
+#      Jakarta pilihan itu MELESET: Tanah Abang tercatat 75,7% kantor dan
+#      0,0% niaga - padahal di sana berdiri Pasar Tanah Abang.
+#   2. Tidak ada kelas pendidikan sama sekali, jadi pelajar tidak akan pernah
+#      muncul betapa pun banyak sekolah di sekitarnya.
+#
+# Memperbaiki akar masalahnya berarti menarik ulang seluruh poligon guna lahan
+# dari Overpass dengan tag yang lebih kaya. Berkas mentah yang tersimpan sudah
+# terklasifikasi - tag aslinya tidak ikut disimpan - sehingga tidak bisa
+# dihitung ulang tanpa mengambil data lagi.
+#
+# Yang bisa dilakukan sekarang: membaca langsung titik minat yang memang sudah
+# ada di basis data. Polanya sama persis dengan kelompok wisata di bawah, yang
+# sudah lebih dulu memakai jalan ini dengan alasan serupa - museum menempati
+# lahan kecil tetapi menarik banyak orang, jadi luas melewatkannya.
+#
+# Ambangnya rendah dan jumlahnya SELALU disebut di kalimat alasan, supaya
+# pembaca menilai sendiri seberapa kuat kehadirannya. Sekolah tersebar di
+# seluruh Jakarta - mediannya 14 per stasiun - sehingga ambang tinggi justru
+# akan membuang stasiun seperti Palmerah yang pelajarnya jelas terlihat.
+AMBANG_PENDIDIKAN = 5
+AMBANG_PASAR = 1
+AMBANG_PUSAT_BELANJA = 1
+
+
+SQL_TITIK_PENDIDIKAN = """
+SELECT COUNT(*)
+  FROM isochrones i
+  JOIN poi p ON ST_Contains(i.geom, p.location)
+ WHERE i.station_id = :sid AND i.minutes = 10
+   AND p.source = 'overpass' AND p.category = 'pendidikan'
+"""
+
+# Pasar rakyat dan pusat belanja dihitung TERPISAH. Keduanya sama-sama niaga,
+# tetapi orang yang mengisinya berbeda: pasar mempertemukan pedagang yang
+# mengangkut barang dagangan sejak subuh, mal mempertemukan pengunjung yang
+# datang siang untuk berbelanja. Menggabungkan keduanya akan menghapus
+# perbedaan yang justru menentukan bentuk iklan dan jam tayangnya.
+SQL_TITIK_PASAR = """
+SELECT COUNT(*)
+  FROM isochrones i
+  JOIN poi p ON ST_Contains(i.geom, p.location)
+ WHERE i.station_id = :sid AND i.minutes = 10
+   AND p.source = 'overpass' AND p.osm_tags->>'amenity' = 'marketplace'
+"""
+
+SQL_TITIK_PUSAT_BELANJA = """
+SELECT COUNT(*)
+  FROM isochrones i
+  JOIN poi p ON ST_Contains(i.geom, p.location)
+ WHERE i.station_id = :sid AND i.minutes = 10
+   AND p.source = 'overpass'
+   AND p.osm_tags->>'shop' IN ('mall', 'department_store')
+"""
 
 SQL_TITIK_WISATA = """
 SELECT COUNT(*)
@@ -307,8 +369,76 @@ SELECT COUNT(*)
 AMBANG_TITIK_WISATA = 5
 
 
+# Sektor usaha yang masuk akal beriklan, per kelompok pengunjung.
+#
+# Ini HEURISTIK BISNIS, bukan hasil pengukuran - dan keluarannya menyebut itu
+# sendiri. Dasarnya sederhana dan bisa dibantah siapa pun: iklan bekerja ketika
+# yang ditawarkan cocok dengan keperluan orang yang sedang lewat. Pekerja yang
+# bergegas ke kereta relevan dengan layanan yang dipakai harian; pengunjung
+# museum relevan dengan kuliner dan oleh-oleh.
+#
+# Tidak ada angka di sini, dan memang tidak boleh ada. Menempelkan skor pada
+# tebakan akan membuatnya terlihat seperti hasil hitungan.
+SEKTOR_PER_KELOMPOK: dict[str, tuple[str, ...]] = {
+    "pekerja kantor": ("perbankan dan dompet digital", "kopi dan makanan cepat saji", "telekomunikasi"),
+    "warga sekitar": ("kebutuhan rumah tangga", "layanan kesehatan", "ritel harian"),
+    "pengunjung tempat wisata": ("kuliner dan oleh-oleh", "pariwisata dan perjalanan", "pembayaran digital"),
+    "pengunjung pertokoan": ("ritel dan fesyen", "promo belanja", "pembayaran digital"),
+    "pedagang dan pembeli pasar": (
+        "layanan keuangan mikro",
+        "logistik dan pengiriman",
+        "kebutuhan harian",
+    ),
+    "pelajar": ("telekomunikasi dan paket data", "makanan ringan", "hiburan digital"),
+    "pekerja kawasan industri": ("kebutuhan harian", "layanan keuangan mikro"),
+}
+
+
+def sektor_iklan(pengunjung: list[dict], waktu_singgah: dict) -> dict:
+    """Sektor usaha yang paling masuk akal beriklan di satu titik.
+
+    Menggabungkan dua hal yang sudah tersusun: SIAPA yang melintas di kawasan
+    ini, dan BERAPA LAMA orang berhenti di titik itu. Yang pertama menentukan
+    sektornya, yang kedua menentukan apakah pesan panjang sempat terbaca.
+    """
+    sektor: list[str] = []
+    for p in pengunjung[:2]:
+        for s in SEKTOR_PER_KELOMPOK.get(p["kelompok"], ()):
+            if s not in sektor:
+                sektor.append(s)
+
+    label = waktu_singgah.get("label")
+    if label == "cenderung lama":
+        catatan = (
+            "Karena orang berhenti cukup lama di sini, sektor yang perlu "
+            "penjelasan - layanan keuangan, properti, pendidikan - masih sempat "
+            "tersampaikan."
+        )
+    elif label == "cenderung singkat":
+        catatan = (
+            "Karena paparannya sekilas, yang paling berhasil di sini adalah merek "
+            "yang sudah dikenal dan pesan satu kalimat."
+        )
+    else:
+        catatan = None
+
+    return {
+        "sektor": sektor[:4],
+        "catatan": catatan,
+        "dasar": (
+            "Usulan awal berdasarkan profil pengunjung kawasan dan pola singgah "
+            "di titik ini, bukan hasil pengukuran respons iklan."
+        ),
+    }
+
+
 def profil_pengunjung(
-    kawasan: dict | None, keramaian: dict, jumlah_titik_wisata: int = 0
+    kawasan: dict | None,
+    keramaian: dict,
+    jumlah_titik_wisata: int = 0,
+    jumlah_sekolah: int = 0,
+    jumlah_pasar: int = 0,
+    jumlah_pusat_belanja: int = 0,
 ) -> list[dict]:
     """Kelompok pengunjung yang masuk akal, beserta dasar penarikannya.
 
@@ -318,8 +448,28 @@ def profil_pengunjung(
     """
     if not kawasan:
         return []
+    # Porsi diambil dari kedua ukuran, lalu dipakai yang TERBESAR per fungsi.
+    #
+    # Versi sebelumnya memakai luas tanah saja, dan hasilnya keliru persis di
+    # tempat yang paling penting: BNI City - jantung kawasan perkantoran -
+    # menampilkan "warga sekitar" di urutan pertama, karena menurut luas tanah
+    # 57% kawasannya permukiman (kampung Karet Tengsin di belakang menara).
+    # Menurut luas lantai terbangun, 84%-nya justru perkantoran.
+    #
+    # Untuk profil paparan, memilih salah satu ukuran selalu salah di sebagian
+    # stasiun: luas tanah mengecilkan menara, luas lantai mengecilkan
+    # permukiman padat. Maka tiap fungsi dinilai dari sisi TERKUATNYA - sebuah
+    # fungsi dianggap hadir kalau ia besar menurut salah satu ukuran. Kawasan
+    # bisa punya banyak kantor DAN banyak rumah sekaligus; itu bukan
+    # kontradiksi, dan keduanya sama-sama mengisi peron.
     ukuran = kawasan.get("per_ukuran") or {}
-    porsi = (ukuran.get("luas_tanah") or ukuran.get("luas_lantai") or {}).get("porsi") or {}
+    porsi: dict[str, float] = {}
+    asal: dict[str, str] = {}
+    for nama_ukuran, u in ukuran.items():
+        for kelas, nilai in ((u or {}).get("porsi") or {}).items():
+            if float(nilai) > porsi.get(kelas, 0.0):
+                porsi[kelas] = float(nilai)
+                asal[kelas] = nama_ukuran
     if not porsi:
         return []
 
@@ -359,15 +509,80 @@ def profil_pengunjung(
             }
         )
 
+    # Pasar rakyat: satu saja sudah cukup. OSM menandai `amenity=marketplace`
+    # dengan hemat - hanya 122 titik di seluruh wilayah studi - jadi kehadirannya
+    # bukan kebetulan, dan satu pasar mengumpulkan pedagang serta pembeli dalam
+    # jumlah yang tidak bisa diabaikan.
+    if jumlah_pasar >= AMBANG_PASAR:
+        hasil.append(
+            {
+                "kelompok": "pedagang dan pembeli pasar",
+                "dasar": (
+                    f"terdapat {jumlah_pasar} pasar rakyat dalam jangkauan jalan "
+                    "kaki dari stasiun"
+                ),
+                "porsi_kawasan": round(porsi.get("niaga", 0.0), 3),
+            }
+        )
+
+    if jumlah_sekolah >= AMBANG_PENDIDIKAN:
+        hasil.append(
+            {
+                "kelompok": "pelajar",
+                "dasar": (
+                    f"terdapat {jumlah_sekolah} sekolah dan kampus dalam jangkauan "
+                    "jalan kaki dari stasiun"
+                ),
+                "porsi_kawasan": 0.0,
+            }
+        )
+
+    # Pusat belanja memicu kelompok yang sama dengan kelas `niaga`. Ini penambal
+    # untuk salah petakan `landuse=commercial` -> "kantor": tanpa ini, Tanah Abang
+    # yang punya tiga mal tetap tercatat 0% niaga dan pengunjung pertokoannya
+    # hilang sama sekali.
+    if jumlah_pusat_belanja >= AMBANG_PUSAT_BELANJA:
+        hasil.append(
+            {
+                "kelompok": KELOMPOK_KAWASAN["niaga"],
+                "dasar": (
+                    f"terdapat {jumlah_pusat_belanja} pusat belanja dalam jangkauan "
+                    "jalan kaki dari stasiun"
+                ),
+                "porsi_kawasan": round(porsi.get("niaga", 0.0), 3),
+            }
+        )
+
+    sudah = {h["kelompok"] for h in hasil}
+
     for kelas, nilai in sorted(porsi.items(), key=lambda x: -x[1]):
         if nilai < AMBANG_KELOMPOK or kelas not in KELOMPOK_KAWASAN:
             continue
-        if kelas == "wisata" and any(h["kelompok"] == KELOMPOK_KAWASAN["wisata"] for h in hasil):
+        # Kelompok yang sudah masuk lewat hitungan titik tidak diulang dari
+        # sisi luas - dua baris dengan nama sama akan terbaca seperti kekeliruan.
+        if KELOMPOK_KAWASAN[kelas] in sudah:
             continue
         nama = KELOMPOK_KAWASAN[kelas]
-        dasar = f"{round(nilai * 100)}% kawasan sekitar berupa {kelas}"
+        sebutan = {
+            "hunian": "permukiman",
+            "kantor": "perkantoran",
+            "niaga": "pertokoan",
+            "wisata": "tempat wisata",
+            "industri": "kawasan industri",
+            "pendidikan": "sekolah dan kampus",
+        }.get(kelas, kelas)
+        patokan = (
+            "ruang terbangun di sekitar stasiun"
+            if asal.get(kelas) == "luas_lantai"
+            else "luas wilayah di sekitar stasiun"
+        )
+        dasar = f"{round(nilai * 100)}% {patokan} berupa {sebutan}"
+        # Pola komuter menempel di ALASAN, bukan di nama kelompoknya. Semua yang
+        # masuk stasiun sudah pasti berkomuter, jadi "pekerja kantor yang
+        # berkomuter" tidak membedakan apa pun dari "pekerja kantor" - ia cuma
+        # memanjangkan sebutan. Yang benar-benar informatif adalah jam ramainya,
+        # dan itu tempatnya di kalimat dasar.
         if pola_komuter and kelas in ("kantor", "hunian"):
-            nama = "pekerja komuter" if kelas == "kantor" else "warga sekitar yang berkomuter"
             dasar += ", dan stasiun ramai pada pagi dan sore tetapi lengang di siang hari"
         hasil.append({"kelompok": nama, "dasar": dasar, "porsi_kawasan": round(nilai, 3)})
     return hasil
@@ -425,7 +640,7 @@ def waktu_singgah_narasi(narasi: list[str]) -> dict:
     }
 
 
-def _format_iklan(singgah: dict, keramaian: dict) -> dict:
+def format_iklan_dari_singgah(singgah: dict, keramaian: dict) -> dict:
     """Format iklan yang masuk akal dari watak ruang dan keramaiannya.
 
     Ini rekomendasi FORMAT, bukan harga. Estimasi harga wajar menunggu
@@ -492,9 +707,18 @@ def profil_paparan(session: Session, station_id: int) -> Paparan:
     titik_wisata = session.execute(
         text(SQL_TITIK_WISATA), {"sid": station_id}
     ).scalar() or 0
-    p.audiens = profil_pengunjung(p.kawasan, p.keramaian, titik_wisata)
+    sekolah = session.execute(
+        text(SQL_TITIK_PENDIDIKAN), {"sid": station_id}
+    ).scalar() or 0
+    pasar = session.execute(text(SQL_TITIK_PASAR), {"sid": station_id}).scalar() or 0
+    belanja = session.execute(
+        text(SQL_TITIK_PUSAT_BELANJA), {"sid": station_id}
+    ).scalar() or 0
+    p.audiens = profil_pengunjung(
+        p.kawasan, p.keramaian, titik_wisata, sekolah, pasar, belanja
+    )
     p.waktu_singgah = waktu_singgah_narasi(narasi)
-    p.format_iklan = _format_iklan(p.waktu_singgah, p.keramaian)
+    p.format_iklan = format_iklan_dari_singgah(p.waktu_singgah, p.keramaian)
     p.dasar = {
         "jumlah_narasi": len(narasi),
         "jumlah_penilaian_keramaian": sum(v["jumlah_penilaian"] for v in p.keramaian.values()),

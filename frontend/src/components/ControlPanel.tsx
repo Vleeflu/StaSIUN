@@ -3,7 +3,9 @@
 import type { ReactNode } from "react";
 
 import StationSearch from "@/components/StationSearch";
+import { KELOMPOK_POI } from "@/lib/poi";
 import { KRL_LINES, lineColor, shortLabel } from "@/lib/lines";
+import { SEPI_SKALA } from "@/lib/sepi";
 import {
   REACH_CHOICES,
   bandLabel,
@@ -19,8 +21,6 @@ type Props = {
   onSelect: (station: StationFeature) => void;
   activeLines: Set<string>;
   onToggleLine: (code: string) => void;
-  showLabels: boolean;
-  onToggleLabels: (next: boolean) => void;
   showSepi: boolean;
   onToggleSepi: (next: boolean) => void;
   showIsochrone: boolean;
@@ -30,6 +30,8 @@ type Props = {
   reachBand: ReachBand;
   onReachBand: (next: ReachBand) => void;
   poiMinutes: number;
+  poiKelompok: string[];
+  onPoiKelompokChange: (id: string) => void;
   hasSelection: boolean;
 };
 
@@ -40,8 +42,6 @@ export default function ControlPanel({
   onSelect,
   activeLines,
   onToggleLine,
-  showLabels,
-  onToggleLabels,
   showSepi,
   onToggleSepi,
   showIsochrone,
@@ -51,6 +51,8 @@ export default function ControlPanel({
   reachBand,
   onReachBand,
   poiMinutes,
+  poiKelompok,
+  onPoiKelompokChange,
   hasSelection,
 }: Props) {
   return (
@@ -98,11 +100,6 @@ export default function ControlPanel({
       <Section title="Layer">
         <div className="flex flex-col gap-2">
           <Toggle
-            label="Label nama stasiun"
-            checked={showLabels}
-            onChange={onToggleLabels}
-          />
-          <Toggle
             label="Skor SEPI per stasiun"
             checked={showSepi}
             onChange={onToggleSepi}
@@ -134,13 +131,23 @@ export default function ControlPanel({
               }}
             />
             <div className="mt-1 flex justify-between">
-              <span className="data-num text-[10px] text-muted">0</span>
+              <span className="data-num text-[10px] text-muted">
+                {SEPI_SKALA.bawah}
+              </span>
               <span className="label-caps text-[9px] text-muted">Skor SEPI</span>
-              <span className="data-num text-[10px] text-muted">100</span>
+              <span className="data-num text-[10px] text-muted">
+                {SEPI_SKALA.atas}
+              </span>
             </div>
             <p className="mt-2 text-[10px] leading-relaxed text-muted">
               Cincin latar di belakang penanda stasiun. Abu-abu berarti skornya
               belum dihitung.
+            </p>
+            <p className="mt-1.5 text-[10px] leading-relaxed text-muted">
+              Skalanya {SEPI_SKALA.bawah}&ndash;{SEPI_SKALA.atas}, bukan
+              0&ndash;100, karena seluruh stasiun KRL DKI memang jatuh di rentang
+              itu. Warnanya menyatakan posisi relatif antar stasiun, bukan nilai
+              mutlak.
             </p>
             <ul className="mt-2.5 flex flex-col gap-2 border-t border-hair pt-2.5 text-xs text-ink-soft">
               <LegendRow color="#c90025">Stasiun satu line</LegendRow>
@@ -238,22 +245,46 @@ export default function ControlPanel({
             <p className="label-caps mb-1.5 mt-3 text-[9px] text-muted">
               Titik minat dalam {poiMinutes} menit
             </p>
-            <ul className="flex flex-col gap-1.5 text-xs text-ink-soft">
-              <li className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="h-2.5 w-2.5 shrink-0 rounded-full border border-white bg-ink-soft"
-                />
-                Gerai komersial — pesaing
-              </li>
-              <li className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="h-2.5 w-2.5 shrink-0 rounded-full border border-ink-soft bg-panel"
-                />
-                Kantor, hunian, faskes — calon pelanggan
-              </li>
+            {/*
+              Legenda yang BISA DIKLIK. Sebelumnya ia cuma keterangan dua baris,
+              dan pengguna tidak punya cara menyaring apa pun. Sekarang tiap
+              kelompok bisa dimatikan - itu yang membuat enam warna tetap
+              terbaca: pengguna bisa menyisakan satu kelompok saja saat ingin
+              memeriksa komposisi kawasan.
+            */}
+            <ul className="flex flex-col gap-1">
+              {KELOMPOK_POI.map((k) => {
+                const aktif = poiKelompok.includes(k.id);
+                return (
+                  <li key={k.id}>
+                    <button
+                      type="button"
+                      onClick={() => onPoiKelompokChange(k.id)}
+                      aria-pressed={aktif}
+                      className={`flex w-full items-center gap-2 border px-2 py-1 text-left text-xs ${
+                        aktif
+                          ? "border-hair text-ink-soft hover:border-ink hover:text-ink"
+                          : "border-transparent text-muted hover:text-ink-soft"
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="h-2.5 w-2.5 shrink-0 rounded-full border"
+                        style={{
+                          backgroundColor: aktif ? k.warna : "transparent",
+                          borderColor: k.warna,
+                        }}
+                      />
+                      {k.label}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
+            <p className="mt-1.5 text-[10px] leading-relaxed text-muted">
+              Klik untuk menyaring. Bulatan padat berarti gerai komersial
+              (pesaing), bulatan berongga berarti calon pelanggan.
+            </p>
           </div>
         )}
       </Section>

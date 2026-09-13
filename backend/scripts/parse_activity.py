@@ -22,14 +22,12 @@ def main() -> int:
         type=int,
         default=15,
         choices=(5, 10, 15),
-        help="cincin isochrone yang dipakai menautkan titik ke stasiun",
-    )
+        help="cincin isochrone yang dipakai menautkan titik ke stasiun")
     p.add_argument(
         "--hanya-rating",
         action="store_true",
         help="hapus dan isi ulang crowd_ratings dari activity_points yang ada; "
-        "titik dan hasil ekstraksi LLM tidak disentuh",
-    )
+        "titik dan hasil ekstraksi LLM tidak disentuh")
     args = p.parse_args()
 
     session = SessionLocal()
@@ -62,7 +60,7 @@ def main() -> int:
     if hasil.tanpa_stasiun:
         print(
             f"\n{hasil.tanpa_stasiun} titik tidak jatuh di isochrone stasiun mana pun.\n"
-            "Tetap disimpan — titik di luar kawasan tangkapan masih berguna untuk\n"
+            "Tetap disimpan, titik di luar kawasan tangkapan masih berguna untuk\n"
             "korpus naratif lapis 1, cuma tidak menyumbang ke indikator per stasiun."
         )
 

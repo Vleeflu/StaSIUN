@@ -11,7 +11,7 @@ DUA KEPUTUSAN YANG MENENTUKAN KEABSAHAN PEMAKAIANNYA
 1. Daftar ditulis tangan, BUKAN dicocokkan dengan pola.
    Godaannya menulis aturan semacam "kalau nama stasiun mengandung nama merek
    maka bersponsor". Itu ditolak: mencocokkan merek pada teks bebas gagal
-   diam-diam di kedua arah — "Bank Jakarta" tertangkap, tetapi nama tempat
+   diam-diam di kedua arah, "Bank Jakarta" tertangkap, tetapi nama tempat
    seperti "ASEAN" bisa ikut tertangkap sebagai merek. Dua belas baris yang
    ditulis eksplisit bisa diperiksa mata manusia; regex tidak.
 
@@ -26,7 +26,7 @@ CATATAN KEHATI-HATIAN
 ---------------------
 Nama-nama ini berasal dari OpenStreetMap, bukan pengumuman resmi operator.
 Sebelum dipakai sebagai dasar valuasi rupiah, daftarnya wajib dicocokkan ke
-sumber resmi MRT Jakarta dan LRT — kesepakatan bisa berakhir atau berganti
+sumber resmi MRT Jakarta dan LRT, kesepakatan bisa berakhir atau berganti
 tanpa OSM ikut diperbarui.
 """
 
@@ -97,8 +97,7 @@ def klasifikasi(session: Session) -> list[StatusPenamaan]:
                 nama_lengkap=r.name,
                 jaringan=jaringan,
                 nama_dasar=dasar,
-                sponsor=sponsor,
-            )
+                sponsor=sponsor)
         )
     return hasil
 

@@ -3,7 +3,7 @@
 Dipakai setiap kali aturan penggolongan di app/services/osm.py berubah.
 
 Inilah alasan `osm_tags` disimpan mentah sejak awal: mengubah aturan kategori
-tidak menuntut penarikan ulang 19 ribu titik dari Overpass — cukup baca ulang
+tidak menuntut penarikan ulang 19 ribu titik dari Overpass, cukup baca ulang
 tag yang sudah ada di database. Satu keputusan penyimpanan kemarin menghemat
 satu penarikan penuh hari ini.
 

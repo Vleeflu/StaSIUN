@@ -39,7 +39,7 @@ class Isochrone(TimestampMixin, Base):
 
     # Profil perjalanan yang dipakai saat poligon dibangkitkan. WAJIB "foot".
     # Proyek GEO MAPID memuat beberapa layer isochrone bernama sama yang
-    # sebagian dihitung dengan profil mobil — dan dari luar tidak ada bedanya.
+    # sebagian dihitung dengan profil mobil, dan dari luar tidak ada bedanya.
     # Menyimpan profilnya membuat kesalahan itu bisa ketahuan setelah impor,
     # bukan cuma dicegah sebelum impor.
     profile: Mapped[str | None]
@@ -90,7 +90,7 @@ class Isochrone(TimestampMixin, Base):
     __table_args__ = (
         # Satu stasiun hanya boleh punya satu poligon per durasi. Baris yang
         # station_id-nya kosong tidak terkena aturan ini, karena PostgreSQL
-        # memperlakukan tiap NULL sebagai nilai yang berbeda — persis yang
+        # memperlakukan tiap NULL sebagai nilai yang berbeda, persis yang
         # dibutuhkan supaya banyak baris unmatched tetap bisa disimpan.
         UniqueConstraint("station_id", "minutes", name="uq_isochrone_station_minutes"),
         CheckConstraint("minutes > 0", name="ck_isochrone_minutes_positive"),

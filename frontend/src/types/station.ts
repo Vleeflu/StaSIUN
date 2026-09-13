@@ -11,6 +11,11 @@ export type StationProps = {
   served: boolean;
   line_key: string;
   kecamatan: string | null;
+  /** True kalau stasiun ini benar-benar didatangi tim survei. */
+  survei_tim?: boolean;
+  /** Jumlah titik pengamatan tim, dan skala keramaian dari narasumber. */
+  survei_titik?: number;
+  survei_skala?: number;
   address: string | null;
   sepi: number | null;
   sepi_rank: number | null;
@@ -21,7 +26,7 @@ export type StationScore = {
   minutes: number;
 
   /**
-   * Jumlah berbobot 0–100, dihitung per stasiun tanpa melihat stasiun lain.
+   * Jumlah berbobot 0-100, dihitung per stasiun tanpa melihat stasiun lain.
    * Hanya angka ini yang boleh diklasifikasikan ke tiga kelas PRD.
    */
   sepi: number;
@@ -41,7 +46,7 @@ export type StationScore = {
   sensitivity: Sensitivitas | null;
 
   /**
-   * Kedekatan TOPSIS 0–100, dikirim TERPISAH. Nilainya ditentukan oleh himpunan
+   * Kedekatan TOPSIS 0-100, dikirim TERPISAH. Nilainya ditentukan oleh himpunan
    * stasiun yang ikut dinilai, jadi ia hanya sah sebagai pembanding relatif dan
    * TIDAK boleh dipakai untuk klasifikasi.
    */
@@ -58,7 +63,7 @@ export type StationScore = {
   variabel_total: number;
 
   /**
-   * Nilai tiap variabel, sudah ternormalisasi 0–1 — BUKAN satuan aslinya.
+   * Nilai tiap variabel, sudah ternormalisasi 0-1, BUKAN satuan aslinya.
    * `null` berarti variabelnya belum diukur sama sekali (E dan C menunggu
    * survey Activity), dan itu harus tampil berbeda dari nilai rendah.
    */
@@ -69,6 +74,29 @@ export type StationScore = {
     U: number | null;
     C: number | null;
   };
+  /**
+   * Mana yang benar-benar DIUKUR, bukan diestimasi. `components` selalu terisi
+   * kelima-limanya karena skor memang dihitung dari kelimanya; penanda ini yang
+   * membedakan pengukuran dari estimasi shrinkage.
+   */
+  terukur: { T: boolean; E: boolean; A: boolean; U: boolean; C: boolean };
+  /** Posisi relatif 0-100: "lebih tinggi daripada sekian persen stasiun". */
+  persentil: number;
+  /** Fitur mana yang masuk akal dikejar di kelas ini. Null kalau kelas tak dikenal. */
+  triase: { fokus: string; hindari: string; alasan: string } | null;
+  /** Composite Exposure Index, ukuran paparan iklan, BUKAN SEPI. */
+  paparan: {
+    cei: number | null;
+    kelas: string | null;
+    bobot: Record<string, number>;
+    catatan: string;
+  };
+  catatan_peringkat: string;
+  /** Nilai hasil ukur E dan C, null kalau stasiunnya belum disurvey. */
+  nilai_ukur: { E: number | null; C: number | null };
+  catatan_estimasi: string;
+  /** Variabel yang nilainya identik di seluruh stasiun, jadi tidak membedakan apa pun. */
+  seragam_di_semua_stasiun?: string[];
   detail: {
     line_count: number;
     halte_count: number;
@@ -77,7 +105,7 @@ export type StationScore = {
   };
 
   /**
-   * Volume penumpang harian. KONTEKS, bukan komponen skor — cakupannya baru 10
+   * Volume penumpang harian. KONTEKS, bukan komponen skor, cakupannya baru 10
    * dari 46 stasiun, di bawah ambang 70% untuk dipakai sebagai indikator T.
    * `null` untuk stasiun yang datanya belum ada.
    */
@@ -108,10 +136,10 @@ export type Sensitivitas = {
   jumlah_undian: number;
 };
 
-/** Median keramaian satu rentang waktu, dinormalisasi 0–1 (PRD hal. 10). */
+/** Median keramaian satu rentang waktu, dinormalisasi 0-1 (PRD hal. 10). */
 export type ProfilJendela = {
   normal: number;
-  /** Padanan skala 1–5, hanya untuk dibaca. */
+  /** Padanan skala 1-5, hanya untuk dibaca. */
   setara_1_5: number;
   jumlah_penilaian: number;
 } | null;
@@ -153,7 +181,13 @@ export type AreaStasiun = {
     alasan: string;
     sinyal_lama: number;
     sinyal_sebentar: number;
+    /** true kalau diambil dari pola stasiun karena titik ini tidak menyebutkannya. */
+    dari_pola_stasiun?: boolean;
   };
+  /** Format iklan yang sesuai dengan pola singgah di titik ini. */
+  format_iklan: { bentuk: string | null; alasan: string; catatan?: string | null };
+  /** Sektor usaha yang masuk akal beriklan di sini. Usulan, bukan pengukuran. */
+  sektor_iklan: { sektor: string[]; catatan: string | null; dasar: string };
   narasumber: string[];
   fasilitas: Array<{ jenis: string; ringkasan: string; sentimen: number | null }>;
 };
@@ -193,7 +227,7 @@ export type PeluangSponsorship = {
   /**
    * Hasil uji klaim ke data spasial. `tervalidasi` = diuji dan cocok;
    * `pengamatan langsung` = tidak ada data yang bisa mengujinya. Yang dibantah
-   * data tidak pernah sampai ke sini — backend sudah membuangnya.
+   * data tidak pernah sampai ke sini, backend sudah membuangnya.
    */
   validasi: {
     status: string;
@@ -208,10 +242,12 @@ export type PeluangSponsorship = {
   usulan: {
     bentuk: string;
     dasar: string;
-    /** "aset stasiun" atau "di luar lahan stasiun" — menentukan siapa yang berwenang. */
+    /** "aset stasiun" atau "di luar lahan stasiun", menentukan siapa yang berwenang. */
     kewenangan: string;
     catatan_kewenangan: string;
   };
+  /** Foto lapangan dari titik Activity-nya; kosong kalau surveyor tidak memotret. */
+  foto: string[];
   /** Berapa laporan berdekatan yang dilebur jadi satu peluang ini. */
   jumlah_laporan: number;
 };
@@ -250,8 +286,18 @@ export type TenantCategory = {
   demand: number;
   /** Pengali arus lewat, 1,0 sampai 2,0, dari komponen T. */
   connectivity: number;
-  /** Pesaing sejenis yang sudah ada. */
+  /** Pesaing sejenis, total luar + dalam stasiun. */
   supply: number;
+  /** Pesaing terpetakan di luar stasiun, dalam pita pesaing. */
+  supply_luar: number;
+  /** Pesaing di dalam stasiun; pecahan kalau ditaksir dari stasiun sejenis. */
+  supply_dalam: number;
+  /** False berarti sisi dalam stasiun belum pernah diperiksa surveyor. */
+  dalam_terukur: boolean;
+  /** 0-1; turun saat sisi dalam stasiun masih taksiran. */
+  confidence: number;
+  /** Skor bila taksiran pesaing meleset merugikan. Peringkat memakai ini. */
+  tsi_bawah: number;
   /** Calon pelanggan per pesaing, pesaingnya sudah ditambah satu. */
   headroom: number;
 };
@@ -317,7 +363,7 @@ export type ProfilPaparan = {
   >;
   /**
    * Kelompok pengunjung, DISIMPULKAN dari peruntukan lahan sekitar yang
-   * disilangkan dengan pola keramaian — bukan dari penilaian terhadap orang
+   * disilangkan dengan pola keramaian, bukan dari penilaian terhadap orang
    * yang melintas. `dasar` menyimpan alasan penarikannya.
    */
   audiens: { kelompok: string; dasar: string; porsi_kawasan: number }[];
@@ -353,6 +399,34 @@ export type StatusNaming = {
   pembanding: { total: number; bersponsor: number; belum: number; sponsor: string[] };
   catatan: string;
   /** Selalu null sampai ada pembanding transaksi nyata - lihat alasannya. */
+  /** Potensi stasiun ini sebagai calon hak penamaan, berbasis paparan. */
+  potensi: {
+    cei: number | null;
+    kelas_paparan: string | null;
+    peringkat_paparan: number | null;
+    dari_stasiun_krl: number | null;
+    catatan: string;
+  } | null;
+  peluang_pasar: {
+    mrt_lrt_terjual: number;
+    mrt_lrt_total: number;
+    krl_terjual: number;
+    krl_total: number | null;
+    catatan: string;
+  } | null;
+  /** Merek yang benar-benar ada di sekitar stasiun, dari titik minat. */
+  kandidat_sponsor: {
+    nama: string;
+    jenis: string;
+    jarak_m: number;
+    lon: number;
+    lat: number;
+    /** False berarti di luar 400 m, masih terjangkau jalan kaki tapi bukan inti. */
+    dalam_inti: boolean;
+  }[];
+  batas_inti_kawasan_m: number;
+  catatan_kandidat: string;
+  cara_hitung: { indeks: string; kenapa_bobot: string; kandidat: string };
   nilai_kontrak: number | null;
   alasan_nilai_kosong: string;
   selisih_daftar: string[];

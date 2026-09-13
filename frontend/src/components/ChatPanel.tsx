@@ -17,7 +17,7 @@ type ChatMessage = {
  *
  * Kotak masukan kosong tidak memberi tahu apa pun soal apa yang bisa dikerjakan
  * asisten. Ketiga pemantik ini dipilih supaya masing-masing memanggil alat yang
- * berbeda — peringkat tenant, simulasi bobot, dan perbandingan — sehingga
+ * berbeda, peringkat tenant, simulasi bobot, dan perbandingan, sehingga
  * sekali lihat pengguna tahu asisten ini menghitung, bukan sekadar menjawab.
  */
 function suggestionsFor(name: string | null): string[] {
@@ -46,6 +46,76 @@ function toPlainText(text: string): string {
     .replace(/(\S)\*(\s|$)/g, "$1$2")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/\$/g, "");
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Simpan percakapan asisten jadi satu dokumen yang bisa dibagikan.
+ *
+ * Disusun di peramban, bukan dengan memanggil model lagi. Seluruh isinya sudah
+ * ada di layar - meminta model menulis ulang ringkasannya berarti membakar
+ * kuota untuk kalimat yang sudah dimiliki, dan membuka peluang hasilnya berbeda
+ * dari yang dibaca pengguna. Yang tersimpan harus persis yang terlihat.
+ */
+function unduhPercakapan(messages: ChatMessage[], stationName: string | null): void {
+  const waktu = new Date().toLocaleString("id-ID", {
+    dateStyle: "long",
+    timeStyle: "short",
+  });
+
+  const isi = messages
+    .map((m) => {
+      const peran = m.role === "user" ? "Pertanyaan" : "Jawaban asisten";
+      const teks = escapeHtml(toPlainText(m.content))
+        .split(/\n{2,}/)
+        .map((par) => `<p>${par.replace(/\n/g, "<br>")}</p>`)
+        .join("");
+      return `<section class="${m.role}"><h2>${peran}</h2>${teks}</section>`;
+    })
+    .join("");
+
+  const dokumen = `<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<title>Percakapan asisten StaSIUN${stationName ? ` - ${escapeHtml(stationName)}` : ""}</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 42rem;
+         margin: 2rem auto; padding: 0 1.25rem; color: #201e1d; line-height: 1.6; }
+  header { border-bottom: 2px solid #201e1d; padding-bottom: .75rem; margin-bottom: 1.5rem; }
+  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+  .meta { font-size: .75rem; color: #6b6663; }
+  section { margin-bottom: 1.25rem; }
+  h2 { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+       color: #6b6663; margin: 0 0 .35rem; }
+  section.user p { background: #f4f1ef; padding: .6rem .8rem; margin: 0; }
+  section.assistant p { margin: 0 0 .6rem; }
+  footer { border-top: 1px solid #d9d4d1; margin-top: 2rem; padding-top: .75rem;
+           font-size: .7rem; color: #6b6663; }
+</style></head><body>
+<header>
+  <h1>Percakapan asisten StaSIUN</h1>
+  <p class="meta">${stationName ? `Stasiun ${escapeHtml(stationName)} &middot; ` : ""}${escapeHtml(waktu)}</p>
+</header>
+${isi}
+<footer>
+  Jawaban asisten disusun dari angka yang dihitung mesin skor StaSIUN, bukan
+  dari perkiraan model bahasa. Angka yang sama dapat ditelusuri di panel
+  stasiun. Cetak jadi PDF lewat Ctrl+P.
+</footer>
+</body></html>`;
+
+  const berkas = new Blob([dokumen], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(berkas);
+  window.open(url, "_blank", "noopener");
+  // Dibebaskan setelah tab sempat memuatnya; mencabutnya seketika membuat tab
+  // baru menerima alamat yang sudah tidak ada isinya.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 type Props = {
@@ -113,6 +183,30 @@ export default function ChatPanel({ station, onAction }: Props) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/*
+        Unduhan percakapan tinggal di sini, BUKAN di tombol ekspor umum di
+        header. Yang diekspor berbeda jenisnya: tombol header mengambil angka
+        satu stasiun dari basis data, sedangkan yang ini menyimpan jawaban yang
+        baru saja disusun asisten - isinya ada di layar ini saja, dan hilang
+        begitu percakapannya ditutup.
+      */}
+      {messages.length > 0 && (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-hair px-4 py-2">
+          <span className="label-caps text-[9px] text-muted">
+            {messages.filter((m) => m.role === "assistant").length} jawaban
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              unduhPercakapan(messages, station?.properties.name ?? null)
+            }
+            className="border border-hair px-2 py-1 text-[11px] text-ink-soft hover:border-ink hover:text-ink"
+          >
+            Unduh percakapan →
+          </button>
+        </div>
+      )}
+
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4">
         {messages.length === 0 && (
           <div className="flex flex-col gap-3">

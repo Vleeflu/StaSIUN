@@ -187,3 +187,63 @@
 .maplibregl-map .poi-popup .maplibregl-popup-tip {
   display: none;
 }
+
+/* Popup sorot hanya menggoda; yang dibuka lewat klik memuat keterangan penuh,
+   jadi ia butuh ruang baca yang lebih lega. */
+.maplibregl-map .poi-popup-rinci .maplibregl-popup-content {
+  padding: 9px 11px 10px;
+}
+
+.maplibregl-map .poi-popup-rinci .maplibregl-popup-content strong {
+  display: block;
+  color: var(--color-ink);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.maplibregl-map .poi-popup-kelompok {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.maplibregl-map .poi-popup-warna {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 9999px;
+}
+
+.maplibregl-map .poi-popup-peran {
+  margin-top: 6px;
+  color: var(--color-accent);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.maplibregl-map .poi-popup-rinci .maplibregl-popup-content p {
+  margin-top: 3px;
+  color: var(--color-ink-soft);
+}
+
+.maplibregl-map .poi-popup-rinci .maplibregl-popup-content p.poi-popup-jarak {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid var(--color-hair);
+  color: var(--color-muted);
+}
+
+.maplibregl-map .poi-popup-rinci .maplibregl-popup-close-button {
+  padding: 0 5px;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.maplibregl-map .poi-popup-rinci .maplibregl-popup-close-button:hover {
+  background: transparent;
+  color: var(--color-ink);
+}

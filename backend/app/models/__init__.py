@@ -2,7 +2,7 @@
 
 SQLAlchemy hanya tahu sebuah tabel ada kalau berkas modelnya pernah diimpor.
 Kalau tidak, tabelnya tidak akan dibuat dan tidak akan muncul di autogenerate
-Alembic — gagalnya diam-diam, tanpa pesan error.
+Alembic, gagalnya diam-diam, tanpa pesan error.
 
 Karena itu setiap model baru cukup didaftarkan di sini sekali, dan pemakainya
 (alembic/env.py dan docker-entrypoint.sh) tinggal `import app.models` tanpa
@@ -17,8 +17,7 @@ from app.models.activity import (
     ActivityExtraction,
     ActivityPoint,
     ActivityRaw,
-    CrowdRating,
-)
+    CrowdRating)
 from app.models.isochrone import Isochrone
 from app.models.reference import AreaProfile, PassengerVolume, Poi, PriceReference
 from app.models.score import StationScore
@@ -28,8 +27,7 @@ from app.models.station_objects import (
     FacilityIssue,
     StationZone,
     Tenant,
-    TenantCluster,
-)
+    TenantCluster)
 from app.models.tenant_score import TenantScore
 
 __all__ = [

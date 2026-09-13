@@ -21,7 +21,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StaSIUN — Station Spatial Intelligence for Urban Network",
+  title: "StaSIUN, Station Spatial Intelligence for Urban Network",
   description:
     "Peta dan analisis potensi ruang komersial stasiun KAI Commuter di DKI Jakarta.",
 };
